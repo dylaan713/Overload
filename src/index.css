@@ -21,9 +21,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Never let a control overflow its container (iOS date inputs, etc.). */
+/* Never let a control overflow its container (iOS date inputs, etc.).
+   font-size >= 16px stops iOS Safari from zooming in when a field is focused. */
 input,
 select,
 textarea {
   max-width: 100%;
+  font-size: 16px;
 }

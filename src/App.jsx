@@ -796,17 +796,17 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                         <span style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{ex.muscleGroup}</span>
                       )}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                       <button
                         onClick={() => editBlock(b)}
                         aria-label="Edit this exercise's sets"
                         title="Edit this exercise's sets"
-                        style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-dim)", cursor: "pointer" }}
+                        style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-dim)", cursor: "pointer", padding: 8, display: "flex" }}
                       >
-                        <Pencil size={15} />
+                        <Pencil size={17} />
                       </button>
-                      <button onClick={() => removeBlock(b.id)} aria-label="Remove exercise" title="Remove" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}>
-                        <X size={16} />
+                      <button onClick={() => removeBlock(b.id)} aria-label="Remove exercise" title="Remove" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 8, display: "flex" }}>
+                        <X size={18} />
                       </button>
                     </div>
                   </div>
@@ -930,41 +930,46 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                   </div>
                 )}
 
-                <div style={{ marginTop: 14 }}>
+                <div style={{ marginTop: 18 }}>
                   <Label>Sets</Label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                     {sets.map((s, i) => (
-                      <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input type="number" placeholder={unit} value={s.weight} onChange={(e) => updateSet(i, "weight", e.target.value)} style={{ ...inputStyle, width: 80 }} />
+                      <div key={i} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <input type="number" inputMode="numeric" placeholder={unit} value={s.weight} onChange={(e) => updateSet(i, "weight", e.target.value)} style={{ ...inputStyle, width: 78 }} />
                         <span style={{ color: "var(--text-dim)", fontSize: 13 }}>×</span>
-                        <input type="number" placeholder="reps" value={s.reps} onChange={(e) => updateSet(i, "reps", e.target.value)} style={{ ...inputStyle, width: 70 }} />
+                        <input type="number" inputMode="numeric" placeholder="reps" value={s.reps} onChange={(e) => updateSet(i, "reps", e.target.value)} style={{ ...inputStyle, width: 68 }} />
                         <button
                           onClick={() => updateSet(i, "warmup", !s.warmup)}
                           style={{
-                            padding: "6px 10px",
+                            padding: "10px 12px",
                             borderRadius: 6,
                             border: `1px solid ${s.warmup ? "var(--gold)" : "var(--border)"}`,
                             background: s.warmup ? "rgba(214,162,60,0.15)" : "transparent",
                             color: s.warmup ? "var(--gold)" : "var(--text-dim)",
-                            fontSize: 12,
+                            fontSize: 13,
                             cursor: "pointer",
                             whiteSpace: "nowrap",
                           }}
                         >
                           {s.warmup ? "Warm-up" : "Working"}
                         </button>
-                        <button onClick={() => removeSetRow(i)} aria-label="Remove set" title="Remove set" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}>
-                          <X size={16} />
+                        <button
+                          onClick={() => removeSetRow(i)}
+                          aria-label="Remove set"
+                          title="Remove set"
+                          style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 8, marginLeft: "auto", display: "flex" }}
+                        >
+                          <X size={18} />
                         </button>
                       </div>
                     ))}
                   </div>
-                  <button onClick={addSetRow} style={{ ...linkBtnStyle, marginTop: 10 }}>
+                  <button onClick={addSetRow} style={{ ...linkBtnStyle, marginTop: 14, padding: "6px 0" }}>
                     <Plus size={14} /> Add set
                   </button>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                   <button onClick={commitBlock} style={{ ...primaryBtnStyle, flex: 1 }}>
                     {editingBlockId ? "Save changes" : "Add to workout"}
                   </button>
@@ -1574,15 +1579,14 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
         </div>
 
         <div style={{ height: 14 }} />
-        <Label>Increment ({settings.unit} added on an increase)</Label>
-        <input
-          type="number"
-          step={settings.unit === "kg" ? 0.5 : 1}
-          min={0}
-          value={settings.increment}
-          onChange={(e) => setField({ increment: Number(e.target.value) || 0 })}
-          style={{ ...inputStyle, width: 120 }}
-        />
+        <div style={{ maxWidth: 200 }}>
+          <NumberField
+            label={`Increment (${settings.unit} added on an increase)`}
+            value={settings.increment}
+            min={0}
+            onChange={(v) => setField({ increment: v })}
+          />
+        </div>
       </Card>
 
       {["compound", "isolation"].map((type) => (
@@ -1607,12 +1611,13 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
               label="Rep range — low"
               value={settings[type].repBottom}
               min={1}
+              max={settings[type].repTop - 1}
               onChange={(v) => setTypeField(type, { repBottom: v })}
             />
             <NumberField
               label="Rep range — high"
               value={settings[type].repTop}
-              min={settings[type].repBottom}
+              min={settings[type].repBottom + 1}
               onChange={(v) => setTypeField(type, { repTop: v })}
             />
           </div>
@@ -1683,15 +1688,41 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
   );
 }
 
-function NumberField({ label, value, min, onChange }) {
+// Lets the user type freely; only commits a valid number (within min/max) on
+// blur or Enter. Anything invalid — non-numeric, empty, or out of range —
+// reverts to the last valid value instead of being force-clamped mid-typing.
+function NumberField({ label, value, min, max, onChange }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  function commit() {
+    const trimmed = text.trim();
+    const n = Number(trimmed);
+    const valid =
+      trimmed !== "" &&
+      Number.isFinite(n) &&
+      (min == null || n >= min) &&
+      (max == null || n <= max);
+    if (valid) onChange(n);
+    else setText(String(value)); // revert to the original number
+  }
+
   return (
     <div>
       <Label>{label}</Label>
       <input
         type="number"
+        inputMode="decimal"
         min={min}
-        value={value}
-        onChange={(e) => onChange(Math.max(min ?? 0, Number(e.target.value) || 0))}
+        max={max}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
         style={inputStyle}
       />
     </div>
@@ -1718,7 +1749,7 @@ const inputStyle = {
   borderRadius: 6,
   padding: "9px 10px",
   color: "var(--text)",
-  fontSize: 14,
+  fontSize: 16, // 16px prevents iOS zoom-on-focus
   width: "100%",
 };
 

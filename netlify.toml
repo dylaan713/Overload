@@ -1,0 +1,9 @@
+# Netlify build config. Lets the Git-connected deploy work with one click:
+# Netlify reads this, builds with Vite, and serves the dist/ output over HTTPS.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 6 needs Node 18+; pin a modern LTS so Netlify doesn't use a stale default.
+  NODE_VERSION = "20"

@@ -749,7 +749,18 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
   const activeExercise = exercises.find((e) => e.id === addingExerciseId);
   const priorEntries = activeExercise ? (entriesByExercise[activeExercise.id] || []).filter((e) => e.date !== date) : [];
   const suggestion = activeExercise ? getSuggestion(activeExercise, priorEntries, settings) : null;
+  const targetWeight = activeExercise ? getSuggestedTargetWeight(activeExercise, priorEntries, settings) : null;
+  const warmupSets = activeExercise && targetWeight ? getWarmupSets(activeExercise.type, targetWeight, settings) : [];
   const unit = settings.unit;
+
+  // Drop the suggested warm-up ramp into the set editor, replacing any warm-up
+  // rows already there but keeping the working sets the user has started filling in.
+  function addWarmupRamp() {
+    const warmRows = warmupSets.map((w) => ({ weight: String(w.weight), reps: String(w.reps), warmup: true }));
+    const workingRows = sets.filter((s) => !s.warmup && (s.weight !== "" || s.reps !== ""));
+    const merged = [...warmRows, ...workingRows];
+    setSets(merged.length ? merged : [{ weight: "", reps: "", warmup: false }]);
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -929,6 +940,10 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                   <div style={{ marginTop: 12 }}>
                     <SuggestionBanner exercise={activeExercise} suggestion={suggestion} settings={settings} />
                   </div>
+                )}
+
+                {!editingBlockId && (
+                  <WarmupRamp warmupSets={warmupSets} targetWeight={targetWeight} unit={unit} onAdd={addWarmupRamp} />
                 )}
 
                 <div style={{ marginTop: 18 }}>
@@ -1168,6 +1183,45 @@ function SuggestionBanner({ exercise, suggestion, settings }) {
   return null;
 }
 
+// Warm-up ramp preview, shared by the Log and Next Up tabs. On the Log tab an
+// `onAdd` handler is passed so the ramp can be dropped straight into the set editor.
+function WarmupRamp({ warmupSets, targetWeight, unit, onAdd }) {
+  if (!warmupSets.length) return null;
+  return (
+    <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+      <Label>Warm-up ramp (before working sets, target {targetWeight} {unit})</Label>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+        {warmupSets.map((w, i) => (
+          <span
+            key={i}
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              padding: "4px 8px",
+              borderRadius: 5,
+              background: "transparent",
+              border: "1px solid var(--gold)",
+              color: "var(--gold)",
+            }}
+          >
+            {w.weight}×{w.reps}
+          </span>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
+          {warmupSets.length}-set ramp, calculated from your target working weight. Adjust the count in Settings.
+        </div>
+        {onAdd && (
+          <button onClick={onAdd} style={{ ...linkBtnStyle, flexShrink: 0 }}>
+            <Plus size={14} /> Add to sets
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- PROGRESS TAB ---------------- */
 
 function ProgressTab({ exercises, entriesByExercise, settings }) {
@@ -1358,32 +1412,7 @@ function NextUpTab({ exercises, entriesByExercise, settings }) {
                     <div style={{ fontSize: 13, color: "var(--text-dim)" }}>Last session had only warm-up sets — log a working set to get a suggestion.</div>
                   )}
                   {(suggestion.status === "increase" || suggestion.status === "hold") && <SuggestionBanner exercise={ex} suggestion={suggestion} settings={settings} />}
-                  {warmupSets.length > 0 && (
-                    <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-                      <Label>Warm-up ramp (before working sets, target {targetWeight} {unit})</Label>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-                        {warmupSets.map((w, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              fontFamily: "var(--font-mono)",
-                              fontSize: 12,
-                              padding: "4px 8px",
-                              borderRadius: 5,
-                              background: "transparent",
-                              border: "1px solid var(--gold)",
-                              color: "var(--gold)",
-                            }}
-                          >
-                            {w.weight}×{w.reps}
-                          </span>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-                        {warmupSets.length}-set ramp, calculated from your target working weight. Adjust the count in Settings.
-                      </div>
-                    </div>
-                  )}
+                  <WarmupRamp warmupSets={warmupSets} targetWeight={targetWeight} unit={unit} />
                 </Card>
               );
             })}

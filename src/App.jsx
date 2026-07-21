@@ -426,7 +426,16 @@ export default function App() {
     <Shell theme={settings.theme}>
       <ErrorBoundary>
       <Header tab={tab} setTab={setTab} />
-      <div style={{ padding: "20px 16px 60px", maxWidth: 720, margin: "0 auto" }}>
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          paddingTop: 20,
+          paddingBottom: "calc(60px + env(safe-area-inset-bottom))",
+          paddingLeft: "max(16px, env(safe-area-inset-left))",
+          paddingRight: "max(16px, env(safe-area-inset-right))",
+        }}
+      >
         {tab === "log" && (
           <LogTab
             exercises={exercises}
@@ -490,8 +499,17 @@ function Header({ tab, setTab }) {
     { id: "settings", label: "Settings" },
   ];
   return (
-    <div style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "18px 16px 0" }}>
+    <div style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)", paddingTop: "env(safe-area-inset-top)" }}>
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          paddingTop: 18,
+          paddingBottom: 0,
+          paddingLeft: "max(16px, env(safe-area-inset-left))",
+          paddingRight: "max(16px, env(safe-area-inset-right))",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <Dumbbell size={22} color="var(--accent)" />
           <div style={{ fontFamily: "var(--font-display)", fontSize: 22, letterSpacing: 1, fontWeight: 600, textTransform: "uppercase" }}>

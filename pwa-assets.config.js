@@ -1,8 +1,24 @@
-import { defineConfig, minimal2023Preset } from '@vite-pwa/assets-generator/config'
+import { defineConfig } from '@vite-pwa/assets-generator/config'
 
-// Generates the PWA/Apple icon set from public/icon.svg.
-// Run with: npx pwa-assets-generator
+// Custom preset: fill the whole tile with our dark background and no padding,
+// so the Apple/home-screen icon is edge-to-edge (no white border, larger mark).
+// Regenerate with: npx pwa-assets-generator
 export default defineConfig({
-  preset: minimal2023Preset,
   images: ['public/icon.svg'],
+  preset: {
+    transparent: {
+      sizes: [64, 192, 512],
+      favicons: [[64, 'favicon.ico']],
+    },
+    maskable: {
+      sizes: [512],
+      padding: 0,
+      resizeOptions: { background: '#1C1B19' },
+    },
+    apple: {
+      sizes: [180],
+      padding: 0,
+      resizeOptions: { background: '#1C1B19' },
+    },
+  },
 })

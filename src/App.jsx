@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
+  Settings,
 } from "lucide-react";
 import { storage } from "./storage";
 
@@ -490,13 +491,14 @@ function Shell({ theme, children }) {
 }
 
 function Header({ tab, setTab }) {
+  // Settings lives as a gear in the title row; the remaining tabs fill the width
+  // evenly (no horizontal scroll), so the section names stay put.
   const tabs = [
     { id: "log", label: "Log" },
     { id: "progress", label: "Progress" },
     { id: "records", label: "Records" },
     { id: "next", label: "Next Up" },
     { id: "history", label: "History" },
-    { id: "settings", label: "Settings" },
   ];
   return (
     <div style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)", paddingTop: "env(safe-area-inset-top)" }}>
@@ -510,25 +512,45 @@ function Header({ tab, setTab }) {
           paddingRight: "max(16px, env(safe-area-inset-right))",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <Dumbbell size={22} color="var(--accent)" />
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 22, letterSpacing: 1, fontWeight: 600, textTransform: "uppercase" }}>
-            Overload
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Dumbbell size={22} color="var(--accent)" />
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 22, letterSpacing: 1, fontWeight: 600, textTransform: "uppercase" }}>
+              Overload
+            </div>
           </div>
+          <button
+            onClick={() => setTab("settings")}
+            aria-label="Settings"
+            title="Settings"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              padding: 4,
+              color: tab === "settings" ? "var(--accent)" : "var(--text-dim)",
+            }}
+          >
+            <Settings size={22} />
+          </button>
         </div>
-        <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
+        <div style={{ display: "flex" }}>
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
+                flex: 1,
                 background: "none",
                 border: "none",
-                padding: "10px 14px",
+                padding: "10px 2px",
                 cursor: "pointer",
+                textAlign: "center",
                 color: tab === t.id ? "var(--text)" : "var(--text-dim)",
                 borderBottom: tab === t.id ? "2px solid var(--accent)" : "2px solid transparent",
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: 500,
                 marginBottom: -1,
                 whiteSpace: "nowrap",
@@ -732,7 +754,12 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <Card>
         <Label>Date</Label>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ ...inputStyle, WebkitAppearance: "none", appearance: "none" }}
+        />
         <div style={{ height: 10 }} />
         <Label>Workout name</Label>
         <input

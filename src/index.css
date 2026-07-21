@@ -7,8 +7,23 @@ body,
   margin: 0;
 }
 
+/* Dark fallback for first paint; once the app mounts, var(--bg) tracks the theme.
+   Keeps the iOS safe-area regions (home indicator) from showing a white bar. */
+html,
+body {
+  background: var(--bg, #1c1b19);
+}
+
 body {
   margin: 0;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Never let a control overflow its container (iOS date inputs, etc.). */
+input,
+select,
+textarea {
+  max-width: 100%;
 }

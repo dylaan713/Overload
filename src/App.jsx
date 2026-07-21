@@ -298,25 +298,25 @@ export default function App() {
       try {
         const ex = await storage.get("exercises");
         setExercises(ex ? JSON.parse(ex.value) : []);
-      } catch (e) {
+      } catch {
         setExercises([]);
       }
       try {
         const se = await storage.get("sessions");
         setSessions(se ? JSON.parse(se.value) : []);
-      } catch (e) {
+      } catch {
         setSessions([]);
       }
       try {
         const cg = await storage.get("customGroups");
         setCustomGroups(cg ? JSON.parse(cg.value) : []);
-      } catch (e) {
+      } catch {
         setCustomGroups([]);
       }
       try {
         const st = await storage.get("settings");
         setSettings(st ? mergeSettings(JSON.parse(st.value)) : DEFAULT_SETTINGS);
-      } catch (e) {
+      } catch {
         setSettings(DEFAULT_SETTINGS);
       }
       setLoaded(true);
@@ -640,6 +640,7 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
 
   const existing = sessions.find((s) => s.date === date);
   // Stable fallback id per date so an unsaved day's draft keeps one id until saved.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fallbackId = useMemo(() => uid(), [date]);
   const draft = existing || { id: fallbackId, date, name: "", blocks: [] };
 
@@ -1110,7 +1111,7 @@ function ManageExercises({ exercises, deleteExercise, updateExercise, customGrou
   );
 }
 
-function SetPills({ sets, unit }) {
+function SetPills({ sets }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       {sets.map((s, i) => (

@@ -4,6 +4,11 @@ A staged guide from "on my own phone" to "in the app stores." Do the stages in
 order — each one builds on the last. You're on **Windows** with **access to a Mac**
 (needed only for the iOS store build).
 
+> **Current status:** Stage A is DONE. The app is live at
+> **https://overloadylan.netlify.app/** via GitHub-connected Netlify auto-deploy —
+> every `git push` to `main` redeploys automatically. Install it on the phone with
+> "Add to Home Screen." Next milestone: Stage B (Capacitor) when you're ready for stores.
+
 ---
 
 ## Stage A — Install it on your own phone (no Mac, no accounts, free)

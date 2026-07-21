@@ -7,3 +7,9 @@
 [build.environment]
   # Vite 6 needs Node 18+; pin a modern LTS so Netlify doesn't use a stale default.
   NODE_VERSION = "20"
+
+# Serve the web manifest with its correct MIME type (some browsers are strict).
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"

@@ -160,7 +160,17 @@ function groupByMuscleFull(allGroups, exercises) {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
-const todayStr = () => new Date().toISOString().slice(0, 10);
+// Build a YYYY-MM-DD string from local calendar parts (NOT UTC), so an evening
+// workout files under the correct local day and matches the History calendar.
+function ymd(year, month, day) {
+  const mm = String(month + 1).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+const todayStr = () => {
+  const d = new Date();
+  return ymd(d.getFullYear(), d.getMonth(), d.getDate());
+};
 const fmtDate = (d) => {
   const dt = new Date(d + "T00:00:00");
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -235,6 +245,42 @@ function getSuggestion(exercise, entriesDesc, settings) {
   const setsAtMain = working.filter((s) => s.weight === mainWeight);
   const progress = setsAtMain.filter((s) => s.reps >= top).length;
   return { status: "hold", weight: mainWeight, sets: setsAtMain, progress, needed, date: last.date };
+}
+
+// Catches render errors anywhere below it so a crash shows a recoverable screen
+// instead of a blank page. All data lives in localStorage, so a reload recovers.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error("Overload crashed:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, maxWidth: 560, margin: "40px auto", textAlign: "center" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 20, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+            Something broke
+          </div>
+          <div style={{ color: "var(--text-dim)", fontSize: 14, marginBottom: 16 }}>
+            Your logged data is safe — it's stored on this device. Reload to get back in.
+          </div>
+          <button onClick={() => window.location.reload()} style={{ ...primaryBtnStyle, width: "100%" }}>
+            Reload
+          </button>
+          <pre style={{ marginTop: 16, textAlign: "left", fontSize: 11, color: "var(--text-dim)", whiteSpace: "pre-wrap", fontFamily: "var(--font-mono)" }}>
+            {String(this.state.error?.message || this.state.error)}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function App() {
@@ -333,6 +379,39 @@ export default function App() {
     setTab("log");
   }
 
+  // Download a full backup so history survives a phone reinstall (localStorage is
+  // cleared on uninstall). Everything is on-device; this file is the user's copy.
+  function exportData() {
+    const payload = {
+      app: "overload",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      exercises,
+      sessions,
+      customGroups,
+      settings,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `overload-backup-${todayStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importData(file) {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (typeof data !== "object" || data === null) throw new Error("Not a valid backup file");
+    if (Array.isArray(data.exercises)) await persistExercises(data.exercises);
+    if (Array.isArray(data.sessions)) await persistSessions(data.sessions);
+    if (Array.isArray(data.customGroups)) await persistCustomGroups(data.customGroups);
+    if (data.settings) await persistSettings(mergeSettings(data.settings));
+  }
+
   if (!loaded) {
     return (
       <Shell theme={settings.theme}>
@@ -345,6 +424,7 @@ export default function App() {
 
   return (
     <Shell theme={settings.theme}>
+      <ErrorBoundary>
       <Header tab={tab} setTab={setTab} />
       <div style={{ padding: "20px 16px 60px", maxWidth: 720, margin: "0 auto" }}>
         {tab === "log" && (
@@ -369,8 +449,9 @@ export default function App() {
         {tab === "history" && (
           <HistoryTab exercises={exercises} sessions={sessions} onEditWorkout={editWorkoutOnDate} settings={settings} />
         )}
-        {tab === "settings" && <SettingsTab settings={settings} persistSettings={persistSettings} />}
+        {tab === "settings" && <SettingsTab settings={settings} persistSettings={persistSettings} onExport={exportData} onImport={importData} />}
       </div>
+      </ErrorBoundary>
     </Shell>
   );
 }
@@ -379,7 +460,6 @@ function Shell({ theme, children }) {
   return (
     <div style={{ background: "var(--bg)", minHeight: "100%", color: "var(--text)", fontFamily: "var(--font-body)" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
         :root {
           ${themeVarsCss(theme)}
           --font-display: 'Oswald', sans-serif;
@@ -415,7 +495,7 @@ function Header({ tab, setTab }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <Dumbbell size={22} color="var(--accent)" />
           <div style={{ fontFamily: "var(--font-display)", fontSize: 22, letterSpacing: 1, fontWeight: 600, textTransform: "uppercase" }}>
-            Overload Log
+            Overload
           </div>
         </div>
         <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
@@ -519,7 +599,9 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
   const [showManage, setShowManage] = useState(false);
 
   const existing = sessions.find((s) => s.date === date);
-  const draft = existing || { id: uid(), date, name: "", blocks: [] };
+  // Stable fallback id per date so an unsaved day's draft keeps one id until saved.
+  const fallbackId = useMemo(() => uid(), [date]);
+  const draft = existing || { id: fallbackId, date, name: "", blocks: [] };
 
   const [nameInput, setNameInput] = useState(existing ? existing.name : "");
   useEffect(() => {
@@ -672,12 +754,13 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <button
                         onClick={() => editBlock(b)}
+                        aria-label="Edit this exercise's sets"
                         title="Edit this exercise's sets"
                         style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-dim)", cursor: "pointer" }}
                       >
                         <Pencil size={15} />
                       </button>
-                      <button onClick={() => removeBlock(b.id)} title="Remove" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}>
+                      <button onClick={() => removeBlock(b.id)} aria-label="Remove exercise" title="Remove" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}>
                         <X size={16} />
                       </button>
                     </div>
@@ -825,7 +908,7 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                         >
                           {s.warmup ? "Warm-up" : "Working"}
                         </button>
-                        <button onClick={() => removeSetRow(i)} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}>
+                        <button onClick={() => removeSetRow(i)} aria-label="Remove set" title="Remove set" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}>
                           <X size={16} />
                         </button>
                       </div>
@@ -926,6 +1009,8 @@ function ManageExercises({ exercises, deleteExercise, updateExercise, customGrou
                           updateExercise(ex.id, { name: editName.trim() || ex.name, muscleGroup: editGroup, type: editType });
                           setEditingId(null);
                         }}
+                        aria-label="Save exercise"
+                        title="Save"
                         style={{ background: "none", border: "none", color: "var(--accent2)", cursor: "pointer" }}
                       >
                         <Check size={16} />
@@ -942,6 +1027,8 @@ function ManageExercises({ exercises, deleteExercise, updateExercise, customGrou
                           setEditGroup(ex.muscleGroup || "Other");
                           setEditType(ex.type || "compound");
                         }}
+                        aria-label={`Edit ${ex.name}`}
+                        title="Edit"
                         style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}
                       >
                         <Pencil size={14} />
@@ -957,7 +1044,7 @@ function ManageExercises({ exercises, deleteExercise, updateExercise, customGrou
                           Confirm delete
                         </button>
                       ) : (
-                        <button onClick={() => setConfirmId(ex.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>
+                        <button onClick={() => setConfirmId(ex.id)} aria-label={`Delete ${ex.name}`} title="Delete" style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer" }}>
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -1260,12 +1347,6 @@ function NextUpTab({ exercises, entriesByExercise, settings }) {
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-function ymd(year, month, day) {
-  const mm = String(month + 1).padStart(2, "0");
-  const dd = String(day).padStart(2, "0");
-  return `${year}-${mm}-${dd}`;
-}
-
 function HistoryTab({ exercises, sessions, onEditWorkout, settings }) {
   const now = new Date();
   const [view, setView] = useState({ year: now.getFullYear(), month: now.getMonth() });
@@ -1303,11 +1384,11 @@ function HistoryTab({ exercises, sessions, onEditWorkout, settings }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <button onClick={() => shiftMonth(-1)} style={iconBtnStyle} title="Previous month">
+          <button onClick={() => shiftMonth(-1)} aria-label="Previous month" style={iconBtnStyle} title="Previous month">
             <ChevronLeft size={18} />
           </button>
           <div style={{ fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: 0.5, textTransform: "uppercase" }}>{monthLabel}</div>
-          <button onClick={() => shiftMonth(1)} style={iconBtnStyle} title="Next month">
+          <button onClick={() => shiftMonth(1)} aria-label="Next month" style={iconBtnStyle} title="Next month">
             <ChevronRight size={18} />
           </button>
         </div>
@@ -1398,12 +1479,24 @@ function HistoryTab({ exercises, sessions, onEditWorkout, settings }) {
 
 /* ---------------- SETTINGS TAB ---------------- */
 
-function SettingsTab({ settings, persistSettings }) {
+function SettingsTab({ settings, persistSettings, onExport, onImport }) {
+  const [importMsg, setImportMsg] = useState(null);
   function setField(patch) {
     persistSettings({ ...settings, ...patch });
   }
   function setTypeField(type, patch) {
     persistSettings({ ...settings, [type]: { ...settings[type], ...patch } });
+  }
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-importing the same file
+    if (!file) return;
+    try {
+      await onImport(file);
+      setImportMsg({ ok: true, text: "Backup imported." });
+    } catch (err) {
+      setImportMsg({ ok: false, text: `Import failed: ${err.message}` });
+    }
   }
 
   return (
@@ -1518,6 +1611,28 @@ function SettingsTab({ settings, persistSettings }) {
             );
           })}
         </div>
+      </Card>
+
+      <Card>
+        <Label>Data & backup</Label>
+        <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 12 }}>
+          Everything is stored on this device only. Export a backup file to keep your history safe,
+          or to move it to another device — importing replaces your current data.
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={onExport} style={primaryBtnStyle}>
+            Export backup
+          </button>
+          <label style={{ ...secondaryBtnStyle, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            Import backup
+            <input type="file" accept="application/json,.json" onChange={handleImportFile} style={{ display: "none" }} />
+          </label>
+        </div>
+        {importMsg && (
+          <div style={{ fontSize: 12, marginTop: 10, color: importMsg.ok ? "var(--accent2)" : "var(--danger)" }}>
+            {importMsg.text}
+          </div>
+        )}
       </Card>
     </div>
   );

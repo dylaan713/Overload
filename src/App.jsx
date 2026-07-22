@@ -38,7 +38,7 @@ const DEFAULT_SETTINGS = {
   increment: 5, // amount added on an increase, in the current unit
   compound: { sets: 2, repBottom: 6, repTop: 8, warmupSets: 2 },
   isolation: { sets: 2, repBottom: 8, repTop: 10, warmupSets: 1 },
-  restTimer: { defaultSeconds: 120, sound: true, vibrate: true },
+  restTimer: { defaultSeconds: 120 },
   theme: "ember",
 };
 
@@ -1334,30 +1334,9 @@ function WarmupRamp({ warmupSets, targetWeight, unit, onAdd }) {
   );
 }
 
-// Short beep via Web Audio — no asset needed, works offline.
-function beep() {
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.6);
-    osc.onended = () => ctx.close();
-  } catch {
-    /* audio unavailable — ignore */
-  }
-}
-
-// Manual-start rest timer: pick a preset, count down, alert (beep/vibrate) at 0.
+// Manual-start rest timer: pick a preset, count down, flash "Done" at 0.
+// (No sound/vibration — those can't fire reliably from a backgrounded iOS PWA;
+// native local notifications are the plan once the app is wrapped with Capacitor.)
 // While running it pins to the bottom of the screen so it stays visible as you log.
 function RestTimer({ settings, onOpenSettings }) {
   const rt = settings.restTimer || DEFAULT_SETTINGS.restTimer;
@@ -1377,10 +1356,6 @@ function RestTimer({ settings, onOpenSettings }) {
         setRemaining(0);
         if (!firedRef.current) {
           firedRef.current = true;
-          if (rt.vibrate && navigator.vibrate) {
-            try { navigator.vibrate([200, 100, 200]); } catch { /* ignore */ }
-          }
-          if (rt.sound) beep();
           setDone(true);
           setEndAt(null);
         }
@@ -1391,7 +1366,7 @@ function RestTimer({ settings, onOpenSettings }) {
     tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [endAt, rt.sound, rt.vibrate]);
+  }, [endAt]);
 
   // Auto-clear the "done" flash after a few seconds.
   useEffect(() => {
@@ -1989,45 +1964,13 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
             Rest timer
           </div>
         </div>
-        <div style={{ maxWidth: 200, marginBottom: 14 }}>
+        <div style={{ maxWidth: 200 }}>
           <NumberField
             label="Default (seconds)"
             value={settings.restTimer.defaultSeconds}
             min={5}
             onChange={(v) => setField({ restTimer: { ...settings.restTimer, defaultSeconds: v } })}
           />
-        </div>
-        <Label>Alert at zero</Label>
-        <div style={{ display: "flex", gap: 8 }}>
-          {[
-            ["sound", "Sound"],
-            ["vibrate", "Vibration"],
-          ].map(([key, label]) => {
-            const on = !!settings.restTimer[key];
-            return (
-              <button
-                key={key}
-                onClick={() => setField({ restTimer: { ...settings.restTimer, [key]: !on } })}
-                style={{
-                  flex: 1,
-                  padding: "9px 10px",
-                  borderRadius: 6,
-                  border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
-                  background: on ? "var(--accent-dim)" : "transparent",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                }}
-              >
-                {on && <Check size={13} color="var(--accent)" />}
-                {label}
-              </button>
-            );
-          })}
         </div>
       </Card>
 

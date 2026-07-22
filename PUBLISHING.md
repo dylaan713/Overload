@@ -82,6 +82,20 @@ npx cap sync
    Build → **Build APK** and copy the APK to your phone to sideload. No Google
    account needed for personal testing.
 
+### Follow-up: real rest-timer alert (sound at zero)
+The web rest timer only flashes **"Done"** — sound and vibration were removed because
+a backgrounded iOS PWA can't reliably fire Web Audio or `navigator.vibrate` (they were
+silent on iPhone). Once wrapped with Capacitor, add a **native local notification** that
+fires at zero and plays a sound even when the phone is locked or you're in another app:
+
+```bash
+npm install @capacitor/local-notifications
+```
+
+Schedule a one-shot notification for the timer's end time (`Date.now() + seconds*1000`)
+when the user starts the countdown, and cancel it if they Skip/Reset. This is the proper
+fix for the alert that couldn't work as a PWA — wire it into `RestTimer` in `src/App.jsx`.
+
 ### iOS (needs the Mac)
 1. Copy the project to the Mac (or clone the repo there and run the setup above,
    including `npx cap add ios`).

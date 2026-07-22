@@ -21,6 +21,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Hide scrollbars everywhere (scrolling still works) for a cleaner look. */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
 /* Never let a control overflow its container (iOS date inputs, etc.).
    font-size >= 16px stops iOS Safari from zooming in when a field is focused. */
 input,

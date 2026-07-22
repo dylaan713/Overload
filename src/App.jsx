@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LineChart,
   Line,
@@ -11,6 +11,8 @@ import {
 import {
   Plus,
   TrendingUp,
+  TrendingDown,
+  AlertTriangle,
   Award,
   Dumbbell,
   X,
@@ -22,6 +24,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Settings,
+  Timer,
+  RotateCcw,
 } from "lucide-react";
 import { storage } from "./storage";
 
@@ -34,6 +38,7 @@ const DEFAULT_SETTINGS = {
   increment: 5, // amount added on an increase, in the current unit
   compound: { sets: 2, repBottom: 6, repTop: 8, warmupSets: 2 },
   isolation: { sets: 2, repBottom: 8, repTop: 10, warmupSets: 1 },
+  restTimer: { defaultSeconds: 120, sound: true, vibrate: true },
   theme: "ember",
 };
 
@@ -45,6 +50,7 @@ function mergeSettings(stored) {
     ...stored,
     compound: { ...DEFAULT_SETTINGS.compound, ...(stored.compound || {}) },
     isolation: { ...DEFAULT_SETTINGS.isolation, ...(stored.isolation || {}) },
+    restTimer: { ...DEFAULT_SETTINGS.restTimer, ...(stored.restTimer || {}) },
   };
 }
 
@@ -186,10 +192,26 @@ function topBottom(type, settings) {
   return { top: s.repTop, bottom: s.repBottom };
 }
 
+// Epley estimated 1-rep max. Combines weight AND reps into one strength number
+// so rep gains (not just heavier loads) show up as progress on the chart.
+function e1rm(weight, reps) {
+  if (!weight || !reps || reps <= 0) return 0;
+  return Math.round(weight * (1 + reps / 30));
+}
+
+function fmtClock(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 function getSuggestedTargetWeight(exercise, entriesDesc, settings) {
   const suggestion = getSuggestion(exercise, entriesDesc, settings);
   if (suggestion.status === "increase") return suggestion.to;
-  if (suggestion.status === "hold") return suggestion.weight;
+  if (suggestion.status === "decrease") return suggestion.to;
+  if (suggestion.status === "stall") return suggestion.to;
+  if (suggestion.status === "add-reps") return suggestion.weight;
   return null;
 }
 
@@ -217,14 +239,29 @@ function getWarmupSets(type, targetWeight, settings) {
   return sets.filter((s) => s.weight > 0 && s.weight < targetWeight);
 }
 
+// Coaching tuning.
+const STALL_SESSIONS = 3; // same top weight, no rep gain, this many sessions → deload
+const BLOWOUT_MARGIN = 3; // reps past the top of the range that earn a double jump
+const DELOAD_PCT = 0.9; // deload target = 90% of the stalled weight
+
+// Best working-set reps at a given weight in a session's entry, or 0 if none.
+function bestRepsAtWeight(entry, weight) {
+  const reps = entry.sets.filter((s) => !s.warmup && s.weight === weight).map((s) => s.reps);
+  return reps.length ? Math.max(...reps) : 0;
+}
+
+// Double progression: earn reps up to the top of the range, then add weight and
+// reset. Reads recent history so it can also spot blowouts (big jump) and stalls
+// (deload). Precedence: increase → decrease (too heavy) → stall → add reps.
 function getSuggestion(exercise, entriesDesc, settings) {
   if (!entriesDesc.length) return { status: "no-data" };
   const last = entriesDesc[0];
   const working = last.sets.filter((s) => !s.warmup);
   if (!working.length) return { status: "no-working-sets", last };
-  const { top } = topBottom(exercise.type, settings);
+  const { top, bottom } = topBottom(exercise.type, settings);
   const needed = settings[exercise.type]?.sets ?? 2;
   const increment = settings.increment;
+  const round = plateIncrement(settings.unit);
 
   const byWeight = {};
   working.forEach((s) => {
@@ -239,13 +276,57 @@ function getSuggestion(exercise, entriesDesc, settings) {
   });
 
   if (increaseWeight != null) {
-    return { status: "increase", from: increaseWeight, to: increaseWeight + increment, needed, date: last.date };
+    // Blowout: crushed every set at that weight by top + margin → double the jump.
+    const repsAtInc = byWeight[increaseWeight] || [];
+    const big = repsAtInc.length >= needed && repsAtInc.every((r) => r >= top + BLOWOUT_MARGIN);
+    const to = increaseWeight + (big ? 2 : 1) * increment;
+    return { status: "increase", from: increaseWeight, to, resetReps: bottom, needed, big, date: last.date };
   }
 
   const mainWeight = Math.max(...working.map((s) => s.weight));
   const setsAtMain = working.filter((s) => s.weight === mainWeight);
+  const bestReps = Math.max(...setsAtMain.map((s) => s.reps));
+
+  // Fell below the target range even on your best set here — the weight's too
+  // heavy. Drop a step and rebuild reps from the bottom of the range.
+  if (bestReps < bottom) {
+    const to = Math.max(round, mainWeight - increment);
+    return { status: "decrease", from: mainWeight, to, bottom, bestReps, date: last.date };
+  }
+
+  // Stall: same top weight for STALL_SESSIONS straight with no rep improvement.
+  // Count the consecutive most-recent sessions whose top working weight matches.
+  const run = [];
+  for (const entry of entriesDesc) {
+    const w = entry.sets.filter((s) => !s.warmup);
+    if (!w.length) continue; // ignore warm-up-only days
+    if (Math.max(...w.map((s) => s.weight)) !== mainWeight) break;
+    run.push(entry);
+  }
+  if (run.length >= STALL_SESSIONS) {
+    const oldestBest = bestRepsAtWeight(run[STALL_SESSIONS - 1], mainWeight);
+    if (bestReps <= oldestBest) {
+      const to = Math.max(round, Math.round((mainWeight * DELOAD_PCT) / round) * round);
+      return { status: "stall", weight: mainWeight, to, sessions: run.length, date: last.date };
+    }
+  }
+
+  // In range but not at the top yet — coach reps at the top working weight, with
+  // a concrete per-set target (bump the lowest sub-top set by one).
   const progress = setsAtMain.filter((s) => s.reps >= top).length;
-  return { status: "hold", weight: mainWeight, sets: setsAtMain, progress, needed, date: last.date };
+  const targetReps = Math.min(top, bestReps + 1);
+  const lastReps = setsAtMain.map((s) => s.reps);
+  const targetSets = [...lastReps];
+  let bumpIdx = -1;
+  let bumpVal = Infinity;
+  targetSets.forEach((r, i) => {
+    if (r < top && r < bumpVal) {
+      bumpVal = r;
+      bumpIdx = i;
+    }
+  });
+  if (bumpIdx >= 0) targetSets[bumpIdx] = Math.min(top, targetSets[bumpIdx] + 1);
+  return { status: "add-reps", weight: mainWeight, sets: setsAtMain, bestReps, targetReps, top, progress, needed, lastReps, targetSets, date: last.date };
 }
 
 // Catches render errors anywhere below it so a crash shows a recoverable screen
@@ -451,11 +532,10 @@ export default function App() {
             settings={settings}
             date={logDate}
             setDate={setLogDate}
+            onOpenSettings={() => setTab("settings")}
           />
         )}
-        {tab === "progress" && <ProgressTab exercises={exercises} entriesByExercise={entriesByExercise} settings={settings} />}
-        {tab === "records" && <RecordsTab exercises={exercises} entriesByExercise={entriesByExercise} settings={settings} />}
-        {tab === "next" && <NextUpTab exercises={exercises} entriesByExercise={entriesByExercise} settings={settings} />}
+        {tab === "stats" && <StatsTab exercises={exercises} entriesByExercise={entriesByExercise} settings={settings} />}
         {tab === "history" && (
           <HistoryTab exercises={exercises} sessions={sessions} onEditWorkout={editWorkoutOnDate} settings={settings} />
         )}
@@ -479,8 +559,7 @@ function Shell({ theme, children }) {
         * { box-sizing: border-box; }
         input, select, button { font-family: var(--font-body); }
         input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-        ::-webkit-scrollbar { height: 6px; width: 6px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
         .plateRow { display: flex; gap: 4px; }
         .plate { width: 22px; height: 14px; border-radius: 3px; border: 2px solid var(--border); background: transparent; }
         .plate.filled { background: var(--accent); border-color: var(--accent); }
@@ -495,9 +574,7 @@ function Header({ tab, setTab }) {
   // evenly (no horizontal scroll), so the section names stay put.
   const tabs = [
     { id: "log", label: "Log" },
-    { id: "progress", label: "Progress" },
-    { id: "records", label: "Records" },
-    { id: "next", label: "Next Up" },
+    { id: "stats", label: "Stats" },
     { id: "history", label: "History" },
   ];
   return (
@@ -529,7 +606,7 @@ function Header({ tab, setTab }) {
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              padding: 4,
+              padding: 8,
               color: tab === "settings" ? "var(--accent)" : "var(--text-dim)",
             }}
           >
@@ -635,7 +712,7 @@ function CollapsibleSection({ title, count, defaultOpen = true, children }) {
 
 /* ---------------- LOG TAB ---------------- */
 
-function LogTab({ exercises, sessions, entriesByExercise, persistExercises, persistSessions, deleteExercise, updateExercise, customGroups, addGroup, settings, date, setDate }) {
+function LogTab({ exercises, sessions, entriesByExercise, persistExercises, persistSessions, deleteExercise, updateExercise, customGroups, addGroup, settings, date, setDate, onOpenSettings }) {
   const [showManage, setShowManage] = useState(false);
 
   const existing = sessions.find((s) => s.date === date);
@@ -755,15 +832,17 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
 
   // Drop the suggested warm-up ramp into the set editor, replacing any warm-up
   // rows already there but keeping the working sets the user has started filling in.
+  // Always leave a fresh empty working row at the end, ready to type into.
   function addWarmupRamp() {
     const warmRows = warmupSets.map((w) => ({ weight: String(w.weight), reps: String(w.reps), warmup: true }));
     const workingRows = sets.filter((s) => !s.warmup && (s.weight !== "" || s.reps !== ""));
-    const merged = [...warmRows, ...workingRows];
-    setSets(merged.length ? merged : [{ weight: "", reps: "", warmup: false }]);
+    setSets([...warmRows, ...workingRows, { weight: "", reps: "", warmup: false }]);
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <RestTimer settings={settings} onOpenSettings={onOpenSettings} />
+
       <Card>
         <Label>Date</Label>
         <input
@@ -813,11 +892,11 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                         onClick={() => editBlock(b)}
                         aria-label="Edit this exercise's sets"
                         title="Edit this exercise's sets"
-                        style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-dim)", cursor: "pointer", padding: 8, display: "flex" }}
+                        style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-dim)", cursor: "pointer", padding: 10, display: "flex" }}
                       >
                         <Pencil size={17} />
                       </button>
-                      <button onClick={() => removeBlock(b.id)} aria-label="Remove exercise" title="Remove" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 8, display: "flex" }}>
+                      <button onClick={() => removeBlock(b.id)} aria-label="Remove exercise" title="Remove" style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 10, display: "flex" }}>
                         <X size={18} />
                       </button>
                     </div>
@@ -832,7 +911,7 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
 
       <Card>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <Label style={{ marginBottom: 0 }}>{editingBlockId ? "Editing exercise" : "Add exercise to this workout"}</Label>
+          <Label style={{ marginBottom: 0 }}>{editingBlockId ? "Editing exercise" : "Add exercise"}</Label>
           <button onClick={() => setShowManage((v) => !v)} style={linkBtnStyle}>
             {showManage ? "Close" : "Manage exercises"}
           </button>
@@ -854,23 +933,19 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div style={{ flex: 1 }} />
                 <button onClick={() => setShowAddExercise((v) => !v)} style={linkBtnStyle}>
-                  <Plus size={14} /> New exercise
+                  <Plus size={16} /> New exercise
                 </button>
               </div>
             )}
 
             {!showAddExercise && exercises.length > 0 && (
-              <select value={addingExerciseId} onChange={(e) => setAddingExerciseId(e.target.value)} style={inputStyle} disabled={!!editingBlockId}>
-                {Object.entries(groupByMuscle(exercises)).map(([group, exs]) => (
-                  <optgroup label={group} key={group}>
-                    {exs.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.name} — {e.type}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              <ExercisePicker
+                exercises={exercises}
+                value={addingExerciseId}
+                onChange={setAddingExerciseId}
+                disabled={!!editingBlockId}
+                showType
+              />
             )}
 
             {showAddExercise && !editingBlockId && (
@@ -973,15 +1048,15 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
                           onClick={() => removeSetRow(i)}
                           aria-label="Remove set"
                           title="Remove set"
-                          style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 8, marginLeft: "auto", display: "flex" }}
+                          style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", padding: 10, marginLeft: "auto", display: "flex" }}
                         >
                           <X size={18} />
                         </button>
                       </div>
                     ))}
                   </div>
-                  <button onClick={addSetRow} style={{ ...linkBtnStyle, marginTop: 14, padding: "6px 0" }}>
-                    <Plus size={14} /> Add set
+                  <button onClick={addSetRow} style={{ ...linkBtnStyle, marginTop: 10, padding: "10px 4px" }}>
+                    <Plus size={16} /> Add set
                   </button>
                 </div>
 
@@ -998,7 +1073,7 @@ function LogTab({ exercises, sessions, entriesByExercise, persistExercises, pers
 
                 {!editingBlockId && priorEntries.length > 0 && (
                   <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-                    <Label>Last session — {fmtDate(priorEntries[0].date)}</Label>
+                    <Label>Last · {fmtDate(priorEntries[0].date)}</Label>
                     <SetPills sets={priorEntries[0].sets} unit={unit} />
                   </div>
                 )}
@@ -1158,20 +1233,60 @@ function SuggestionBanner({ exercise, suggestion, settings }) {
     return (
       <div style={{ border: "1px solid var(--accent)", background: "var(--accent-dim)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
         <Flame size={20} color="var(--accent)" />
-        <div style={{ fontSize: 13 }}>
-          Hit {top}+ reps for {needed} set{needed === 1 ? "" : "s"} at {suggestion.from} {unit} last time.{" "}
-          <strong style={{ fontFamily: "var(--font-mono)" }}>Move up to {suggestion.to} {unit}</strong> this session.
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700 }}>
+            {suggestion.big ? "Big jump — " : "Move up to "}{suggestion.to} {unit}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>
+            {suggestion.big
+              ? `crushed ${suggestion.from} (top+${BLOWOUT_MARGIN}) — double jump`
+              : `${top}×${needed} at ${suggestion.from} — reset to ~${suggestion.resetReps} reps`}
+          </div>
         </div>
       </div>
     );
   }
-  if (suggestion.status === "hold") {
+  if (suggestion.status === "stall") {
+    return (
+      <div style={{ border: "1px solid var(--danger)", background: "rgba(200,70,70,0.12)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
+        <AlertTriangle size={20} color="var(--danger)" />
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700 }}>
+            Deload to {suggestion.to} {unit}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>
+            stalled at {suggestion.weight} for {suggestion.sessions} sessions — rebuild reps
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (suggestion.status === "decrease") {
+    return (
+      <div style={{ border: "1px solid var(--gold)", background: "rgba(214,162,60,0.12)", borderRadius: 8, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
+        <TrendingDown size={20} color="var(--gold)" />
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700 }}>
+            Drop to {suggestion.to} {unit}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>
+            under {suggestion.bottom} reps at {suggestion.from} — rebuild reps
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (suggestion.status === "add-reps") {
     return (
       <div style={{ border: "1px solid var(--border)", background: "var(--surface)", borderRadius: 8, padding: 14 }}>
-        <div style={{ fontSize: 13, marginBottom: 8 }}>
-          Stay at <strong style={{ fontFamily: "var(--font-mono)" }}>{suggestion.weight} {unit}</strong> — need {suggestion.needed} set{suggestion.needed === 1 ? "" : "s"} at {top}+ reps to move up.
-          Last time: {suggestion.progress}/{suggestion.needed}.
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700 }}>
+          Aim for {suggestion.targetReps} @ {suggestion.weight} {unit}
         </div>
+        {suggestion.lastReps && suggestion.lastReps.length > 0 && (
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-dim)", margin: "4px 0 8px" }}>
+            Last {suggestion.weight}×{suggestion.lastReps.join(",")} → {suggestion.targetSets.join(",")}
+          </div>
+        )}
         <div className="plateRow">
           {Array.from({ length: suggestion.needed }).map((_, i) => (
             <div key={i} className={`plate ${i < suggestion.progress ? "filled" : ""}`} />
@@ -1189,8 +1304,15 @@ function WarmupRamp({ warmupSets, targetWeight, unit, onAdd }) {
   if (!warmupSets.length) return null;
   return (
     <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-      <Label>Warm-up ramp (before working sets, target {targetWeight} {unit})</Label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 6 }}>
+        <Label style={{ marginBottom: 0 }}>Warm-up · target {targetWeight} {unit}</Label>
+        {onAdd && (
+          <button onClick={onAdd} style={{ ...linkBtnStyle, flexShrink: 0 }}>
+            <Plus size={16} /> Add to sets
+          </button>
+        )}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {warmupSets.map((w, i) => (
           <span
             key={i}
@@ -1208,66 +1330,302 @@ function WarmupRamp({ warmupSets, targetWeight, unit, onAdd }) {
           </span>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 11, color: "var(--text-dim)" }}>
-          {warmupSets.length}-set ramp, calculated from your target working weight. Adjust the count in Settings.
+    </div>
+  );
+}
+
+// Short beep via Web Audio — no asset needed, works offline.
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.6);
+    osc.onended = () => ctx.close();
+  } catch {
+    /* audio unavailable — ignore */
+  }
+}
+
+// Manual-start rest timer: pick a preset, count down, alert (beep/vibrate) at 0.
+// While running it pins to the bottom of the screen so it stays visible as you log.
+function RestTimer({ settings, onOpenSettings }) {
+  const rt = settings.restTimer || DEFAULT_SETTINGS.restTimer;
+  const def = rt.defaultSeconds || 120;
+  const [endAt, setEndAt] = useState(null); // ms timestamp the countdown ends, or null when idle
+  const [remaining, setRemaining] = useState(0); // seconds left (display)
+  const [duration, setDuration] = useState(def); // seconds the current run started with (for Reset)
+  const [done, setDone] = useState(false);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (endAt == null) return;
+    firedRef.current = false;
+    const tick = () => {
+      const secs = (endAt - Date.now()) / 1000;
+      if (secs <= 0) {
+        setRemaining(0);
+        if (!firedRef.current) {
+          firedRef.current = true;
+          if (rt.vibrate && navigator.vibrate) {
+            try { navigator.vibrate([200, 100, 200]); } catch { /* ignore */ }
+          }
+          if (rt.sound) beep();
+          setDone(true);
+          setEndAt(null);
+        }
+      } else {
+        setRemaining(secs);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [endAt, rt.sound, rt.vibrate]);
+
+  // Auto-clear the "done" flash after a few seconds.
+  useEffect(() => {
+    if (!done) return;
+    const id = setTimeout(() => setDone(false), 5000);
+    return () => clearTimeout(id);
+  }, [done]);
+
+  function start(seconds) {
+    setDone(false);
+    setDuration(seconds);
+    setRemaining(seconds);
+    setEndAt(Date.now() + seconds * 1000);
+  }
+  function adjust(delta) {
+    setEndAt((prev) => (prev == null ? prev : Math.max(Date.now(), prev + delta * 1000)));
+  }
+  function stop() {
+    setEndAt(null);
+    setRemaining(0);
+    setDone(false);
+  }
+
+  const running = endAt != null;
+
+  if (!running && !done) {
+    // Presets: 1/2/3 min plus the user's custom default (deduped, sorted).
+    const presets = Array.from(new Set([60, 120, 180, def])).sort((a, b) => a - b);
+    return (
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Timer size={16} color="var(--accent2)" />
+            <Label style={{ marginBottom: 0 }}>Rest timer</Label>
+          </div>
+          {onOpenSettings && (
+            <button onClick={onOpenSettings} style={{ ...linkBtnStyle, flexShrink: 0 }} aria-label="Rest timer settings" title="Customize rest timer">
+              <Settings size={16} /> Customize
+            </button>
+          )}
         </div>
-        {onAdd && (
-          <button onClick={onAdd} style={{ ...linkBtnStyle, flexShrink: 0 }}>
-            <Plus size={14} /> Add to sets
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {presets.map((s) => (
+            <button
+              key={s}
+              onClick={() => start(s)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "transparent",
+                color: "var(--text)",
+                cursor: "pointer",
+                fontFamily: "var(--font-mono)",
+                fontSize: 14,
+              }}
+            >
+              {fmtClock(s)}
+            </button>
+          ))}
+        </div>
+      </Card>
+    );
+  }
+
+  const pillBtn = {
+    padding: "10px 12px",
+    borderRadius: 6,
+    border: "1px solid var(--border)",
+    background: "var(--surface2)",
+    color: "var(--text)",
+    cursor: "pointer",
+    fontSize: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    whiteSpace: "nowrap",
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 50,
+        background: done ? "var(--accent-dim)" : "var(--surface)",
+        borderTop: `1px solid ${done ? "var(--accent)" : "var(--border)"}`,
+        paddingTop: 10,
+        paddingBottom: "calc(10px + env(safe-area-inset-bottom))",
+        paddingLeft: "max(16px, env(safe-area-inset-left))",
+        paddingRight: "max(16px, env(safe-area-inset-right))",
+      }}
+    >
+      <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", alignItems: "center", gap: 10 }}>
+        <Timer size={18} color="var(--accent)" />
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700, minWidth: 62 }}>
+          {done ? "Done" : fmtClock(remaining)}
+        </div>
+        <div style={{ display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {!done && (
+            <>
+              <button onClick={() => adjust(-15)} style={pillBtn}>−15s</button>
+              <button onClick={() => adjust(15)} style={pillBtn}>+15s</button>
+              <button onClick={() => start(duration)} style={pillBtn} aria-label="Reset" title="Reset">
+                <RotateCcw size={14} />
+              </button>
+            </>
+          )}
+          <button onClick={stop} style={{ ...pillBtn, borderColor: "var(--accent)", color: "var(--accent)" }}>
+            {done ? "Dismiss" : "Skip"}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---------------- PROGRESS TAB ---------------- */
+// Shared muscle-group grouped picker (used by Log and Stats charts).
+function ExercisePicker({ exercises, value, onChange, style, disabled, showType }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} style={style || inputStyle} disabled={disabled}>
+      {Object.entries(groupByMuscle(exercises)).map(([group, exs]) => (
+        <optgroup label={group} key={group}>
+          {exs.map((e) => (
+            <option key={e.id} value={e.id}>
+              {showType ? `${e.name} — ${e.type}` : e.name}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
 
-function ProgressTab({ exercises, entriesByExercise, settings }) {
+/* ---------------- STATS TAB (charts + records) ---------------- */
+
+function StatsTab({ exercises, entriesByExercise, settings }) {
+  const [view, setView] = useState("charts"); // "charts" | "records"
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        {[["charts", "Charts"], ["records", "Records"]].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            style={{
+              flex: 1,
+              padding: "9px 10px",
+              borderRadius: 6,
+              border: `1px solid ${view === key ? "var(--accent)" : "var(--border)"}`,
+              background: view === key ? "var(--accent-dim)" : "transparent",
+              color: "var(--text)",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === "charts" ? (
+        <ChartsView exercises={exercises} entriesByExercise={entriesByExercise} settings={settings} />
+      ) : (
+        <RecordsView exercises={exercises} entriesByExercise={entriesByExercise} settings={settings} />
+      )}
+    </div>
+  );
+}
+
+function ChartsView({ exercises, entriesByExercise, settings }) {
   const [exerciseId, setExerciseId] = useState(exercises[0]?.id || "");
+  const [metric, setMetric] = useState("e1rm"); // "e1rm" | "weight"
   const unit = settings.unit;
 
-  if (!exercises.length) return <EmptyState text="Log a workout first to see progress charts." />;
+  if (!exercises.length) return <EmptyState text="Log a workout to see charts." />;
 
   const activeId = exerciseId || exercises[0].id;
   const entriesAsc = [...(entriesByExercise[activeId] || [])].reverse();
   const chartData = entriesAsc.map((entry) => {
     const working = entry.sets.filter((s) => !s.warmup);
-    const top = working.length ? working.reduce((a, b) => (b.weight > a.weight ? b : a)) : null;
-    return { date: fmtShort(entry.date), weight: top ? top.weight : null, reps: top ? top.reps : null };
+    const topSet = working.length ? working.reduce((a, b) => (b.weight > a.weight ? b : a)) : null;
+    const bestE1rm = working.reduce((max, s) => Math.max(max, e1rm(s.weight, s.reps)), 0);
+    return {
+      date: fmtShort(entry.date),
+      weight: topSet ? topSet.weight : null,
+      reps: topSet ? topSet.reps : null,
+      e1rm: bestE1rm || null,
+    };
   });
 
   const activeExercise = exercises.find((e) => e.id === activeId);
+  const isE1rm = metric === "e1rm";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <select value={activeId} onChange={(e) => setExerciseId(e.target.value)} style={inputStyle}>
-        {Object.entries(groupByMuscle(exercises)).map(([group, exs]) => (
-          <optgroup label={group} key={group}>
-            {exs.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
+      <ExercisePicker exercises={exercises} value={activeId} onChange={setExerciseId} />
 
       {activeExercise && (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <TypeBadge type={activeExercise.type} />
             <span style={{ fontSize: 12, color: "var(--text-dim)" }}>
-              Target {topBottom(activeExercise.type, settings).bottom}–{topBottom(activeExercise.type, settings).top} reps to failure
+              Target {topBottom(activeExercise.type, settings).bottom}–{topBottom(activeExercise.type, settings).top} reps
             </span>
           </div>
 
           {chartData.length === 0 ? (
-            <EmptyState text="No sessions logged for this exercise yet." />
+            <EmptyState text="No sessions logged yet." />
           ) : (
             <Card>
-              <Label>Top working set weight over time</Label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <Label style={{ marginBottom: 0 }}>{isE1rm ? "Est. 1RM over time" : "Top set over time"}</Label>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[["e1rm", "Est. 1RM"], ["weight", "Weight"]].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setMetric(key)}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        border: `1px solid ${metric === key ? "var(--accent)" : "var(--border)"}`,
+                        background: metric === key ? "var(--accent-dim)" : "transparent",
+                        color: "var(--text)",
+                        cursor: "pointer",
+                        fontSize: 13,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div style={{ width: "100%", height: 240 }}>
                 <ResponsiveContainer>
                   <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1276,9 +1634,18 @@ function ProgressTab({ exercises, entriesByExercise, settings }) {
                     <YAxis stroke="var(--text-dim)" fontSize={11} domain={["dataMin - 5", "dataMax + 5"]} />
                     <Tooltip
                       contentStyle={{ background: "var(--surface2)", border: "1px solid var(--border)", fontSize: 12 }}
-                      formatter={(val, name, props) => [`${val} ${unit} × ${props.payload.reps} reps`, "Top set"]}
+                      formatter={(val, name, props) =>
+                        isE1rm ? [`${val} ${unit} est.`, "1RM"] : [`${val} ${unit} × ${props.payload.reps} reps`, "Top set"]
+                      }
                     />
-                    <Line type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3, fill: "var(--accent)" }} />
+                    <Line
+                      type="monotone"
+                      dataKey={isE1rm ? "e1rm" : "weight"}
+                      stroke="var(--accent)"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "var(--accent)" }}
+                      connectNulls
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -1305,11 +1672,9 @@ function ProgressTab({ exercises, entriesByExercise, settings }) {
   );
 }
 
-/* ---------------- RECORDS TAB ---------------- */
-
-function RecordsTab({ exercises, entriesByExercise, settings }) {
+function RecordsView({ exercises, entriesByExercise, settings }) {
   const unit = settings.unit;
-  if (!exercises.length) return <EmptyState text="Add exercises and log sessions to build your records." />;
+  if (!exercises.length) return <EmptyState text="Log sessions to build records." />;
 
   const grouped = groupByMuscle(exercises);
 
@@ -1379,46 +1744,6 @@ function StatBlock({ icon, label, value, sub }) {
       </div>
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700 }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
-}
-
-/* ---------------- NEXT UP TAB ---------------- */
-
-function NextUpTab({ exercises, entriesByExercise, settings }) {
-  const unit = settings.unit;
-  if (!exercises.length) return <EmptyState text="Add exercises to get session-by-session suggestions here." />;
-
-  const grouped = groupByMuscle(exercises);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {Object.entries(grouped).map(([group, exs]) => (
-        <CollapsibleSection key={group} title={group} count={exs.length}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {exs.map((ex) => {
-              const entries = entriesByExercise[ex.id] || [];
-              const suggestion = getSuggestion(ex, entries, settings);
-              const targetWeight = getSuggestedTargetWeight(ex, entries, settings);
-              const warmupSets = targetWeight ? getWarmupSets(ex.type, targetWeight, settings) : [];
-              return (
-                <Card key={ex.id}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ fontFamily: "var(--font-display)", fontSize: 16 }}>{ex.name}</div>
-                    <TypeBadge type={ex.type} />
-                  </div>
-                  {suggestion.status === "no-data" && <div style={{ fontSize: 13, color: "var(--text-dim)" }}>No sessions logged yet.</div>}
-                  {suggestion.status === "no-working-sets" && (
-                    <div style={{ fontSize: 13, color: "var(--text-dim)" }}>Last session had only warm-up sets — log a working set to get a suggestion.</div>
-                  )}
-                  {(suggestion.status === "increase" || suggestion.status === "hold") && <SuggestionBanner exercise={ex} suggestion={suggestion} settings={settings} />}
-                  <WarmupRamp warmupSets={warmupSets} targetWeight={targetWeight} unit={unit} />
-                </Card>
-              );
-            })}
-          </div>
-        </CollapsibleSection>
-      ))}
     </div>
   );
 }
@@ -1605,13 +1930,13 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
           ))}
         </div>
         <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 8 }}>
-          Switching units only relabels — existing logged numbers aren't converted.
+          Relabels only; won't convert logged numbers.
         </div>
 
         <div style={{ height: 14 }} />
         <div style={{ maxWidth: 200 }}>
           <NumberField
-            label={`Increment (${settings.unit} added on an increase)`}
+            label={`Increment (${settings.unit} per jump)`}
             value={settings.increment}
             min={0}
             onChange={(v) => setField({ increment: v })}
@@ -1652,10 +1977,59 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
             />
           </div>
           <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 10 }}>
-            Hit {settings[type].repTop}+ reps on {settings[type].sets} set{settings[type].sets === 1 ? "" : "s"} → the app cues +{settings.increment} {settings.unit}.
+            {settings[type].repTop}+ × {settings[type].sets} set{settings[type].sets === 1 ? "" : "s"} → +{settings.increment} {settings.unit}.
           </div>
         </Card>
       ))}
+
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Timer size={16} color="var(--accent2)" />
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 15, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Rest timer
+          </div>
+        </div>
+        <div style={{ maxWidth: 200, marginBottom: 14 }}>
+          <NumberField
+            label="Default (seconds)"
+            value={settings.restTimer.defaultSeconds}
+            min={5}
+            onChange={(v) => setField({ restTimer: { ...settings.restTimer, defaultSeconds: v } })}
+          />
+        </div>
+        <Label>Alert at zero</Label>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[
+            ["sound", "Sound"],
+            ["vibrate", "Vibration"],
+          ].map(([key, label]) => {
+            const on = !!settings.restTimer[key];
+            return (
+              <button
+                key={key}
+                onClick={() => setField({ restTimer: { ...settings.restTimer, [key]: !on } })}
+                style={{
+                  flex: 1,
+                  padding: "9px 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                  background: on ? "var(--accent-dim)" : "transparent",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                {on && <Check size={13} color="var(--accent)" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
 
       <Card>
         <Label>Color theme</Label>
@@ -1696,8 +2070,7 @@ function SettingsTab({ settings, persistSettings, onExport, onImport }) {
       <Card>
         <Label>Data & backup</Label>
         <div style={{ fontSize: 12, color: "var(--text-dim)", marginBottom: 12 }}>
-          Everything is stored on this device only. Export a backup file to keep your history safe,
-          or to move it to another device — importing replaces your current data.
+          Stored on this device. Export to back up; import replaces current data.
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={onExport} style={primaryBtnStyle}>
@@ -1815,12 +2188,12 @@ const linkBtnStyle = {
   background: "none",
   border: "none",
   color: "var(--accent)",
-  fontSize: 12,
+  fontSize: 14,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
-  gap: 4,
-  padding: 0,
+  gap: 6,
+  padding: "8px 8px",
 };
 
 const iconBtnStyle = {
@@ -1829,7 +2202,7 @@ const iconBtnStyle = {
   borderRadius: 6,
   color: "var(--text)",
   cursor: "pointer",
-  padding: "6px 8px",
+  padding: "10px 12px",
   display: "flex",
   alignItems: "center",
 };

@@ -15,7 +15,7 @@ Out: active-workout mode, gestures/animation (sub-project 3); programs (4); PRs/
 ## Visual system
 - **Tokens** in `src/styles/tokens.css` as CSS variables, redefined for light under `prefers-color-scheme: light` and `[data-theme]` overrides.
   - Dark ("Midnight"): bg `#0E1118`, surface `#161A24`, line `#222836`, text `#E9EDF5`, muted `#7D879B`, accent `#3FD0C9`, on-accent `#04191A`.
-  - Light: derived warm-neutral paper with a darker teal accent; exact values set during implementation and **gated by the contrast test**.
+  - Light: bg `#F6F4EF`, surface `#FFFFFF`, line `#E4E0D6`, text `#15181F`, muted `#5F6675`, accent `#0B7F7A`, on-accent `#FFFFFF`. If the contrast test rejects any pair, adjust the value (not the threshold) and note it in the commit.
   - Semantic colors: increase = accent, decrease/warm-up = amber, stall/danger = red; each pair must pass contrast in both themes.
 - **Type**: Inter variable (self-hosted via `@fontsource-variable/inter`) with `font-variant-numeric: tabular-nums` on all numerals; JetBrains Mono (already bundled) for set logs and the timer. Scale 13/15/17/22/28/40/64px. **No text under 13px**; inputs 16px (prevents iOS zoom).
 - **Theme setting**: `settings.theme` becomes `"system" | "dark" | "light"` (default `system`). Legacy values (`ember`, `slate`, `violet`, `paper`) are mapped to `system` at read time; the stored value is not rewritten until the user changes it.

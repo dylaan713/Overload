@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -10,12 +11,22 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        dev: fileURLToPath(new URL('./dev.html', import.meta.url)),
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon-180x180.png'],
       workbox: {
+        // Let /dev.html load as its own page instead of falling back to the app shell.
+        navigateFallbackDenylist: [/dev\.html$/],
         // Precache fonts too, so the installed app is fully styled offline.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
       },

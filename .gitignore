@@ -24,4 +24,7 @@ dist-ssr
 *.sw?
 
 # Personal workout data fixtures
-fixtures/
+/fixtures/
+
+# SDD execution workspace
+.superpowers/

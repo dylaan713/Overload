@@ -1,10 +1,13 @@
 # Handoff
-Last updated 2026-10-09.
+Last updated 2026-10-09 (rewrite branch).
 
 ## Status
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-09: Foundation done on branch `rewrite` (TS + Vitest, v2 store, lossless legacy migration, v1/v2 backups, ported engine with golden tests against real data, read-only /dev.html dry run). `App.jsx` is still the shipping UI.
+Next: after merging `rewrite` to `main`, open /dev.html on the phone to confirm counts (expect 41 exercises, 57 sessions); then spec sub-project 2 (design system + shell, real persisting migration on first launch) and a separate spec for the engine redesign (smarter progression, RPE, deloads).
+
 1. Stage B (`PUBLISHING.md`): wrap the app with Capacitor for native builds.
    - Choose the permanent bundle id (`com.YOURNAME.overload`).
    - Run the Capacitor setup and `npx cap add android`, then `npx cap add ios`.

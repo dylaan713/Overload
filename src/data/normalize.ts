@@ -30,12 +30,16 @@ function reqArray(v: unknown, label: string): unknown[] {
   throw new DataError(`${label} must be an array`);
 }
 
-function normalizeSet(raw: unknown, where: string): SetEntry {
+function normalizeSet(raw: unknown, where: string, warn: Warn): SetEntry {
   if (!isObj(raw)) throw new DataError(`${where}: set must be an object`);
   const weight = toNumber(raw.weight);
   const reps = toNumber(raw.reps);
-  if (weight === null || weight < 0) throw new DataError(`${where}: invalid weight ${JSON.stringify(raw.weight)}`);
-  if (reps === null || reps < 0) throw new DataError(`${where}: invalid reps ${JSON.stringify(raw.reps)}`);
+  // Only non-numeric values are unrecoverable. Negatives are kept (the old app allowed
+  // them, e.g. assisted-dip counterweight) so one odd set can't lock the user out.
+  if (weight === null) throw new DataError(`${where}: invalid weight ${JSON.stringify(raw.weight)}`);
+  if (reps === null) throw new DataError(`${where}: invalid reps ${JSON.stringify(raw.reps)}`);
+  if (weight < 0) warn(`${where}: negative weight ${weight} kept`);
+  if (reps < 0) warn(`${where}: negative reps ${reps} kept`);
   const out = { ...raw, weight, reps, warmup: Boolean(raw.warmup) } as SetEntry;
   if (raw.rpe != null) {
     const rpe = toNumber(raw.rpe);
@@ -45,11 +49,11 @@ function normalizeSet(raw: unknown, where: string): SetEntry {
   return out;
 }
 
-function normalizeBlock(raw: unknown, where: string): Block {
+function normalizeBlock(raw: unknown, where: string, warn: Warn): Block {
   if (!isObj(raw)) throw new DataError(`${where}: block must be an object`);
   const id = reqString(raw.id, `${where}.id`);
   const exerciseId = reqString(raw.exerciseId, `${where}.exerciseId`);
-  const sets = reqArray(raw.sets, `${where}.sets`).map((s, i) => normalizeSet(s, `${where}.sets[${i}]`));
+  const sets = reqArray(raw.sets, `${where}.sets`).map((s, i) => normalizeSet(s, `${where}.sets[${i}]`, warn));
   return { ...raw, id, exerciseId, sets } as Block;
 }
 
@@ -79,7 +83,7 @@ export function normalizeSessions(raw: unknown, warn: Warn): Session[] {
     if (seenDates.has(s.date)) warn(`More than one session on ${s.date}`);
     seenDates.add(s.date);
     const name = typeof s.name === "string" ? s.name : "";
-    const blocks = reqArray(s.blocks, `sessions[${i}].blocks`).map((b, j) => normalizeBlock(b, `sessions[${i}].blocks[${j}]`));
+    const blocks = reqArray(s.blocks, `sessions[${i}].blocks`).map((b, j) => normalizeBlock(b, `sessions[${i}].blocks[${j}]`, warn));
     return { ...s, id, date: s.date, name, blocks } as Session;
   });
 }

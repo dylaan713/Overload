@@ -30,10 +30,16 @@ describe("validateDoc", () => {
     expect(result.sessions[0]!.blocks[0]!.sets[0]).toEqual({ weight: 135, reps: 8, warmup: false, note: "pause" });
   });
 
-  it("rejects NaN, negative and non-numeric weights/reps", () => {
-    for (const bad of [{ weight: NaN, reps: 5 }, { weight: -5, reps: 5 }, { weight: "abc", reps: 5 }, { weight: 5, reps: -1 }, { weight: 5 }]) {
+  it("rejects NaN, non-numeric and missing weights/reps", () => {
+    for (const bad of [{ weight: NaN, reps: 5 }, { weight: "abc", reps: 5 }, { weight: null, reps: 5 }, { weight: 5 }, { weight: 5, reps: Infinity }]) {
       expect(() => run(doc({ sessions: [session([bad])] }))).toThrow(DataError);
     }
+  });
+
+  it("keeps negative weights (assisted movements) with a warning instead of locking the user out", () => {
+    const { result, warnings } = run(doc({ sessions: [session([{ weight: -40, reps: 8, warmup: false }])] }));
+    expect(result.sessions[0]!.blocks[0]!.sets[0]).toEqual({ weight: -40, reps: 8, warmup: false });
+    expect(warnings.length).toBeGreaterThan(0);
   });
 
   it("rejects malformed dates", () => {

@@ -1,8 +1,7 @@
 # Publishing Overload
 
 A staged guide from "on my own phone" to "in the app stores." Do the stages in
-order — each one builds on the last. You're on **Windows** with **access to a Mac**
-(needed only for the iOS store build).
+order — each one builds on the last. Development happens on a **Mac**, which covers both the Android and iOS builds.
 
 > **Current status:** Stage A is DONE. The app is live at
 > **https://overloadylan.netlify.app/** via GitHub-connected Netlify auto-deploy —
@@ -16,7 +15,7 @@ order — each one builds on the last. You're on **Windows** with **access to a 
 Overload is a **PWA** (installable web app). Two ways to get it on your phone.
 
 ### A1. Quick preview over Wi-Fi (instant, temporary)
-Phone and PC must be on the **same Wi-Fi**.
+Phone and computer must be on the **same Wi-Fi**.
 
 ```bash
 npm run build
@@ -63,7 +62,7 @@ npx cap init Overload com.YOURNAME.overload --web-dir dist
 npm install @capacitor/android @capacitor/ios
 npm run build
 npx cap add android
-npx cap add ios        # do this step on the Mac
+npx cap add ios
 ```
 
 Pick a real **bundle id** for `com.YOURNAME.overload` (reverse-domain, lowercase,
@@ -75,7 +74,7 @@ npm run build
 npx cap sync
 ```
 
-### Android (fully on Windows)
+### Android
 1. Install **Android Studio**.
 2. `npx cap open android` → let Gradle sync.
 3. Plug in your Android phone (USB debugging on) → press **Run** to install it, OR
@@ -97,13 +96,11 @@ when the user starts the countdown, and cancel it if they Skip/Reset. This is th
 fix for the alert that couldn't work as a PWA — wire it into `RestTimer` in `src/App.jsx`.
 
 ### iOS (needs the Mac)
-1. Copy the project to the Mac (or clone the repo there and run the setup above,
-   including `npx cap add ios`).
-2. Install **Xcode**. `npx cap open ios`.
-3. Sign in with your Apple ID under Signing & Capabilities (a **free** Apple ID
+1. Install **Xcode**. `npx cap open ios`.
+2. Sign in with your Apple ID under Signing & Capabilities (a **free** Apple ID
    works for installing on your *own* device — the app lasts ~7 days before you
    re-run it; the $99/yr program removes that limit).
-4. Select your iPhone → **Run**.
+3. Select your iPhone → **Run**.
 
 ---
 
@@ -130,7 +127,7 @@ fix for the alert that couldn't work as a PWA — wire it into `RestTimer` in `s
 3. Upload to the **Internal testing** track first, test on your phone, then promote to
    Production. Review is usually hours-to-days.
 
-### Apple App Store (iOS, on the Mac)
+### Apple App Store (iOS)
 1. In App Store Connect, register the bundle id and create the app record.
 2. In Xcode: Product → **Archive** → Distribute → **App Store Connect**.
 3. Add it to **TestFlight** to test on your device, complete the listing +

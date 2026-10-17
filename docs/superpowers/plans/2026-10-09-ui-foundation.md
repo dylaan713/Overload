@@ -4,11 +4,11 @@
 
 **Goal:** Build the design system, app store, shell (bottom tab bar + sheets), the Settings sheet and the Exercise library of the new Overload UI on the foundation data layer, served at a temporary `/next.html` entry while the old app keeps shipping.
 
-> **Revision 2026-10-17 (Apple-design audit, App Store target).** Changes from the 2026-10-09 draft: tabs move to a translucent bottom tab bar; Settings opens as a sheet with Done instead of acting as a hidden fourth tab; Manage exercises becomes the "Exercise library" view inside that sheet (with Back) instead of living in the Log placeholder; type sizes become `rem` tokens that honor the iOS text-size setting; motion, material and accessibility tokens (`prefers-reduced-motion`, `prefers-reduced-transparency`, `prefers-contrast: more`) are defined now so later animation work doesn't retrofit them; every pressable control gets an instant pressed state and hover only on hover-capable devices; segmented options reach 44px; delete-exercise confirmation states how many sessions it removes and can be cancelled; backup filenames use the local date (the draft used UTC); `next.html` gets per-scheme `theme-color`. Engine behavior is unchanged in Plan A; the engine redesign gets its own spec before Plan B.
+> **Revision 2026-10-17 (Apple-design audit, App Store target).** Changes from the 2026-10-09 draft: tabs move to a translucent bottom tab bar; Settings opens as a sheet with Done instead of acting as a hidden fourth tab; Manage exercises becomes the "Exercise library" view inside that sheet (with Back) instead of living in the Log placeholder; type sizes become `rem` tokens that honor the iOS text-size setting; motion, material and accessibility tokens (`prefers-reduced-motion`, `prefers-reduced-transparency`, `prefers-contrast: more`) are defined now so later animation work doesn't retrofit them; every pressable control gets an instant pressed state and hover only on hover-capable devices; segmented options reach 44px; delete-exercise confirmation states how many sessions it removes and can be cancelled; backup filenames use the local date (the draft used UTC); `next.html` gets per-scheme `theme-color`; the body font is the system font (San Francisco on Apple devices) instead of Inter. Engine behavior is unchanged in Plan A; the engine redesign gets its own spec before Plan B.
 
 **Architecture:** React 19 + TypeScript. CSS variables (tokens) with CSS Modules; Zustand vanilla stores injected with a `KeyValueStore` so every test runs on an in-memory store. UI screens read/write only through store actions, which persist the whole `overload.v2` document and roll back on failure. The legacy `src/App.jsx`, `index.html` and the 62 foundation tests are untouched.
 
-**Tech Stack:** React 19, TypeScript strict, Vite 6, Zustand, CSS Modules, Inter (variable) + JetBrains Mono, lucide-react, Vitest + Testing Library + jsdom.
+**Tech Stack:** React 19, TypeScript strict, Vite 6, Zustand, CSS Modules, system font (San Francisco on Apple devices) + JetBrains Mono, lucide-react, Vitest + Testing Library + jsdom.
 
 **Spec:** `docs/superpowers/specs/2026-10-09-design-system-and-shell-design.md` (this is Plan A of 3: A = design system/store/shell/Settings/Manage exercises; B = Log + rest timer + undo + UI-state persistence; C = Stats + History + e2e + cutover.)
 
@@ -21,7 +21,7 @@
 - Every pressable control has an `:active` pressed state that appears on touch-down (≤100ms, `--dur-press`). Hover styles live only inside `@media (hover: hover)` so they never stick after a tap on iOS.
 - Motion uses the `--dur-*`/`--ease-*` tokens; under `prefers-reduced-motion: reduce` movement becomes a cross-fade (`--motion-offset: 0`), never a hard cut and never a slide.
 - App Store target: the UI must read as a native iOS app (bottom tab bar, sheets with Done, no hidden pseudo-tabs). Platform calls that differ between browser and native (file download, haptics, notifications, storage) go through one small module each so the Capacitor wrap can swap them.
-- Type: Inter (`@fontsource-variable/inter`, family name "Inter Variable") with `font-variant-numeric: tabular-nums` on numerals; JetBrains Mono for set logs/timer.
+- Type: the platform system font (`-apple-system`/`system-ui`: San Francisco on iPhone and Mac, so it gets Apple's optical sizing and tracking for free; Segoe/Roboto elsewhere) with `font-variant-numeric: tabular-nums` on numerals; JetBrains Mono for set logs/timer. No body webfont is bundled.
 - Theme preference is `settings.theme` ∈ `"system" | "dark" | "light"`; any other stored value (legacy `ember`, `slate`, `violet`, `paper`, or missing) is treated as `system` at read time and is not rewritten until the user changes it.
 - Legacy keys `exercises`, `sessions`, `customGroups`, `settings` are never written. `overload.v2` is written only through `saveDoc` (whole document, one write). Transient UI state uses a separate key `overload.v2.ui`.
 - Do not modify `src/App.jsx`, `index.html`, `src/storage.js`, `src/index.css` or the engine in `src/domain/progression.ts`.
@@ -76,7 +76,7 @@ tests/{ui,state,app,features,styles,domain}/*.test.ts(x)
 
 Run:
 ```bash
-npm install zustand @fontsource-variable/inter
+npm install zustand
 npm install -D @testing-library/react@^16 @testing-library/user-event@^14 @testing-library/jest-dom@^6 jsdom@^26
 ```
 Expected: installs cleanly.
@@ -165,7 +165,6 @@ export function App({ kv }: { kv: KeyValueStore }) {
 ```tsx
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/inter";
 import "@fontsource/jetbrains-mono/latin-400.css";
 import "@fontsource/jetbrains-mono/latin-500.css";
 import "@fontsource/jetbrains-mono/latin-700.css";
@@ -414,7 +413,7 @@ Expected: FAIL — `tokens.css` missing, theme modules missing.
   --accent-soft: rgba(63, 208, 201, 0.14);
   --warn-soft: rgba(233, 180, 76, 0.14);
   --danger-soft: rgba(255, 122, 122, 0.14);
-  --font-body: "Inter Variable", system-ui, -apple-system, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --radius: 16px;
   --radius-sm: 12px;

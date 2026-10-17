@@ -6,7 +6,7 @@ Depends on: `2026-10-09-foundation-design.md` (done: TS/Vitest, v2 store, migrat
 ## Intent
 Replace the 2,150-line `src/App.jsx` with a TypeScript UI built on the foundation: a premium, minimal, readable visual identity and **every existing feature, unchanged in function**. The owner's rule: *design must never compromise functionality.* The active-workout redesign, gestures/animation, programs, PRs, RPE and the engine redesign are separate later sub-projects.
 
-Decisions made with the owner: direction = premium minimal (B1 layout: stacked cards, target card, set list, hairlines); one identity with automatic light/dark (no theme picker); palette = "Midnight" with a neutral teal accent; typeface = Inter (tabular numerals) + JetBrains Mono for set logs, chosen for readability; scope = full parity with a new look (not a workout-flow redesign); four behavior fixes included (below).
+Decisions made with the owner: direction = premium minimal (B1 layout: stacked cards, target card, set list, hairlines); one identity with automatic light/dark (no theme picker); palette = "Midnight" with a neutral teal accent; typeface = system font (San Francisco on Apple devices; changed from Inter on 2026-10-17 for the App Store target) with tabular numerals + JetBrains Mono for set logs; scope = full parity with a new look (not a workout-flow redesign); four behavior fixes included (below).
 
 ## Scope
 In: design tokens and primitives; app shell and navigation; Log, Manage exercises, Stats (Charts, Records), History, Settings, Rest timer, error boundary, loading state; Zustand store over the foundation data layer; first-launch persisting migration; cutover from `App.jsx`; tests including a contrast test and Playwright flows.
@@ -17,7 +17,7 @@ Out: active-workout mode, gestures/animation (sub-project 3); programs (4); PRs/
   - Dark ("Midnight"): bg `#0E1118`, surface `#161A24`, line `#222836`, text `#E9EDF5`, muted `#7D879B`, accent `#3FD0C9`, on-accent `#04191A`.
   - Light: bg `#F6F4EF`, surface `#FFFFFF`, line `#E4E0D6`, text `#15181F`, muted `#5F6675`, accent `#0B7F7A`, on-accent `#FFFFFF`. If the contrast test rejects any pair, adjust the value (not the threshold) and note it in the commit.
   - Semantic colors: increase = accent, decrease/warm-up = amber, stall/danger = red; each pair must pass contrast in both themes.
-- **Type**: Inter variable (self-hosted via `@fontsource-variable/inter`) with `font-variant-numeric: tabular-nums` on all numerals; JetBrains Mono (already bundled) for set logs and the timer. Scale 13/15/17/22/28/40/64px. **No text under 13px**; inputs 16px (prevents iOS zoom).
+- **Type**: the system font stack (`-apple-system, BlinkMacSystemFont, system-ui, …`; San Francisco on iPhone/Mac, no webfont download) with `font-variant-numeric: tabular-nums` on all numerals; JetBrains Mono (already bundled) for set logs and the timer. Scale 13/15/17/22/28/40/64px. **No text under 13px**; inputs 16px (prevents iOS zoom).
 - **Theme setting**: `settings.theme` becomes `"system" | "dark" | "light"` (default `system`). Legacy values (`ember`, `slate`, `violet`, `paper`) are mapped to `system` at read time; the stored value is not rewritten until the user changes it.
 - **Readability gate**: a unit test computes WCAG contrast for every text/background token pair in both themes and fails below 4.5:1 for body/small text and 3:1 for large numerals (≥24px or ≥19px bold).
 - **Layout**: mobile-first, max width 720 centered, safe-area insets honored, 16px side gutters, ≥44px tap targets, no horizontal scroll.

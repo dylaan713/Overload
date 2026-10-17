@@ -1,6 +1,6 @@
 # Overload rewrite — Training engine, exercise library and phases
 
-Date: 2026-10-17 · Branch: `rewrite` · Status: draft for owner review
+Date: 2026-10-17 · Branch: `rewrite` · Status: approved by owner 2026-10-17
 Replaces: the "engine redesign" placeholder (old sub-project 5) and the parity port in `src/domain/progression.ts`. Must be done **before Plan B (Log)**, because the set editor, coaching card and exercise picker are built on it.
 Related: `2026-10-09-foundation-design.md` (data layer), `2026-10-09-design-system-and-shell-design.md` (UI), Plan A (`docs/superpowers/plans/2026-10-09-ui-foundation.md`).
 

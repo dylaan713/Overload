@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-17 (later): Training engine spec written (`docs/superpowers/specs/2026-10-17-training-engine-design.md`): phases by style, exercise library + custom exercises, per-set RIR, step-aware progression, bad-day/stall/fatigue/layoff rules, weekly volume. Dylan chose to START EMPTY (no migration of old data). Awaiting his approval of the spec.
+Next: on approval, revise Plan A (no migration banner, new Settings cards, library browser) and write the engine implementation plan; then Plan B.
+
 State Update 2026-10-17: Apple-design audit done; Plan A and the design spec revised for an App Store target (bottom tab bar, Settings sheet, Exercise library view, rem/Dynamic Type tokens, press states, motion/material/a11y tokens, costed delete, local-date backup names). Still no UI code.
 Next: brainstorm + write the engine redesign spec (per-exercise increments, bad-day tolerance, RPE/RIR, smarter stalls/deloads, layoffs, e1RM cap) before Plan B; execute Plan A in waves whenever Dylan can build.
 

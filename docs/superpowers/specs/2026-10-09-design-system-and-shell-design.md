@@ -1,6 +1,6 @@
 # Overload rewrite — Sub-project 2: Design system, shell and full-parity UI
 
-Date: 2026-10-09 · Branch: `rewrite` · Status: draft for review
+Date: 2026-10-09 (revised 2026-10-17 after an Apple-design audit; target is now the iOS App Store) · Branch: `rewrite` · Status: approved, revised
 Depends on: `2026-10-09-foundation-design.md` (done: TS/Vitest, v2 store, migration, backups, ported engine).
 
 ## Intent
@@ -21,13 +21,16 @@ Out: active-workout mode, gestures/animation (sub-project 3); programs (4); PRs/
 - **Theme setting**: `settings.theme` becomes `"system" | "dark" | "light"` (default `system`). Legacy values (`ember`, `slate`, `violet`, `paper`) are mapped to `system` at read time; the stored value is not rewritten until the user changes it.
 - **Readability gate**: a unit test computes WCAG contrast for every text/background token pair in both themes and fails below 4.5:1 for body/small text and 3:1 for large numerals (≥24px or ≥19px bold).
 - **Layout**: mobile-first, max width 720 centered, safe-area insets honored, 16px side gutters, ≥44px tap targets, no horizontal scroll.
+- **Type tokens in rem** (`--text-xs`…`--text-4xl` = 13…64px at a 16px root) with paired leading and negative tracking for large sizes. On iOS the root is `font: -apple-system-body`, so the whole UI follows the user's text-size setting (Dynamic Type) in Safari and in the native wrap. Inputs are never under 16px.
+- **Touch feedback**: every pressable control shows a pressed state on touch-down (≤100ms); hover styles only under `@media (hover: hover)`; no tap-highlight flash or double-tap delay.
+- **Motion, materials, accessibility tokens** are defined now even though animation work is later: duration/easing tokens, a translucent `--material` for chrome, and overrides for `prefers-reduced-motion` (slides become fades), `prefers-reduced-transparency` (solid chrome) and `prefers-contrast: more` (stronger hairlines, muted text ≥7:1).
 
 ## Architecture
 - React 19 + TypeScript (strict), CSS Modules + tokens, Zustand store, Recharts (restyled). No Tailwind, no runtime CSS-in-JS.
 - `src/ui/` primitives: Button, IconButton, Card, Field, NumberField, Segmented, Badge, Pill, Collapsible, EmptyState, Toast.
 - `src/features/{log,exercises,stats,history,settings,timer}/` one folder per screen with components, tests and CSS modules.
 - `src/state/store.ts`: wraps `bootStore`/`saveDoc`; exposes selectors (`entriesByExercise`, suggestions via the domain engine) and actions mirroring today's behavior (add/edit/remove block, upsert session by date, cascade delete exercise, add group, update settings, import/export). Every mutation writes the whole v2 doc once; a write failure surfaces a visible error and rolls back in-memory state.
-- `src/app/`: shell (header with title and gear, three-tab bar Log/Stats/History), loading and error screens, ErrorBoundary.
+- `src/app/`: shell (header with title and gear; **bottom** tab bar Log/Stats/History with icons, translucent, above the home indicator), loading and error screens, ErrorBoundary. **Settings is a modal sheet** opened by the gear (Done / Escape close it, the page behind is inert); **Manage exercises is the sheet's "Exercise library" view** with Back to Settings, not part of the Log card. The rest timer docks directly above the tab bar.
 - Engine stays in `src/domain` untouched.
 
 ## Persistence and migration at launch
@@ -42,6 +45,13 @@ Out: active-workout mode, gestures/animation (sub-project 3); programs (4); PRs/
 4. **Clear validation messages** instead of silent no-ops/reverts: blank exercise name, no valid set rows, out-of-range or non-numeric settings, and failed imports each explain themselves. Import shows counts (exercises/sessions) and asks for confirmation before replacing; v1 import is documented as a full replace.
 
 Everything else matches the parity appendix below, including quirks that are product decisions (one session per date, unit relabel without conversion, unit change resets increment, "Done" auto-dismiss after 5s, etc.).
+
+## App Store readiness (new 2026-10-17)
+The app ships to the iOS App Store via the Capacitor wrap (sub-project 6), so the web UI is built to pass review and feel native from the start:
+- **Native conventions**: bottom tab bar, sheets with Done, Back in nested views, no hidden pseudo-tabs, system accessibility settings honored (Dynamic Type, reduced motion/transparency, more contrast, VoiceOver labels on every icon button).
+- **Platform seams**: file export goes through `downloadText` only (an `<a download>` does not work inside WKWebView; the wrap swaps in the iOS share sheet); storage goes through `KeyValueStore` only (iOS can evict WKWebView localStorage, so the wrap moves `overload.v2` to native storage with a one-time migration); haptics and notifications get the same one-module treatment when they arrive.
+- **Guideline 4.2 (minimum functionality)**: a plain wrapped website risks rejection. The native wrap must add real device features: rest-timer local notifications, haptics on set completion and timer end, and optionally writing workouts to Apple Health.
+- **Privacy**: no network calls and no accounts, so the privacy label is "Data Not Collected"; a hosted privacy-policy page is still required (Stage C).
 
 ## Testing
 - **Parity tests**: component tests (Vitest + Testing Library + jsdom) each tagged with the appendix item they cover; every appendix row maps to a test or is marked "visual-only" and covered by screenshot review.
@@ -73,7 +83,7 @@ Everything else matches the parity appendix below, including quirks that are pro
 
 **Data/persistence** — 4 localStorage keys → now `overload.v2`; one session per date (upsert by date; empty blocks ⇒ session removed); `mergeSettings` for partial/old settings; ids via `uid()`; unit is a label only; fixed groups Chest/Back/Shoulders/Legs/Arms/Core + custom + any group used by an exercise; missing group buckets as "Other"; local-date `ymd` (never UTC).
 
-**Shell** — title "Overload" with icon; gear → Settings (not a tab); tabs Log/Stats/History; loading text while data loads; ErrorBoundary ("Something broke", Reload button, error text).
+**Shell** — title "Overload" with icon; gear → Settings (now a sheet, was a pseudo-tab); tabs Log/Stats/History (now at the bottom); loading text while data loads; ErrorBoundary ("Something broke", Reload button, error text).
 
 **Log** — date input (default today, local); workout name ("e.g. Push Day, Leg Day..."), autosaves only once blocks exist, otherwise saved with first block, empty allowed (History shows "Workout"); "Exercises on {date}" card with name, type badge, group, set pills, "(deleted exercise)" fallback, edit pencil and remove X; add/edit card ("Add exercise"/"Editing exercise"); "Manage exercises"/"Close" toggle; "+ New exercise" (hidden while editing; auto-open when no exercises); exercise picker grouped by muscle group, shows "{name} — {type}", disabled while editing, falls back to first exercise; new-exercise form (name, compound/isolation toggle with target-range hint, group select + "+ New group" free text/"Use list", "Add exercise"; blank name ignored; trimmed; custom group not added to `customGroups`); suggestion banner and warm-up ramp shown only with an active exercise, form closed, not editing; they and the "Last · {date}" card use prior entries **excluding the date being edited**; set editor (rows weight × reps, Working/Warm-up toggle, remove row, "+ Add set"; rows missing weight or reps dropped; "Add to workout"/"Save changes"/"Cancel"); edit loads sets as strings and keeps id/position; "Add to sets" keeps manual non-warm-up rows, drops warm-up rows, appends blank row.
 

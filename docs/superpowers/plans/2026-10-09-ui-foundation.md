@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the design system, app store, shell, Settings screen and Manage-exercises screen of the new Overload UI on the foundation data layer, served at a temporary `/next.html` entry while the old app keeps shipping.
+**Goal:** Build the design system, app store, shell (bottom tab bar + sheets), the Settings sheet and the Exercise library of the new Overload UI on the foundation data layer, served at a temporary `/next.html` entry while the old app keeps shipping.
+
+> **Revision 2026-10-17 (Apple-design audit, App Store target).** Changes from the 2026-10-09 draft: tabs move to a translucent bottom tab bar; Settings opens as a sheet with Done instead of acting as a hidden fourth tab; Manage exercises becomes the "Exercise library" view inside that sheet (with Back) instead of living in the Log placeholder; type sizes become `rem` tokens that honor the iOS text-size setting; motion, material and accessibility tokens (`prefers-reduced-motion`, `prefers-reduced-transparency`, `prefers-contrast: more`) are defined now so later animation work doesn't retrofit them; every pressable control gets an instant pressed state and hover only on hover-capable devices; segmented options reach 44px; delete-exercise confirmation states how many sessions it removes and can be cancelled; backup filenames use the local date (the draft used UTC); `next.html` gets per-scheme `theme-color`. Engine behavior is unchanged in Plan A; the engine redesign gets its own spec before Plan B.
 
 **Architecture:** React 19 + TypeScript. CSS variables (tokens) with CSS Modules; Zustand vanilla stores injected with a `KeyValueStore` so every test runs on an in-memory store. UI screens read/write only through store actions, which persist the whole `overload.v2` document and roll back on failure. The legacy `src/App.jsx`, `index.html` and the 62 foundation tests are untouched.
 
@@ -13,14 +15,18 @@
 ## Global Constraints
 
 - Dark tokens: bg `#0e1118`, surface `#161a24`, surface2 `#1d2230`, line `#222836`, text `#e9edf5`, accent `#3fd0c9`, on-accent `#04191a`. Light tokens: bg `#f6f4ef`, surface `#ffffff`, line `#e4e0d6`, text `#15181f`. The contrast test is authoritative for the remaining values; when it rejects a value, change the value, never the threshold, and say so in the commit.
-- Contrast thresholds: 4.5:1 for body/small text, 3:1 for large numerals (≥24px, or ≥19px bold). No `font-size` below 13px in any CSS under `src/`; inputs 16px.
-- Tap targets ≥44px tall (`min-height: 44px`) for buttons, inputs, tabs.
+- Contrast thresholds: 4.5:1 for body/small text, 3:1 for large numerals (≥24px, or ≥19px bold). No `font-size` below 13px (0.8125rem) in any CSS under `src/`; inputs never under 16px (`max(16px, var(--text-base))`).
+- Font sizes in CSS Modules use the `--text-*` tokens (rem), never raw px, so the layout scales with the iPhone text-size setting.
+- Tap targets ≥44px tall (`min-height: 44px`) for buttons, inputs, tabs and segmented options.
+- Every pressable control has an `:active` pressed state that appears on touch-down (≤100ms, `--dur-press`). Hover styles live only inside `@media (hover: hover)` so they never stick after a tap on iOS.
+- Motion uses the `--dur-*`/`--ease-*` tokens; under `prefers-reduced-motion: reduce` movement becomes a cross-fade (`--motion-offset: 0`), never a hard cut and never a slide.
+- App Store target: the UI must read as a native iOS app (bottom tab bar, sheets with Done, no hidden pseudo-tabs). Platform calls that differ between browser and native (file download, haptics, notifications, storage) go through one small module each so the Capacitor wrap can swap them.
 - Type: Inter (`@fontsource-variable/inter`, family name "Inter Variable") with `font-variant-numeric: tabular-nums` on numerals; JetBrains Mono for set logs/timer.
 - Theme preference is `settings.theme` ∈ `"system" | "dark" | "light"`; any other stored value (legacy `ember`, `slate`, `violet`, `paper`, or missing) is treated as `system` at read time and is not rewritten until the user changes it.
 - Legacy keys `exercises`, `sessions`, `customGroups`, `settings` are never written. `overload.v2` is written only through `saveDoc` (whole document, one write). Transient UI state uses a separate key `overload.v2.ui`.
 - Do not modify `src/App.jsx`, `index.html`, `src/storage.js`, `src/index.css` or the engine in `src/domain/progression.ts`.
 - Gate for every task: `npm test && npm run typecheck && npm run lint` must pass before commit.
-- Commit messages end with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>` (shown as the second `-m`).
+- Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (shown as the second `-m`).
 - Work on branch `rewrite`.
 
 ## Review Focus
@@ -36,17 +42,18 @@
 ```
 next.html                         temporary entry for the new UI (cutover is Plan C)
 src/next/main.tsx                 renders <App kv={localStorage KV}/>
-src/styles/tokens.css             design tokens, dark + light
-src/styles/base.css               reset, typography, focus ring, safe areas
+src/styles/tokens.css             design tokens, dark + light (colors, type, motion, material)
+src/styles/a11y.css               reduced-motion, reduced-transparency, more-contrast overrides
+src/styles/base.css               reset, typography, focus ring, touch behavior, safe areas
 src/domain/theme.ts               ThemePref, themePreference()
-src/domain/exercises.ts           allMuscleGroups, groupByMuscleFull, deleteExerciseCascade, addCustomGroup
+src/domain/exercises.ts           allMuscleGroups, groupByMuscleFull, deleteExerciseCascade, addCustomGroup, sessionsWithExercise
 src/state/appStore.ts             createAppStore(kv): doc + actions + persistence/rollback
-src/state/uiStore.ts              createUiStore(kv): tab (more in Plan B), key overload.v2.ui
+src/state/uiStore.ts              createUiStore(kv): tab + open sheet (more in Plan B), key overload.v2.ui
 src/state/context.tsx             StoreProvider, useApp, useUi, useKv
-src/ui/*.tsx + *.module.css       Button, IconButton, Card, Input/Select/Field, NumberField, Segmented, TypeBadge, EmptyState
+src/ui/*.tsx + *.module.css       Button, IconButton, Card, Input/Select/Field, NumberField, Segmented, TypeBadge, EmptyState, Sheet
 src/app/App.tsx                   boot, theme apply, routing by tab
-src/app/{Header,ErrorScreen,ErrorBoundary,MigrationBanner,SaveErrorBar}.tsx
-src/app/{theme.ts,download.ts}    applyTheme, downloadText
+src/app/{Header,TabBar,ErrorScreen,ErrorBoundary,Banner}.tsx
+src/app/{theme.ts,download.ts}    applyTheme, downloadText, backupFilename
 src/features/settings/SettingsScreen.tsx
 src/features/exercises/ExercisesManager.tsx
 src/features/placeholders.tsx     temporary Log/Stats/History placeholders
@@ -182,6 +189,11 @@ createRoot(document.getElementById("root")!).render(
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
     <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1118" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f4ef" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Overload" />
     <title>Overload</title>
   </head>
   <body>
@@ -199,7 +211,7 @@ Expected: all prior tests plus the toolchain test pass (63 total); typecheck/lin
 - [ ] **Step 10: Commit**
 
 ```bash
-git add -A && git commit -m "build: add React/jsdom test toolchain and /next.html entry" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "build: add React/jsdom test toolchain and /next.html entry" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -207,11 +219,13 @@ git add -A && git commit -m "build: add React/jsdom test toolchain and /next.htm
 ### Task 2: Design tokens, base styles, theme preference and the contrast gate
 
 **Files:**
-- Create: `src/styles/tokens.css`, `src/domain/theme.ts`, `src/app/theme.ts`, `tests/helpers/contrast.ts`, `tests/styles/tokens.test.ts`, `tests/domain/theme.test.ts`, `tests/app/theme.test.ts`
+- Create: `src/styles/tokens.css`, `src/styles/a11y.css`, `src/domain/theme.ts`, `src/app/theme.ts`, `tests/helpers/contrast.ts`, `tests/styles/tokens.test.ts`, `tests/domain/theme.test.ts`, `tests/app/theme.test.ts`
 - Modify: `src/styles/base.css`, `src/next/main.tsx` (import tokens)
 
 **Interfaces:**
-- Produces: CSS variables `--bg --surface --surface2 --line --text --muted --accent --on-accent --warn --danger --on-danger` (+ `--accent-soft --warn-soft --danger-soft`, `--font-body --font-mono --radius --radius-sm`); `type ThemePref = "system" | "dark" | "light"`; `themePreference(stored: string | undefined): ThemePref`; `applyTheme(pref: ThemePref, root?: HTMLElement): void`; `contrast(hexA: string, hexB: string): number`.
+- Produces: CSS variables `--bg --surface --surface2 --line --text --muted --accent --on-accent --warn --danger --on-danger` (+ `--accent-soft --warn-soft --danger-soft`, `--font-body --font-mono --radius --radius-sm`); type scale `--text-xs` (13) `--text-sm` (14) `--text-md` (15) `--text-base` (16) `--text-lg` (17) `--text-xl` (22) `--text-2xl` (28) `--text-3xl` (40) `--text-4xl` (64), in rem, with `--leading-tight --leading-snug` and `--tracking-tight --tracking-tighter`; motion `--dur-press --dur-fast --dur-sheet --ease-out --motion-offset`; material `--material --material-blur --scrim`; layout `--tabbar-h`; `type ThemePref = "system" | "dark" | "light"`; `themePreference(stored: string | undefined): ThemePref`; `applyTheme(pref: ThemePref, root?: HTMLElement): void`; `contrast(hexA: string, hexB: string): number`.
+
+Why rem: on iOS `html { font: -apple-system-body }` sets the root size from the user's text-size setting (17px at the default), so `rem` tokens scale with Dynamic Type in Safari and in the later WKWebView wrap. Browsers without that keyword keep the 16px root.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -291,16 +305,48 @@ function cssFiles(dir: string): string[] {
   );
 }
 
+// Sizes in px, rem (at the 16px web root) or as --text-* token definitions; anything under 13px fails.
+const SIZE = /(?:font(?:-size)?|--text-[\w-]+):\s*(?:[\w-]+\s+)*?(\d*\.?\d+)(px|rem)/g;
+
 describe("typography floor", () => {
-  it("no CSS under src/ sets a font-size below 13px", () => {
+  it("no CSS under src/ sets a font-size or type token below 13px", () => {
     const offenders: string[] = [];
     for (const file of cssFiles("src")) {
       const text = readFileSync(file, "utf8");
-      for (const m of text.matchAll(/font(?:-size)?:\s*(?:[\w-]+\s+)*?(\d+(?:\.\d+)?)px/g)) {
-        if (Number(m[1]) < 13) offenders.push(`${file}: ${m[0]}`);
+      for (const m of text.matchAll(SIZE)) {
+        const px = m[2] === "rem" ? Number(m[1]) * 16 : Number(m[1]);
+        if (px < 13) offenders.push(`${file}: ${m[0]}`);
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("CSS Modules use type tokens, not raw font sizes", () => {
+    const raw = cssFiles("src")
+      .filter((f) => f.endsWith(".module.css"))
+      .flatMap((f) => [...readFileSync(f, "utf8").matchAll(/font-size:\s*(\d[^;]*)/g)].map((m) => `${f}: ${m[1]}`));
+    expect(raw).toEqual([]);
+  });
+});
+
+describe("accessibility overrides (a11y.css)", () => {
+  const a11y = readFileSync("src/styles/a11y.css", "utf8");
+
+  it("handles reduced motion, reduced transparency and more contrast", () => {
+    expect(a11y).toContain("prefers-reduced-motion: reduce");
+    expect(a11y).toContain("prefers-reduced-transparency: reduce");
+    expect(a11y).toContain("prefers-contrast: more");
+  });
+
+  it("more-contrast muted text reaches 7:1 on every background in both themes", () => {
+    // Order in the file: dark block, explicit light block, system-light block.
+    const muted = [...a11y.matchAll(/--muted:\s*(#[0-9a-fA-F]{6})/g)].map((m) => m[1]!);
+    expect(muted).toHaveLength(3);
+    expect(muted[1]).toBe(muted[2]);
+    for (const bg of BACKGROUNDS) {
+      expect(contrast(muted[0]!, dark[bg]!)).toBeGreaterThanOrEqual(7);
+      expect(contrast(muted[1]!, light[bg]!)).toBeGreaterThanOrEqual(7);
+    }
   });
 });
 ```
@@ -372,6 +418,35 @@ Expected: FAIL — `tokens.css` missing, theme modules missing.
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --radius: 16px;
   --radius-sm: 12px;
+
+  /* Type scale (rem follows the iOS text-size setting; 13px floor, see the typography test). */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-base: 1rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.5rem;
+  --text-4xl: 4rem;
+  --leading-tight: 1.05; /* 40px+ numerals and the timer */
+  --leading-snug: 1.2; /* 22-28px titles */
+  --tracking-tight: -0.02em; /* 22-28px */
+  --tracking-tighter: -0.03em; /* 40px+ */
+
+  /* Motion. Springs and gestures arrive in the active-workout sub-project; these keep CSS motion consistent until then. */
+  --dur-press: 90ms;
+  --dur-fast: 180ms;
+  --dur-sheet: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --motion-offset: 1; /* multiplier for travel distance; 0 under reduced motion turns slides into fades */
+
+  /* Materials: translucent chrome that content scrolls under. */
+  --material: rgba(22, 26, 36, 0.72);
+  --material-blur: saturate(180%) blur(20px);
+  --scrim: rgba(4, 6, 10, 0.5);
+
+  --tabbar-h: 56px;
 }
 
 :root[data-theme="light"] {
@@ -390,6 +465,8 @@ Expected: FAIL — `tokens.css` missing, theme modules missing.
   --accent-soft: rgba(8, 107, 102, 0.12);
   --warn-soft: rgba(138, 90, 0, 0.12);
   --danger-soft: rgba(179, 38, 30, 0.1);
+  --material: rgba(255, 255, 255, 0.72);
+  --scrim: rgba(21, 24, 31, 0.32);
 }
 
 @media (prefers-color-scheme: light) {
@@ -409,28 +486,68 @@ Expected: FAIL — `tokens.css` missing, theme modules missing.
     --accent-soft: rgba(8, 107, 102, 0.12);
     --warn-soft: rgba(138, 90, 0, 0.12);
     --danger-soft: rgba(179, 38, 30, 0.1);
+    --material: rgba(255, 255, 255, 0.72);
+    --scrim: rgba(21, 24, 31, 0.32);
   }
 }
 ```
 
-- [ ] **Step 4: Create `src/styles/base.css`**
+- [ ] **Step 4: Create `src/styles/a11y.css` and `src/styles/base.css`**
 
+`src/styles/a11y.css` (system accessibility settings; keep the `--muted` order dark → explicit light → system light, the test relies on it):
+```css
+/* Reduced motion: keep feedback, drop travel. Slides become short cross-fades. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-offset: 0; --dur-sheet: 200ms; }
+}
+
+/* Reduced transparency: solid chrome, no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --material: var(--surface); --material-blur: none; }
+}
+
+/* More contrast: stronger hairlines and secondary text. */
+@media (prefers-contrast: more) {
+  :root { --line: #4a5368; --muted: #b8c0cf; }
+  :root[data-theme="light"] { --line: #9a9384; --muted: #424956; }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) { --line: #9a9384; --muted: #424956; }
+}
+```
+
+`src/styles/base.css`:
 ```css
 @import "./tokens.css";
+@import "./a11y.css";
 
 *, *::before, *::after { box-sizing: border-box; }
+
+/* iOS: root size follows the user's text-size setting. Elsewhere the 100% fallback keeps 16px. */
+html { font-size: 100%; }
+@supports (font: -apple-system-body) {
+  html { font: -apple-system-body; }
+}
 
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 
 body {
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--text-base);
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
+
+/* Touch: no grey tap flash, no double-tap-zoom delay; pressed states come from :active. */
+button, a, label, input, select, textarea, [role="tab"], [role="radio"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -465,12 +582,12 @@ export function applyTheme(pref: ThemePref, root: HTMLElement = document.documen
 - [ ] **Step 6: Run the tests; fix values, never thresholds**
 
 Run: `npm test && npm run typecheck && npm run lint`
-Expected: PASS. If a contrast assertion fails, change that token value in **both** the explicit light block and the media block (the consistency test enforces equality), re-run, and note the changed value in the commit message.
+Expected: PASS. If a contrast assertion fails, change that token value in **both** the explicit light block and the media block (the consistency test enforces equality), re-run, and note the changed value in the commit message. The same rule applies to the more-contrast values in `a11y.css`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "feat(ui): add design tokens, theme preference and contrast gate" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(ui): add design tokens, theme preference and contrast gate" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -478,8 +595,8 @@ git add -A && git commit -m "feat(ui): add design tokens, theme preference and c
 ### Task 3: UI primitives
 
 **Files:**
-- Create: `src/ui/Button.tsx`, `Button.module.css`, `IconButton.tsx`, `IconButton.module.css`, `Card.tsx`, `Card.module.css`, `Field.tsx`, `Field.module.css`, `NumberField.tsx`, `Segmented.tsx`, `Segmented.module.css`, `TypeBadge.tsx`, `TypeBadge.module.css`, `EmptyState.tsx`, `EmptyState.module.css`
-- Test: `tests/ui/Button.test.tsx`, `tests/ui/NumberField.test.tsx`, `tests/ui/Segmented.test.tsx`, `tests/ui/primitives.test.tsx`
+- Create: `src/ui/Button.tsx`, `Button.module.css`, `IconButton.tsx`, `IconButton.module.css`, `Card.tsx`, `Card.module.css`, `Field.tsx`, `Field.module.css`, `NumberField.tsx`, `Segmented.tsx`, `Segmented.module.css`, `TypeBadge.tsx`, `TypeBadge.module.css`, `EmptyState.tsx`, `EmptyState.module.css`, `Sheet.tsx`, `Sheet.module.css`
+- Test: `tests/ui/Button.test.tsx`, `tests/ui/NumberField.test.tsx`, `tests/ui/Segmented.test.tsx`, `tests/ui/primitives.test.tsx`, `tests/ui/Sheet.test.tsx`
 
 **Interfaces:**
 - Produces:
@@ -490,6 +607,7 @@ git add -A && git commit -m "feat(ui): add design tokens, theme preference and c
   - `NumberField({ label: string; value: number; min?: number; max?: number; onChange(v: number): void })` and `rangeMessage(min?, max?): string`
   - `Segmented<T extends string>({ label: string; value: T; options: { value: T; label: string }[]; onChange(v: T): void })`
   - `TypeBadge({ type: "compound" | "isolation" })`, `EmptyState({ text: string })`
+  - `Sheet({ title: string; onClose(): void; onBack?: () => void; backLabel?: string; children: ReactNode })` — modal bottom sheet (`role="dialog"`, `aria-modal`), Done button and Escape close it, focus moves into it on open and back to the opener on close. The caller renders it only while open and marks the rest of the page `inert`.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -725,10 +843,13 @@ export function Button({ variant = "secondary", block = false, className, type =
   padding: 0 18px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
 }
+.btn { transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-press) var(--ease-out); }
+/* Pressed state on touch-down, not on release. */
+.btn:active:not(:disabled) { transform: scale(0.97); opacity: 0.85; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .block { width: 100%; }
 .primary { background: var(--accent); color: var(--on-accent); }
@@ -770,7 +891,11 @@ export function IconButton({ label, children, className, type = "button", ...res
   color: var(--muted);
   cursor: pointer;
 }
-.icon:hover { color: var(--text); }
+.icon { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.icon:active:not(:disabled) { transform: scale(0.92); background: var(--surface2); }
+@media (hover: hover) {
+  .icon:hover { color: var(--text); }
+}
 ```
 
 - [ ] **Step 4: Implement `Card`, `Field`/`Input`/`Select`, `TypeBadge`, `EmptyState`**
@@ -792,7 +917,7 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
 `src/ui/Card.module.css`:
 ```css
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
-.title { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.title { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 ```
 
 `src/ui/Field.tsx`:
@@ -821,7 +946,7 @@ export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectEl
 `src/ui/Field.module.css`:
 ```css
 .field { display: flex; flex-direction: column; gap: 6px; }
-.label { font-size: 13px; color: var(--muted); }
+.label { font-size: var(--text-xs); color: var(--muted); }
 .control {
   width: 100%;
   min-height: 44px;
@@ -830,10 +955,10 @@ export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectEl
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 16px; /* 16px prevents iOS zoom-on-focus */
+  font-size: max(16px, var(--text-base)); /* never under 16px: iOS zooms on focus below that */
 }
 .control[aria-invalid="true"] { border-color: var(--danger); }
-.error { font-size: 13px; color: var(--danger); }
+.error { font-size: var(--text-xs); color: var(--danger); }
 ```
 
 `src/ui/TypeBadge.tsx`:
@@ -847,7 +972,7 @@ export function TypeBadge({ type }: { type: "compound" | "isolation" }) {
 ```
 `src/ui/TypeBadge.module.css`:
 ```css
-.badge { display: inline-block; font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 999px; }
+.badge { display: inline-block; font-size: var(--text-xs); font-weight: 500; padding: 2px 8px; border-radius: 999px; }
 .compound { color: var(--accent); background: var(--accent-soft); }
 .isolation { color: var(--warn); background: var(--warn-soft); }
 ```
@@ -862,7 +987,7 @@ export function EmptyState({ text }: { text: string }) {
 ```
 `src/ui/EmptyState.module.css`:
 ```css
-.empty { padding: 40px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius-sm); font-size: 15px; }
+.empty { padding: 40px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius-sm); font-size: var(--text-md); }
 ```
 
 - [ ] **Step 5: Implement `NumberField` and `Segmented`**
@@ -966,8 +1091,145 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
 `src/ui/Segmented.module.css`:
 ```css
 .group { display: flex; gap: 4px; padding: 4px; background: var(--surface2); border-radius: var(--radius-sm); }
-.option { flex: 1; min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 15px; font-weight: 500; cursor: pointer; }
+.option { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: var(--text-md); font-weight: 500; cursor: pointer; }
 .active { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.option { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.option:active:not(.active) { background: var(--accent-soft); }
+```
+
+`tests/ui/Sheet.test.tsx`:
+```tsx
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Sheet } from "../../src/ui/Sheet";
+
+describe("Sheet", () => {
+  it("is a labelled modal dialog that takes focus", () => {
+    render(<Sheet title="Settings" onClose={() => {}}>body</Sheet>);
+    const dialog = screen.getByRole("dialog", { name: "Settings" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveFocus();
+  });
+  it("closes on Done and on Escape", async () => {
+    const onClose = vi.fn();
+    render(<Sheet title="Settings" onClose={onClose}>body</Sheet>);
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+  it("shows a Back button only when onBack is given", async () => {
+    const onBack = vi.fn();
+    const { rerender } = render(<Sheet title="Exercises" onClose={() => {}}>x</Sheet>);
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+    rerender(<Sheet title="Exercises" onClose={() => {}} onBack={onBack} backLabel="Settings">x</Sheet>);
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+  it("returns focus to the opener when it unmounts", () => {
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+    const { unmount } = render(<Sheet title="Settings" onClose={() => {}}>x</Sheet>);
+    unmount();
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
+});
+```
+
+`src/ui/Sheet.tsx`:
+```tsx
+import { ChevronLeft } from "lucide-react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
+import { Button } from "./Button";
+import styles from "./Sheet.module.css";
+
+export interface SheetProps {
+  title: string;
+  onClose: () => void;
+  onBack?: () => void;
+  backLabel?: string;
+  children: ReactNode;
+}
+
+// Modal bottom sheet, iOS style: rises from the bottom edge, Done top-right, optional Back top-left.
+// Drag-to-dismiss and spring motion come with the gestures sub-project.
+export function Sheet({ title, onClose, onBack, backLabel = "Back", children }: SheetProps) {
+  const titleId = useId();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    return () => opener?.focus();
+  }, []);
+
+  return (
+    <div className={styles.layer}>
+      <div className={styles.scrim} onClick={onClose} aria-hidden />
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={styles.sheet}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
+      >
+        <header className={styles.bar}>
+          <div className={styles.side}>
+            {onBack && (
+              <Button variant="ghost" onClick={onBack}>
+                <ChevronLeft size={20} aria-hidden />
+                {backLabel}
+              </Button>
+            )}
+          </div>
+          <h2 id={titleId} className={styles.title}>{title}</h2>
+          <div className={[styles.side, styles.end].join(" ")}>
+            <Button variant="ghost" onClick={onClose}>Done</Button>
+          </div>
+        </header>
+        <div className={styles.body}>{children}</div>
+      </div>
+    </div>
+  );
+}
+```
+`src/ui/Sheet.module.css`:
+```css
+.layer { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); animation: fade var(--dur-sheet) var(--ease-out); }
+.sheet {
+  position: relative; width: 100%; max-width: 720px;
+  max-height: calc(100% - env(safe-area-inset-top) - 12px);
+  display: flex; flex-direction: column;
+  background: var(--bg); border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.28);
+  animation: rise var(--dur-sheet) var(--ease-out);
+  outline: none;
+}
+.bar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  min-height: 56px; padding: 0 8px; border-bottom: 1px solid var(--line);
+}
+.side { display: flex; }
+.end { justify-content: flex-end; }
+.title { font-size: var(--text-lg); font-weight: 600; }
+.body {
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 16px max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+/* Travel scales with --motion-offset, so reduced motion turns the rise into a fade. */
+@keyframes rise {
+  from { transform: translateY(calc(40px * var(--motion-offset))); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 ```
 
 - [ ] **Step 6: Run the gate**
@@ -978,7 +1240,7 @@ Expected: PASS (the typography-floor test also scans the new CSS: all sizes ≥1
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "feat(ui): add Button, Card, Field, NumberField, Segmented and badges" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(ui): add Button, Card, Field, NumberField, Segmented, Sheet and badges" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 
@@ -995,6 +1257,7 @@ git add -A && git commit -m "feat(ui): add Button, Card, Field, NumberField, Seg
   - `groupByMuscle(exercises): Record<string, Exercise[]>` and `groupByMuscleFull(allGroups: string[], exercises): Record<string, Exercise[]>` (missing group → `"Other"`)
   - `deleteExerciseCascade(doc: StoreDoc, id: string): StoreDoc`
   - `type AddGroupResult = "added" | "empty" | "duplicate"`; `addCustomGroup(doc: StoreDoc, name: string): { doc: StoreDoc; result: AddGroupResult }`
+  - `sessionsWithExercise(doc: StoreDoc, id: string): number` (how many logged sessions a delete would touch; shown in the delete confirmation)
 
 - [ ] **Step 1: Write the failing test `tests/domain/exercises.test.ts`**
 
@@ -1002,7 +1265,7 @@ git add -A && git commit -m "feat(ui): add Button, Card, Field, NumberField, Seg
 import { describe, it, expect } from "vitest";
 import { emptyDoc } from "../../src/data/store";
 import {
-  MUSCLE_GROUPS, addCustomGroup, allMuscleGroups, deleteExerciseCascade, groupByMuscle, groupByMuscleFull,
+  MUSCLE_GROUPS, addCustomGroup, allMuscleGroups, deleteExerciseCascade, groupByMuscle, groupByMuscleFull, sessionsWithExercise,
 } from "../../src/domain/exercises";
 import type { Exercise, StoreDoc } from "../../src/domain/types";
 
@@ -1053,6 +1316,14 @@ describe("deleteExerciseCascade", () => {
     deleteExerciseCascade(doc, "bench");
     expect(doc.exercises).toHaveLength(2);
     expect(doc.sessions).toHaveLength(2);
+  });
+});
+
+describe("sessionsWithExercise", () => {
+  it("counts sessions containing the exercise", () => {
+    expect(sessionsWithExercise(docWith(), "bench")).toBe(2);
+    expect(sessionsWithExercise(docWith(), "curl")).toBe(1);
+    expect(sessionsWithExercise(docWith(), "nope")).toBe(0);
   });
 });
 
@@ -1121,6 +1392,10 @@ export function deleteExerciseCascade(doc: StoreDoc, id: string): StoreDoc {
   };
 }
 
+export function sessionsWithExercise(doc: StoreDoc, id: string): number {
+  return doc.sessions.filter((s) => s.blocks.some((b) => b.exerciseId === id)).length;
+}
+
 export type AddGroupResult = "added" | "empty" | "duplicate";
 
 export function addCustomGroup(doc: StoreDoc, name: string): { doc: StoreDoc; result: AddGroupResult } {
@@ -1140,7 +1415,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "feat(domain): add exercise grouping, cascade delete and custom-group helpers" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(domain): add exercise grouping, cascade delete, usage count and custom-group helpers" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1172,7 +1447,7 @@ git add -A && git commit -m "feat(domain): add exercise grouping, cascade delete
     }
     ```
     Every mutating action updates `doc` immediately, then persists via `saveDoc`; on a write error it restores the previous `doc`, sets `saveError` (`"Couldn't save: <message>"`) and returns `false`/`"failed"`.
-  - `UI_KEY = "overload.v2.ui"`, `type Tab = "log" | "stats" | "history" | "settings"`, `createUiStore(kv): StoreApi<UiState>` with `{ tab: Tab; setTab(t: Tab): void; hydrate(): Promise<void> }`. Persisted JSON: `{ version: 1, tab }`. All UI-state I/O errors are swallowed (transient state must never block the app).
+  - `UI_KEY = "overload.v2.ui"`, `type Tab = "log" | "stats" | "history"`, `type SheetId = "settings" | "exercises"`, `createUiStore(kv): StoreApi<UiState>` with `{ tab: Tab; sheet: SheetId | null; setTab(t: Tab): void; openSheet(s: SheetId): void; closeSheet(): void; hydrate(): Promise<void> }`. Persisted JSON: `{ version: 1, tab }` (an open sheet is not persisted; a reload lands on the tab). All UI-state I/O errors are swallowed (transient state must never block the app).
   - Test helper `seedLegacy(b: BackupV1): ReturnType<typeof createMemoryKV>` (the four legacy keys).
 
 - [ ] **Step 1: Write the failing tests**
@@ -1328,11 +1603,24 @@ describe("uiStore", () => {
   });
 
   it("falls back to log for corrupt or unknown stored state", async () => {
-    for (const raw of ["{nope", JSON.stringify({ version: 1, tab: "bogus" }), "null"]) {
+    for (const raw of ["{nope", JSON.stringify({ version: 1, tab: "bogus" }), JSON.stringify({ version: 1, tab: "settings" }), "null"]) {
       const store = createUiStore(createMemoryKV({ [UI_KEY]: raw }));
       await store.getState().hydrate();
       expect(store.getState().tab).toBe("log");
     }
+  });
+
+  it("opens and closes sheets without persisting them", async () => {
+    const kv = createMemoryKV();
+    const store = createUiStore(kv);
+    store.getState().openSheet("settings");
+    expect(store.getState().sheet).toBe("settings");
+    store.getState().openSheet("exercises");
+    expect(store.getState().sheet).toBe("exercises");
+    store.getState().closeSheet();
+    expect(store.getState().sheet).toBeNull();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(kv.dump()[UI_KEY]).toBeUndefined();
   });
 
   it("never throws when storage fails", async () => {
@@ -1446,12 +1734,16 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import type { KeyValueStore } from "../data/kv";
 
 export const UI_KEY = "overload.v2.ui";
-export type Tab = "log" | "stats" | "history" | "settings";
-const TABS: readonly Tab[] = ["log", "stats", "history", "settings"];
+export type Tab = "log" | "stats" | "history";
+const TABS: readonly Tab[] = ["log", "stats", "history"];
+export type SheetId = "settings" | "exercises";
 
 export interface UiState {
   tab: Tab;
+  sheet: SheetId | null;
   setTab(tab: Tab): void;
+  openSheet(sheet: SheetId): void;
+  closeSheet(): void;
   hydrate(): Promise<void>;
 }
 
@@ -1465,10 +1757,13 @@ export function createUiStore(kv: KeyValueStore): UiStore {
     }
     return {
       tab: "log",
+      sheet: null,
       setTab(tab) {
         set({ tab });
         save();
       },
+      openSheet: (sheet) => set({ sheet }),
+      closeSheet: () => set({ sheet: null }),
       async hydrate() {
         try {
           const raw = await kv.get(UI_KEY);
@@ -1493,7 +1788,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A && git commit -m "feat(state): add app store with rollback-on-failure and ui store" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(state): add app store with rollback-on-failure and ui store" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1501,14 +1796,14 @@ git add -A && git commit -m "feat(state): add app store with rollback-on-failure
 ### Task 6: App shell, error handling and migration banner
 
 **Files:**
-- Create: `src/state/context.tsx`, `src/app/Shell.tsx`, `Shell.module.css`, `Header.tsx`, `Header.module.css`, `ErrorBoundary.tsx`, `ErrorScreen.tsx`, `Banner.tsx`, `Banner.module.css`, `download.ts`, `src/features/placeholders.tsx`, `tests/helpers/blob.ts`, `tests/helpers/renderWithStore.tsx`, `tests/app/shell.test.tsx`, `tests/app/download.test.ts`
+- Create: `src/state/context.tsx`, `src/app/Shell.tsx`, `Shell.module.css`, `Header.tsx`, `Header.module.css`, `TabBar.tsx`, `TabBar.module.css`, `ErrorBoundary.tsx`, `ErrorScreen.tsx`, `Banner.tsx`, `Banner.module.css`, `download.ts`, `src/features/placeholders.tsx`, `tests/helpers/blob.ts`, `tests/helpers/renderWithStore.tsx`, `tests/app/shell.test.tsx`, `tests/app/download.test.ts`
 - Modify: `src/app/App.tsx` (replace stub), `src/data/boot.ts` (add `dumpRaw`), `tests/data/boot.test.ts` (add one test)
 
 **Interfaces:**
 - Consumes: `createAppStore`, `createUiStore`, `exportBackup`, `applyTheme`, `themePreference`, `bootStore`.
 - Produces:
   - `dumpRaw(kv): Promise<Record<string,string>>` — legacy keys **plus** `overload.v2` when present
-  - `downloadText(filename: string, text: string, mime?: string): void`
+  - `downloadText(filename: string, text: string, mime?: string): void` (the one place a file leaves the app; the native wrap swaps it for the iOS share sheet) and `backupFilename(now?: Date): string` → `overload-backup-YYYY-MM-DD.json` from **local** date parts
   - `StoreProvider({ value: { app: AppStore; ui: UiStore; kv: KeyValueStore }, children })`, hooks `useApp(selector)`, `useUi(selector)`, `useKv()`, `useAppStore()`
   - `Shell()` (reads stores from context), `App({ kv })` (creates stores, hydrates, boots)
   - Test helper `renderWithStore(ui, opts?)` → `{ ...renderResult, kv, app, uiStore, user }` (`opts.legacy` defaults to `syntheticBackup()`, `opts.kv` overrides, `opts.init` default true)
@@ -1567,7 +1862,7 @@ export async function renderWithStore(
 ```ts
 // @vitest-environment jsdom
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { downloadText } from "../../src/app/download";
+import { backupFilename, downloadText } from "../../src/app/download";
 import { blobText } from "../helpers/blob";
 
 afterEach(() => vi.restoreAllMocks());
@@ -1590,6 +1885,13 @@ describe("downloadText", () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:x");
   });
 });
+
+describe("backupFilename", () => {
+  it("uses the local calendar date, not UTC (a late-evening export keeps today's date)", () => {
+    expect(backupFilename(new Date(2026, 9, 17, 23, 45))).toBe("overload-backup-2026-10-17.json");
+    expect(backupFilename(new Date(2026, 0, 2, 0, 15))).toBe("overload-backup-2026-01-02.json");
+  });
+});
 ```
 
 `tests/app/shell.test.tsx`:
@@ -1609,7 +1911,7 @@ import { renderWithStore } from "../helpers/renderWithStore";
 import { seedLegacy } from "../helpers/seed";
 
 const download = vi.hoisted(() => vi.fn());
-vi.mock("../../src/app/download", () => ({ downloadText: download }));
+vi.mock("../../src/app/download", async (orig) => ({ ...(await orig<object>()), downloadText: download }));
 
 afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
@@ -1617,24 +1919,36 @@ afterEach(() => {
 });
 
 describe("Shell", () => {
-  it("shows the header, three tabs and a settings button once ready", async () => {
+  it("shows the header, a bottom tab bar with three tabs and a settings button once ready", async () => {
     await renderWithStore(<Shell />);
     expect(screen.getByRole("heading", { name: "Overload" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Sections" }).closest("nav")).toHaveClass("tabbar");
     expect(screen.getByRole("tab", { name: "Log" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Stats" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
   });
 
-  it("switches tabs, persists the choice, and the gear selects no tab", async () => {
+  it("switches tabs and persists the choice", async () => {
     const { user, kv } = await renderWithStore(<Shell />);
     await user.click(screen.getByRole("tab", { name: "Stats" }));
     expect(screen.getByRole("tab", { name: "Stats" })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!).tab).toBe("stats"));
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    for (const name of ["Log", "Stats", "History"]) {
-      expect(screen.getByRole("tab", { name })).toHaveAttribute("aria-selected", "false");
-    }
+  });
+
+  it("the gear opens Settings as a sheet over the current tab; Done closes it and returns focus", async () => {
+    const { user } = await renderWithStore(<Shell />);
+    await user.click(screen.getByRole("tab", { name: "History" }));
+    const gear = screen.getByRole("button", { name: "Settings" });
+    await user.click(gear);
+    const sheet = screen.getByRole("dialog", { name: "Settings" });
+    expect(sheet).toBeInTheDocument();
+    expect(document.querySelector("[data-shell-content]")).toHaveAttribute("inert");
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.querySelector("[data-shell-content]")).not.toHaveAttribute("inert");
+    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute("aria-selected", "true");
+    expect(gear).toHaveFocus();
   });
 
   it("restores the last tab from a previous session", async () => {
@@ -1777,6 +2091,13 @@ export function downloadText(filename: string, text: string, mime = "application
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Backup filename from local calendar parts (never UTC), matching how sessions are dated. */
+export function backupFilename(now: Date = new Date()): string {
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `overload-backup-${now.getFullYear()}-${mm}-${dd}.json`;
+}
 ```
 
 `src/state/context.tsx`:
@@ -1896,50 +2217,27 @@ export function Banner({ tone = "info", role, children }: { tone?: "info" | "err
 ```
 `src/app/Banner.module.css`:
 ```css
-.banner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 16px; margin-bottom: 16px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: 15px; }
+.banner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 16px; margin-bottom: 16px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: var(--text-md); }
 .error { background: var(--danger-soft); }
 ```
 
 `src/app/Header.tsx`:
 ```tsx
 import { Dumbbell, Settings as SettingsIcon } from "lucide-react";
-import type { Tab } from "../state/uiStore";
 import { IconButton } from "../ui/IconButton";
 import styles from "./Header.module.css";
 
-const TABS: { id: Exclude<Tab, "settings">; label: string }[] = [
-  { id: "log", label: "Log" },
-  { id: "stats", label: "Stats" },
-  { id: "history", label: "History" },
-];
-
-export function Header({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+export function Header({ onSettings }: { onSettings: () => void }) {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <div className={styles.titleRow}>
-          <div className={styles.brand}>
-            <Dumbbell size={22} color="var(--accent)" aria-hidden />
-            <h1 className={styles.title}>Overload</h1>
-          </div>
-          <IconButton label="Settings" aria-pressed={tab === "settings"} onClick={() => onTab("settings")}>
-            <SettingsIcon size={20} />
-          </IconButton>
+        <div className={styles.brand}>
+          <Dumbbell size={22} color="var(--accent)" aria-hidden />
+          <h1 className={styles.title}>Overload</h1>
         </div>
-        <nav role="tablist" aria-label="Sections" className={styles.tabs}>
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              type="button"
-              aria-selected={tab === t.id}
-              className={[styles.tab, tab === t.id ? styles.active : ""].filter(Boolean).join(" ")}
-              onClick={() => onTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
+        <IconButton label="Settings" onClick={onSettings}>
+          <SettingsIcon size={22} />
+        </IconButton>
       </div>
     </header>
   );
@@ -1947,15 +2245,67 @@ export function Header({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
 ```
 `src/app/Header.module.css`:
 ```css
-.header { background: var(--surface); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
-.inner { max-width: 720px; margin: 0 auto; padding: 12px max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
-.titleRow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.header { padding-top: env(safe-area-inset-top); }
+.inner { max-width: 720px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 12px max(8px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
 .brand { display: flex; align-items: center; gap: 10px; }
-.title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
-.tabs { display: flex; }
-.tab { flex: 1; min-height: 44px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font-size: 15px; font-weight: 600; cursor: pointer; }
-.active { color: var(--text); border-bottom-color: var(--accent); }
+.title { font-size: var(--text-2xl); font-weight: 700; line-height: var(--leading-snug); letter-spacing: var(--tracking-tight); }
 ```
+
+`src/app/TabBar.tsx` (bottom tab bar, iOS convention: icon over label, within thumb reach):
+```tsx
+import { CalendarDays, ChartLine, NotebookPen, type LucideIcon } from "lucide-react";
+import type { Tab } from "../state/uiStore";
+import styles from "./TabBar.module.css";
+
+const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: "log", label: "Log", icon: NotebookPen },
+  { id: "stats", label: "Stats", icon: ChartLine },
+  { id: "history", label: "History", icon: CalendarDays },
+];
+
+export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
+  return (
+    <nav className={styles.tabbar}>
+      <div role="tablist" aria-label="Sections" className={styles.inner}>
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            role="tab"
+            type="button"
+            aria-selected={tab === id}
+            className={[styles.tab, tab === id ? styles.active : ""].filter(Boolean).join(" ")}
+            onClick={() => onTab(id)}
+          >
+            <Icon size={24} strokeWidth={tab === id ? 2.25 : 1.75} aria-hidden />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+```
+`src/app/TabBar.module.css`:
+```css
+/* Translucent material: content scrolls underneath; solid under reduced transparency (a11y.css). */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  background: var(--material);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.inner { max-width: 720px; margin: 0 auto; display: flex; height: var(--tabbar-h); padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); }
+.tab {
+  flex: 1; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: none; border: 0; color: var(--muted); font-size: var(--text-xs); font-weight: 600; cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.tab:active { transform: scale(0.94); }
+.active { color: var(--accent); }
+```
+Plan B docks the rest timer directly above this bar (`bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom))`) and adds its height to the main padding.
 
 `src/app/Shell.tsx`:
 ```tsx
@@ -1968,14 +2318,14 @@ import {
 } from "../features/placeholders";
 import { useApp, useKv, useUi } from "../state/context";
 import { Button } from "../ui/Button";
+import { Sheet } from "../ui/Sheet";
 import { Banner } from "./Banner";
 import { ErrorScreen } from "./ErrorScreen";
 import { Header } from "./Header";
-import { downloadText } from "./download";
+import { TabBar } from "./TabBar";
+import { backupFilename, downloadText } from "./download";
 import { applyTheme } from "./theme";
 import styles from "./Shell.module.css";
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 export function Shell() {
   const kv = useKv();
@@ -1987,6 +2337,9 @@ export function Shell() {
   const dismissSaveError = useApp((s) => s.dismissSaveError);
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
+  const sheet = useUi((s) => s.sheet);
+  const openSheet = useUi((s) => s.openSheet);
+  const closeSheet = useUi((s) => s.closeSheet);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
@@ -2005,12 +2358,14 @@ export function Shell() {
 
   return (
     <>
-      <Header tab={tab} onTab={setTab} />
+      {/* Everything behind an open sheet is inert: not focusable, not clickable, hidden from VoiceOver. */}
+      <div data-shell-content inert={sheet !== null} aria-hidden={sheet !== null || undefined}>
+      <Header onSettings={() => openSheet("settings")} />
       <main className={styles.main}>
         {bootKind === "migrated" && !bannerDismissed && (
           <Banner>
             <span>Your data was copied to the new version. Your original data is untouched.</span>
-            <Button variant="ghost" onClick={() => downloadText(`overload-backup-${today()}.json`, exportBackup(doc))}>
+            <Button variant="ghost" onClick={() => downloadText(backupFilename(), exportBackup(doc))}>
               Download backup
             </Button>
             <Button variant="ghost" onClick={() => setBannerDismissed(true)}>
@@ -2029,15 +2384,21 @@ export function Shell() {
         {tab === "log" && <LogPlaceholder />}
         {tab === "stats" && <StatsPlaceholder />}
         {tab === "history" && <HistoryPlaceholder />}
-        {tab === "settings" && <SettingsPlaceholder />}
       </main>
+      <TabBar tab={tab} onTab={setTab} />
+      </div>
+      {sheet === "settings" && (
+        <Sheet title="Settings" onClose={closeSheet}>
+          <SettingsPlaceholder />
+        </Sheet>
+      )}
     </>
   );
 }
 ```
 `src/app/Shell.module.css`:
 ```css
-.main { max-width: 720px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.main { max-width: 720px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-right)) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px) max(16px, env(safe-area-inset-left)); }
 .center { padding: 40px; text-align: center; color: var(--muted); }
 ```
 The banner's "Dismiss" button and the error bar's "Dismiss error" button must remain distinguishable by accessible name: the banner uses text "Dismiss"; the error bar button uses `aria-label="Dismiss error"`.
@@ -2078,21 +2439,21 @@ Expected: PASS. If React warns about `act` in the App-level tests, wrap awaited 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "feat(app): add shell, tabs, migration banner, save-error bar and error screens" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(app): add shell with bottom tab bar, settings sheet, migration banner and error screens" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 
-### Task 7: Settings screen
+### Task 7: Settings sheet
 
 **Files:**
 - Create: `src/features/settings/SettingsScreen.tsx`, `src/features/settings/SettingsScreen.module.css`, `src/app/readFile.ts`, `tests/features/settings.test.tsx`
-- Modify: `src/app/Shell.tsx` (render `SettingsScreen` for the settings tab), `src/features/placeholders.tsx` (delete `SettingsPlaceholder`)
+- Modify: `src/app/Shell.tsx` (render `SettingsScreen` inside the Settings sheet), `src/features/placeholders.tsx` (delete `SettingsPlaceholder`)
 
 **Interfaces:**
-- Consumes: `useApp`, `Segmented`, `NumberField`, `Card`, `Button`, `downloadText`, `exportBackup`, `parseBackup`, `themePreference`, `StoreDoc`.
+- Consumes: `useApp`, `useUi` (`openSheet`), `Segmented`, `NumberField`, `Card`, `Button`, `downloadText`, `backupFilename`, `exportBackup`, `parseBackup`, `themePreference`, `StoreDoc`.
 - Produces: `SettingsScreen()`; `readFileText(file: File): Promise<string>` (FileReader-based, works in browsers and jsdom).
 
-Behavior (matches the parity appendix, plus fix 4): Units (lb/kg; choosing a unit sets `increment` to 2.5 for kg, 5 for lb; hint "Relabels only; won't convert logged numbers."); Increment (min 0, decimals ok, label `Increment (${unit} per jump)`); one card per type titled "Compound rules"/"Isolation rules" with Sets to advance (min 1), Warm-up sets (min 0), Rep range — low (min 1, max repTop−1), Rep range — high (min repBottom+1), and the live hint `{repTop}+ × {sets} set(s) → +{increment} {unit}.`; Rest timer card (Default (seconds), min 5); Appearance (System/Dark/Light); Data & backup (Export backup; Import backup with a confirmation step showing counts before anything is replaced).
+Behavior (matches the parity appendix, plus fix 4): Units (lb/kg; choosing a unit sets `increment` to 2.5 for kg, 5 for lb; hint "Relabels only; won't convert logged numbers."); Increment (min 0, decimals ok, label `Increment (${unit} per jump)`); one card per type titled "Compound rules"/"Isolation rules" with Sets to advance (min 1), Warm-up sets (min 0), Rep range — low (min 1, max repTop−1), Rep range — high (min repBottom+1), and the live hint `{repTop}+ × {sets} set(s) → +{increment} {unit}.`; Rest timer card (Default (seconds), min 5); Appearance (System/Dark/Light); Exercise library (a "Manage exercises" row that switches the sheet to the Exercise library view); Data & backup (Export backup; Import backup with a confirmation step showing counts before anything is replaced). The screen renders inside the Settings sheet, so it has no page title of its own.
 
 - [ ] **Step 1: Write the failing test `tests/features/settings.test.tsx`**
 
@@ -2107,7 +2468,7 @@ import { syntheticBackup } from "../helpers/fixtures";
 import { renderWithStore } from "../helpers/renderWithStore";
 
 const download = vi.hoisted(() => vi.fn());
-vi.mock("../../src/app/download", () => ({ downloadText: download }));
+vi.mock("../../src/app/download", async (orig) => ({ ...(await orig<object>()), downloadText: download }));
 
 afterEach(() => download.mockClear());
 
@@ -2207,6 +2568,15 @@ describe("appearance", () => {
   });
 });
 
+describe("exercise library", () => {
+  it("Manage exercises switches the sheet to the library view", async () => {
+    const { user, uiStore } = await renderWithStore(<SettingsScreen />);
+    uiStore.getState().openSheet("settings");
+    await user.click(screen.getByRole("button", { name: "Manage exercises" }));
+    expect(uiStore.getState().sheet).toBe("exercises");
+  });
+});
+
 describe("export", () => {
   it("downloads a v2 backup of the current data", async () => {
     const { user } = await renderWithStore(<SettingsScreen />);
@@ -2292,21 +2662,20 @@ export function readFileText(file: File): Promise<string> {
 
 `src/features/settings/SettingsScreen.tsx`:
 ```tsx
-import { Timer } from "lucide-react";
+import { ChevronRight, Timer } from "lucide-react";
 import { useState, type ChangeEvent } from "react";
-import { downloadText } from "../../app/download";
+import { backupFilename, downloadText } from "../../app/download";
 import { readFileText } from "../../app/readFile";
 import { exportBackup, parseBackup } from "../../data/backup";
 import { themePreference, type ThemePref } from "../../domain/theme";
 import type { StoreDoc } from "../../domain/types";
-import { useApp } from "../../state/context";
+import { useApp, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import { NumberField } from "../../ui/NumberField";
 import { Segmented } from "../../ui/Segmented";
 import styles from "./SettingsScreen.module.css";
 
-const today = () => new Date().toISOString().slice(0, 10);
 const errMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function SettingsScreen() {
@@ -2314,6 +2683,7 @@ export function SettingsScreen() {
   const settings = doc.settings;
   const updateSettings = useApp((s) => s.updateSettings);
   const replaceDoc = useApp((s) => s.replaceDoc);
+  const openSheet = useUi((s) => s.openSheet);
   const [pending, setPending] = useState<StoreDoc | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -2405,10 +2775,19 @@ export function SettingsScreen() {
         />
       </Card>
 
+      <Card title="Exercise library">
+        <button type="button" className={styles.navRow} onClick={() => openSheet("exercises")}>
+          <span>Manage exercises</span>
+          <span className={styles.navMeta}>
+            {doc.exercises.length} <ChevronRight size={18} aria-hidden />
+          </span>
+        </button>
+      </Card>
+
       <Card title="Data & backup">
         <p className={styles.hint}>Stored on this device. Export to back up; import replaces current data.</p>
         <div className={styles.actions}>
-          <Button variant="primary" onClick={() => downloadText(`overload-backup-${today()}.json`, exportBackup(doc))}>
+          <Button variant="primary" onClick={() => downloadText(backupFilename(), exportBackup(doc))}>
             Export backup
           </Button>
           <label className={styles.fileButton}>
@@ -2446,24 +2825,32 @@ export function SettingsScreen() {
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .narrow { max-width: 220px; margin-top: 14px; }
-.hint { font-size: 14px; color: var(--muted); margin-top: 10px; }
+.hint { font-size: var(--text-sm); color: var(--muted); margin-top: 10px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .fileButton {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  font-size: 15px; font-weight: 600; cursor: pointer; position: relative;
+  font-size: var(--text-md); font-weight: 600; cursor: pointer; position: relative;
 }
 .fileButton:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fileButton { transition: transform var(--dur-press) var(--ease-out); }
+.fileButton:active { transform: scale(0.97); }
+.navRow {
+  width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between;
+  background: none; border: 0; padding: 0; color: var(--text); font-size: var(--text-base); cursor: pointer;
+}
+.navRow:active { opacity: 0.6; }
+.navMeta { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 .file { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.confirm { margin-top: 14px; padding: 12px; border-radius: var(--radius-sm); background: var(--warn-soft); font-size: 15px; }
+.confirm { margin-top: 14px; padding: 12px; border-radius: var(--radius-sm); background: var(--warn-soft); font-size: var(--text-md); }
 .confirm p { margin-bottom: 12px; }
-.ok { margin-top: 10px; font-size: 14px; color: var(--accent); }
-.fail { margin-top: 10px; font-size: 14px; color: var(--danger); }
+.ok { margin-top: 10px; font-size: var(--text-sm); color: var(--accent); }
+.fail { margin-top: 10px; font-size: var(--text-sm); color: var(--danger); }
 ```
 
 - [ ] **Step 5: Wire the screen into the shell**
 
-In `src/features/placeholders.tsx` delete the `SettingsPlaceholder` export. In `src/app/Shell.tsx` remove `SettingsPlaceholder` from the import list, add `import { SettingsScreen } from "../features/settings/SettingsScreen";` and render `{tab === "settings" && <SettingsScreen />}`.
+In `src/features/placeholders.tsx` delete the `SettingsPlaceholder` export. In `src/app/Shell.tsx` remove `SettingsPlaceholder` from the import list, add `import { SettingsScreen } from "../features/settings/SettingsScreen";` and render `<SettingsScreen />` as the Settings sheet's child in place of `<SettingsPlaceholder />`.
 
 - [ ] **Step 6: Run the gate**
 
@@ -2473,22 +2860,22 @@ Expected: PASS. (Region queries rely on `Card` exposing `aria-label` from its ti
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "feat(settings): add Settings screen with validation, appearance and guarded import" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(settings): add Settings sheet with validation, appearance, library link and guarded import" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 8: Manage exercises
+### Task 8: Exercise library (Manage exercises)
 
 **Files:**
 - Create: `src/features/exercises/ExercisesManager.tsx`, `src/features/exercises/ExercisesManager.module.css`, `tests/features/exercises.test.tsx`
-- Modify: `src/features/placeholders.tsx` (Log placeholder renders the manager so it is visible at `/next.html` until Plan B replaces it)
+- Modify: `src/app/Shell.tsx` (render the manager as the sheet's "exercises" view, with Back to Settings), `tests/app/shell.test.tsx` (one test)
 
 **Interfaces:**
-- Consumes: `useApp` actions `addGroup`, `updateExercise`, `deleteExercise`; `allMuscleGroups`, `groupByMuscleFull`; `TypeBadge`, `Input`, `Select`, `Button`, `IconButton`.
+- Consumes: `useApp` actions `addGroup`, `updateExercise`, `deleteExercise`; `allMuscleGroups`, `groupByMuscleFull`, `sessionsWithExercise`; `TypeBadge`, `Input`, `Select`, `Button`, `IconButton`, `Sheet`.
 - Produces: `ExercisesManager()`.
 
-Behavior: add muscle group input (placeholder "Add a new muscle group (e.g. Forearms)") + "Add" button — messages "Enter a group name" (blank) and "That group already exists" (case-insensitive duplicate); "No exercises added yet." when there are none; every group listed (including empty ones, with "No exercises yet — it'll show up when you add one to this group."); exercise row view = name, type badge, Edit (`Edit {name}`), Delete (`Delete {name}`) which becomes a danger "Confirm delete" button and then cascades; edit row = name, group select, type select, "Save exercise" — a blank name is **not** saved and shows "Name can't be empty" (fix 4).
+Behavior: add muscle group input (placeholder "Add a new muscle group (e.g. Forearms)") + "Add" button — messages "Enter a group name" (blank) and "That group already exists" (case-insensitive duplicate); "No exercises added yet." when there are none; every group listed (including empty ones, with "No exercises yet — it'll show up when you add one to this group."); exercise row view = name, type badge, Edit (`Edit {name}`), Delete (`Delete {name}`) which arms the row: it states the cost ("Deletes {name} and its {n} logged session(s)." or "Deletes {name}. It has no logged sessions."), shows a danger "Confirm delete" button and a "Cancel" button, and only Confirm cascades; edit row = name, group select, type select, "Save exercise" — a blank name is **not** saved and shows "Name can't be empty" (fix 4).
 
 - [ ] **Step 1: Write the failing test `tests/features/exercises.test.tsx`**
 
@@ -2584,6 +2971,8 @@ describe("deleting an exercise", () => {
     const { user, kv } = await renderWithStore(<ExercisesManager />, { legacy });
     await user.click(screen.getByRole("button", { name: "Delete Blowout Row" }));
     expect(stored(kv).exercises.some((e: { id: string }) => e.id === "ex-blow")).toBe(true);
+    const n = legacy.sessions.filter((s) => s.blocks.some((b) => b.exerciseId === "ex-blow")).length;
+    expect(screen.getByText(`Deletes Blowout Row and its ${n} logged session${n === 1 ? "" : "s"}.`)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
     await waitFor(() => expect(stored(kv).exercises.some((e: { id: string }) => e.id === "ex-blow")).toBe(false));
     const sessions = stored(kv).sessions as { id: string; blocks: { exerciseId: string }[] }[];
@@ -2600,6 +2989,16 @@ describe("deleting an exercise", () => {
     const row = screen.getByText("Curl").closest("li")!;
     expect(within(row).getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
   });
+
+  it("Cancel disarms the row and deletes nothing", async () => {
+    const { user, kv } = await renderWithStore(<ExercisesManager />);
+    const before = kv.dump()[V2_KEY];
+    await user.click(screen.getByRole("button", { name: "Delete Curl" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("button", { name: "Confirm delete" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete Curl" })).toBeInTheDocument();
+    expect(kv.dump()[V2_KEY]).toBe(before);
+  });
 });
 ```
 
@@ -2614,7 +3013,7 @@ Expected: FAIL — `ExercisesManager` not found.
 ```tsx
 import { Check, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { allMuscleGroups, groupByMuscleFull } from "../../domain/exercises";
+import { allMuscleGroups, groupByMuscleFull, sessionsWithExercise } from "../../domain/exercises";
 import type { Exercise, ExerciseType } from "../../domain/types";
 import { useApp } from "../../state/context";
 import { Button } from "../../ui/Button";
@@ -2623,8 +3022,13 @@ import { IconButton } from "../../ui/IconButton";
 import { TypeBadge } from "../../ui/TypeBadge";
 import styles from "./ExercisesManager.module.css";
 
+function deleteCost(name: string, n: number): string {
+  return n === 0 ? `Deletes ${name}. It has no logged sessions.` : `Deletes ${name} and its ${n} logged session${n === 1 ? "" : "s"}.`;
+}
+
 export function ExercisesManager() {
-  const exercises = useApp((s) => s.doc.exercises);
+  const doc = useApp((s) => s.doc);
+  const exercises = doc.exercises;
   const customGroups = useApp((s) => s.doc.customGroups);
   const addGroup = useApp((s) => s.addGroup);
   const updateExercise = useApp((s) => s.updateExercise);
@@ -2727,15 +3131,19 @@ export function ExercisesManager() {
                         <Pencil size={16} />
                       </IconButton>
                       {confirmId === ex.id ? (
-                        <Button
-                          variant="danger"
-                          onClick={async () => {
-                            await deleteExercise(ex.id);
-                            setConfirmId(null);
-                          }}
-                        >
-                          Confirm delete
-                        </Button>
+                        <div className={styles.confirm}>
+                          <p className={styles.cost}>{deleteCost(ex.name, sessionsWithExercise(doc, ex.id))}</p>
+                          <Button
+                            variant="danger"
+                            onClick={async () => {
+                              await deleteExercise(ex.id);
+                              setConfirmId(null);
+                            }}
+                          >
+                            Confirm delete
+                          </Button>
+                          <Button onClick={() => setConfirmId(null)}>Cancel</Button>
+                        </div>
                       ) : (
                         <IconButton label={`Delete ${ex.name}`} onClick={() => setConfirmId(ex.id)}>
                           <Trash2 size={16} />
@@ -2758,28 +3166,39 @@ export function ExercisesManager() {
 ```css
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .addRow { display: flex; gap: 8px; }
-.groupTitle { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.groupTitle { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; }
-.name { flex: 1; font-size: 15px; }
-.muted, .empty { font-size: 14px; color: var(--muted); }
+.name { flex: 1; font-size: var(--text-md); }
+.muted, .empty { font-size: var(--text-sm); color: var(--muted); }
 .empty { font-style: italic; }
-.error { width: 100%; font-size: 14px; color: var(--danger); }
+.error { width: 100%; font-size: var(--text-sm); color: var(--danger); }
+.confirm { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cost { width: 100%; font-size: var(--text-sm); color: var(--danger); }
 ```
 
-- [ ] **Step 4: Show the manager on the Log placeholder**
+- [ ] **Step 4: Show the manager as the sheet's library view**
 
-Replace `LogPlaceholder` in `src/features/placeholders.tsx` with:
+In `src/app/Shell.tsx` add `import { ExercisesManager } from "../features/exercises/ExercisesManager";` and, after the Settings sheet, render:
 ```tsx
-import { ExercisesManager } from "./exercises/ExercisesManager";
-
-export const LogPlaceholder = () => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-    <EmptyState text="Logging arrives in Plan B." />
-    <ExercisesManager />
-  </div>
-);
+      {sheet === "exercises" && (
+        <Sheet title="Exercises" onClose={closeSheet} onBack={() => openSheet("settings")} backLabel="Settings">
+          <ExercisesManager />
+        </Sheet>
+      )}
 ```
+Append to `describe("Shell", ...)` in `tests/app/shell.test.tsx`:
+```tsx
+  it("Settings → Manage exercises opens the library; Back returns to Settings", async () => {
+    const { user } = await renderWithStore(<Shell />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Manage exercises" }));
+    expect(screen.getByRole("dialog", { name: "Exercises" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+  });
+```
+(Plan B adds a second entry point from the Log screen's exercise picker.)
 
 - [ ] **Step 5: Run the gate**
 
@@ -2789,7 +3208,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add -A && git commit -m "feat(exercises): add Manage exercises with group, edit and cascade-delete flows" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(exercises): add exercise library sheet with group, edit and costed cascade delete" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2830,7 +3249,7 @@ Expected: all three confirmations hold. If any fails, stop and debug (do not edi
 
 - [ ] **Step 4: Screenshot every screen in both themes**
 
-For each of Log (with the exercises manager), Settings (scroll through all cards) at a phone viewport (390×844) take screenshots with `browser_emulate_media` set to `colorScheme: "dark"` and then `"light"`; also click the Appearance radios (Dark, Light, System) and confirm the page theme follows. Save the images under the session scratchpad and view them. Check by eye: text is readable, nothing clipped, tap targets comfortable, banner and cards aligned.
+At a phone viewport (390×844) screenshot the Log tab, the Settings sheet (scroll through all cards) and the Exercises view, with `browser_emulate_media` set to `colorScheme: "dark"` and then `"light"`; also click the Appearance radios (Dark, Light, System) and confirm the page theme follows. Then emulate `reducedMotion: "reduce"` and confirm the sheet fades in without travelling. Save the images under the session scratchpad and view them. Check by eye: text is readable, nothing clipped, tap targets comfortable, the tab bar sits above the home indicator and content scrolls under it, the sheet's Done and Back are reachable, banner and cards aligned.
 
 - [ ] **Step 5: Stop the server and clean up**
 
@@ -2840,12 +3259,12 @@ Run: `pkill -f "vite --port 5173"; rm -rf .playwright-mcp`
 
 Add under `## Next` (above the existing list):
 ```
-State Update 2026-10-09: UI Foundation (Plan A) done on `rewrite`: tokens + contrast gate, primitives, stores, shell, Settings, Manage exercises, served at /next.html (old app still at /). Real data verified: 41 exercises / 57 sessions, legacy keys untouched.
-Next: Plan B (Log tab: set editor, suggestion banner, warm-up ramp, rest timer, undo, UI-state persistence), then Plan C (Stats, History, e2e, cutover).
+State Update <date>: UI Foundation (Plan A) done on `rewrite`: tokens (type/motion/material/a11y) + contrast gate, primitives incl. Sheet, stores, shell with bottom tab bar, Settings sheet, Exercise library, served at /next.html (old app still at /). Real data verified: 41 exercises / 57 sessions, legacy keys untouched.
+Next: engine redesign spec (if not already written), then Plan B (Log tab built around the new engine: set editor, coaching card, warm-up ramp, rest timer docked above the tab bar, undo, UI-state persistence), then Plan C (Stats, History, e2e, cutover).
 ```
 Commit:
 ```bash
-git add HANDOFF.md && git commit -m "docs: update handoff after UI foundation" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add HANDOFF.md && git commit -m "docs: update handoff after UI foundation" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 - [ ] **Step 7: Hand off to the owner**

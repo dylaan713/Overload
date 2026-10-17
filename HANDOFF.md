@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-17: Apple-design audit done; Plan A and the design spec revised for an App Store target (bottom tab bar, Settings sheet, Exercise library view, rem/Dynamic Type tokens, press states, motion/material/a11y tokens, costed delete, local-date backup names). Still no UI code.
+Next: brainstorm + write the engine redesign spec (per-exercise increments, bad-day tolerance, RPE/RIR, smarter stalls/deloads, layoffs, e1RM cap) before Plan B; execute Plan A in waves whenever Dylan can build.
+
 State Update 2026-10-09 (end of day): On branch `rewrite` (not merged to `main`): foundation done (data layer, migration, ported engine, 62 tests) and specs/plans written. Design spec approved; UI Foundation plan (Plan A) written and awaiting Dylan's review and execution-method choice (native recommended). No UI code written yet.
 Next: review `docs/superpowers/plans/2026-10-09-ui-foundation.md`, pick native or subagent-driven, execute. Then write Plan B (Log) and Plan C (Stats/History/e2e/cutover). Separate spec still needed for the engine redesign (smarter progression, RPE, better deloads). Open question: merge `rewrite` to `main` so /dev.html can confirm 41 exercises / 57 sessions on the phone (Dylan's call; main auto-deploys).
 

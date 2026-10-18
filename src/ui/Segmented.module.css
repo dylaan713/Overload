@@ -17,14 +17,14 @@
   cursor: pointer;
   border-radius: calc(var(--radius-sm) - 2px);
 }
-.option[aria-checked="true"] { color: var(--text); font-weight: 600; }
+.option[aria-checked="true"] { color: var(--on-accent); font-weight: 600; }
 /* Pressed state on touch-down. */
 .option:active .label { opacity: 0.6; }
 .thumb {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 .label { position: relative; transition: opacity var(--dur-press) var(--ease-out); }

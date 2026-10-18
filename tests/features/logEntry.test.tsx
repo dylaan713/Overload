@@ -44,9 +44,24 @@ describe("entry row", () => {
   it("a warm-up takes no difficulty", async () => {
     const { user, onSubmit } = await open({ warmup: true, placeholder: { weight: 70, reps: 8 } });
     expect(screen.getByRole("button", { name: "Warm-up" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByRole("radiogroup", { name: "Difficulty" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Log set" }));
     expect(onSubmit).toHaveBeenCalledWith({ weight: 70, reps: 8, warmup: true, rir: null });
+  });
+
+  it("difficulty shows with warm-up on; picking one makes it a working set", async () => {
+    const { user, onSubmit } = await open({ warmup: true, placeholder: { weight: 140, reps: 10 } });
+    expect(screen.getByRole("radiogroup", { name: "Difficulty" })).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    expect(screen.getByRole("button", { name: "Warm-up" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: "Log set" }));
+    expect(onSubmit).toHaveBeenCalledWith({ weight: 140, reps: 10, warmup: false, rir: 1 });
+  });
+
+  it("turning warm-up on clears the difficulty", async () => {
+    const { user } = await open();
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Warm-up" }));
+    expect(screen.getAllByRole("radio").filter((r) => r.getAttribute("aria-checked") === "true")).toHaveLength(0);
   });
 
   it("refuses fractional reps and a missing weight, focusing the first bad field", async () => {

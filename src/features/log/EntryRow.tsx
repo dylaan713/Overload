@@ -105,17 +105,16 @@ export function EntryRow({ day, exerciseId, warmupDefault = false, unit, placeho
           />
         </Field>
       </div>
-      <button type="button" className={styles.toggle} aria-pressed={warmup} onClick={() => update({ warmup: !warmup })}>
+      <button type="button" className={styles.toggle} aria-pressed={warmup} onClick={() => update(warmup ? { warmup: false } : { warmup: true, difficulty: null })}>
         Warm-up
       </button>
-      {!warmup && (
-        <Segmented<Difficulty>
-          label="Difficulty"
-          value={difficulty}
-          options={DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }))}
-          onChange={(d) => update({ difficulty: d })}
-        />
-      )}
+      {/* Picking a difficulty makes it a working set. */}
+      <Segmented<Difficulty>
+        label="Difficulty"
+        value={warmup ? null : difficulty}
+        options={DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }))}
+        onChange={(d) => update({ difficulty: d, warmup: false })}
+      />
       {mode === "new" ? (
         <Button type="submit" variant="primary" block disabled={!ready}>Log set</Button>
       ) : (

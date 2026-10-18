@@ -1,0 +1,13 @@
+.stack { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
+.view {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  padding: 8px 16px 24px;
+  will-change: transform;
+}
+.view[hidden] { display: none; }
+.dim { position: absolute; inset: 0; background: #000; pointer-events: none; }

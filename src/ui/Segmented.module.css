@@ -1,0 +1,30 @@
+.group {
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+}
+.option {
+  position: relative;
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: calc(var(--radius-sm) - 2px);
+}
+.option[aria-checked="true"] { color: var(--text); font-weight: 600; }
+/* Pressed state on touch-down. */
+.option:active .label { opacity: 0.6; }
+.thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+.label { position: relative; transition: opacity var(--dur-press) var(--ease-out); }

@@ -25,3 +25,12 @@ describe("ToastView", () => {
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 });
+
+describe("stacking", () => {
+  it("toasts sit above an open sheet, so Undo stays reachable", async () => {
+    const { readFileSync } = await import("node:fs");
+    const z = (file: string, cls: string) => Number(readFileSync(file, "utf8").match(new RegExp(`\\.${cls} \\{[^}]*z-index: (\\d+)`))![1]);
+    expect(z("src/ui/Toast.module.css", "region")).toBeGreaterThan(z("src/ui/Sheet.module.css", "layer"));
+  });
+});
+

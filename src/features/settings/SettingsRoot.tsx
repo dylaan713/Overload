@@ -5,7 +5,7 @@ import { readFileText } from "../../app/readFile";
 import { exportBackup, parseBackup } from "../../data/backup";
 import { dumpLegacyRaw } from "../../data/boot";
 import { DataError } from "../../data/normalize";
-import { convertUnits, phaseOf } from "../../domain/settings";
+import { changedEquipmentSteps, convertUnits, phaseOf } from "../../domain/settings";
 import type { StoreDoc, Style, ThemePref, Unit } from "../../domain/types";
 import { useApp, useKv, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
@@ -84,14 +84,15 @@ function ExercisesSection() {
 function UnitsSection() {
   const doc = useApp((s) => s.doc);
   const setUnit = useApp((s) => s.setUnit);
-  const [pending, setPending] = useState<{ unit: Unit; sets: number; overrides: number } | null>(null);
+  const [pending, setPending] = useState<{ unit: Unit; sets: number; steps: number; overrides: number } | null>(null);
 
   function choose(unit: Unit) {
     if (unit === doc.settings.unit) return setPending(null);
     const sets = convertUnits(doc, unit).changedSets;
+    const steps = changedEquipmentSteps(doc.settings);
     const overrides = doc.exercises.filter((e) => e.step !== null).length;
-    if (sets === 0 && overrides === 0) void setUnit(unit);
-    else setPending({ unit, sets, overrides });
+    if (sets === 0 && steps === 0 && overrides === 0) void setUnit(unit);
+    else setPending({ unit, sets, steps, overrides });
   }
 
   return (
@@ -101,7 +102,12 @@ function UnitsSection() {
         {pending && (
           <div className={styles.confirm}>
             <p>
-              {`Convert ${plural(pending.sets, "logged set")} to ${pending.unit}? Switching back restores the exact numbers. Equipment steps reset to ${pending.unit} defaults.`}
+              {pending.sets > 0
+                ? `Convert ${plural(pending.sets, "logged set")} to ${pending.unit}? Switching back restores the exact numbers.`
+                : `Switch to ${pending.unit}?`}
+              {pending.steps > 0
+                ? ` ${plural(pending.steps, "changed equipment step")} will reset to ${pending.unit} defaults.`
+                : pending.sets > 0 && ` Equipment steps reset to ${pending.unit} defaults.`}
               {pending.overrides > 0 && ` ${plural(pending.overrides, "custom step")} will be cleared.`}
             </p>
             <div className={styles.actions}>
@@ -112,7 +118,7 @@ function UnitsSection() {
                   if (await setUnit(pending.unit)) setPending(null);
                 }}
               >
-                Convert
+                {pending.sets > 0 ? "Convert" : "Switch"}
               </Button>
             </div>
           </div>

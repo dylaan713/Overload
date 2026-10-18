@@ -20,6 +20,10 @@ export const EQUIPMENT_STEPS: Record<Unit, Record<Equipment, number>> = {
   kg: { barbell: 2.5, smith: 2.5, "ez-bar": 2.5, "trap-bar": 2.5, dumbbell: 2, machine: 5, cable: 2.5, kettlebell: 4, plate: 5, bodyweight: 2.5, band: 0 },
 };
 
+/** How many equipment steps differ from the defaults for the current unit (a unit switch resets them). */
+export const changedEquipmentSteps = (settings: Settings): number =>
+  (Object.keys(settings.equipmentSteps) as Equipment[]).filter((e) => settings.equipmentSteps[e] !== EQUIPMENT_STEPS[settings.unit][e]).length;
+
 export function defaultSettings(today: string, unit: Unit = "lb"): Settings {
   return {
     unit,

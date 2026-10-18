@@ -118,6 +118,19 @@ describe("units", () => {
     expect(stored(kv).settings.equipmentSteps.dumbbell).toBe(2);
   });
 
+  it("asks before a switch would reset equipment steps you changed (wave 3 review)", async () => {
+    const d = doc({});
+    d.settings.equipmentSteps.dumbbell = 2.5;
+    const { user, kv } = await open({ doc: d });
+    const before = kv.dump()[V2_KEY];
+    await user.click(screen.getByRole("radio", { name: "kg" }));
+    expect(screen.getByText("Switch to kg? 1 changed equipment step will reset to kg defaults.")).toBeInTheDocument();
+    expect(kv.dump()[V2_KEY]).toBe(before);
+    await user.click(screen.getByRole("button", { name: "Switch" }));
+    await waitFor(() => expect(stored(kv).settings.unit).toBe("kg"));
+    expect(stored(kv).settings.equipmentSteps.dumbbell).toBe(2);
+  });
+
   it("confirms a conversion with the exact counts; Cancel changes nothing, Convert converts", async () => {
     const d = doc({
       exercises: [ex("a", { step: 2.5 })],

@@ -1,0 +1,93 @@
+/* Design tokens. Dark ("Midnight") is the default; light follows the system or an explicit override. */
+:root {
+  color-scheme: dark;
+  --bg: #0e1118;
+  --surface: #161a24;
+  --surface2: #1d2230;
+  --line: #222836;
+  --text: #e9edf5;
+  --muted: #8b95a9;
+  --accent: #3fd0c9;
+  --on-accent: #04191a;
+  --warn: #e9b44c;
+  --danger: #ff7a7a;
+  --on-danger: #1a0505;
+  --accent-soft: rgba(63, 208, 201, 0.14);
+  --warn-soft: rgba(233, 180, 76, 0.14);
+  --danger-soft: rgba(255, 122, 122, 0.14);
+  --font-body: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius: 16px;
+  --radius-sm: 12px;
+
+  /* Type scale (rem follows the iOS text-size setting; 13px floor, see the typography test). */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-base: 1rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.5rem;
+  --text-4xl: 4rem;
+  --leading-tight: 1.05; /* 40px+ numerals and the timer */
+  --leading-snug: 1.2; /* 22-28px titles */
+  --tracking-tight: -0.02em; /* 22-28px */
+  --tracking-tighter: -0.03em; /* 40px+ */
+
+  /* Motion. CSS durations for press states, colour and opacity; anything touch-driven uses the springs in src/ui/motion.ts. */
+  --dur-press: 90ms;
+  --dur-fast: 180ms;
+  --dur-sheet: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --motion-offset: 1; /* multiplier for travel distance; 0 under reduced motion turns slides into fades */
+
+  /* Materials: translucent chrome that content scrolls under. */
+  --material: rgba(22, 26, 36, 0.72);
+  --material-blur: saturate(180%) blur(20px);
+  --scrim: rgba(4, 6, 10, 0.5);
+
+  --tabbar-h: 56px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --surface2: #eeebe3;
+  --line: #e4e0d6;
+  --text: #15181f;
+  --muted: #5f6675;
+  --accent: #086b66;
+  --on-accent: #ffffff;
+  --warn: #8a5a00;
+  --danger: #b3261e;
+  --on-danger: #ffffff;
+  --accent-soft: rgba(8, 107, 102, 0.12);
+  --warn-soft: rgba(138, 90, 0, 0.12);
+  --danger-soft: rgba(179, 38, 30, 0.1);
+  --material: rgba(255, 255, 255, 0.72);
+  --scrim: rgba(21, 24, 31, 0.32);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --surface2: #eeebe3;
+    --line: #e4e0d6;
+    --text: #15181f;
+    --muted: #5f6675;
+    --accent: #086b66;
+    --on-accent: #ffffff;
+    --warn: #8a5a00;
+    --danger: #b3261e;
+    --on-danger: #ffffff;
+    --accent-soft: rgba(8, 107, 102, 0.12);
+    --warn-soft: rgba(138, 90, 0, 0.12);
+    --danger-soft: rgba(179, 38, 30, 0.1);
+    --material: rgba(255, 255, 255, 0.72);
+    --scrim: rgba(21, 24, 31, 0.32);
+  }
+}

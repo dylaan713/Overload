@@ -198,6 +198,7 @@ interface LiftTargets {
       | "stall-volume" | "fatigue-week" | "return" | "phase-start" | "test-day";
   weight: number | null;
   sets: { reps: number; rirLow: number; rirHigh: number }[];   // length = style's `sets` (halved when a half-sets rule applies)
+  ladder?: number[];                                           // test day only: the singles to work up through
   warmups: { weight: number; reps: number }[];                 // ramp to `weight`, existing algorithm, step-rounded
   reason: string;                                              // one plain sentence
   restSeconds: number;
@@ -205,7 +206,9 @@ interface LiftTargets {
 function targetsFor(exerciseId: string, doc: StoreDoc, today: string, opts?: { test?: boolean }): LiftTargets;
 function fatigueSuggestion(doc: StoreDoc, today: string): { weekStart: string; reason: string } | null;
 ```
-Per-set targets come from the sets at W last session. A target set with no counterpart (the user did fewer sets than the style asks for) copies the last counterpart's reps. Extra sets the user added beyond the style's count are ignored. The only stored engine state is `doc.coaching.fatigueWeeks: { weekStart: string; status: "accepted" | "dismissed" }[]`, written when the user taps Accept or Dismiss on the fatigue suggestion. `targetsFor` reads it from the doc, so it stays pure (**my call**). Test day is an option passed by the caller (the Log screen's per-block toggle, or a template), not inferred.
+Per-set targets come from the sets at W last session. A target set with no counterpart (the user did fewer sets than the style asks for) copies the last counterpart's reps. Extra sets the user added beyond the style's count are ignored. The only stored engine state is `doc.coaching.fatigueWeeks: { weekStart: string; status: "accepted" | "dismissed"; decidedOn: string }[]`, written when the user taps Accept or Dismiss on the fatigue suggestion. `targetsFor` reads it from the doc, so it stays pure (**my call**). Test day is an option passed by the caller (the Log screen's per-block toggle, or a template), not inferred.
+
+**Implementation notes (2026-10-17).** Assisted lifts default to the bodyweight step, as in the step table. A layoff of 14+ days resets the stall window, as a phase start does, so the ramp back can't read as a stall.
 
 **Units.** Switching lb ↔ kg converts **all logged weights** (×0.4536 or ×2.2046, rounded to 0.1) after a confirmation that shows how many sets will change. Equipment steps reset to the new unit's defaults, and per-exercise step overrides are cleared, with the confirmation saying so (**my call**). The old app's "relabel only" behavior is dropped because the app now targets other lifters, and a relabel silently corrupts every suggestion. Rounding to a step happens only on new suggestions, never on converted history.
 
@@ -213,7 +216,7 @@ Per-set targets come from the sets at W last session. A target set with no count
 - Week = Sunday 00:00 to Saturday 23:59, local time.
 - Counts working, non-warm-up sets (test sets included) from the week's sessions: +1 per primary muscle, +0.5 per secondary.
 - Shows each muscle against the current style's `volume.low–high`, sorted with the biggest shortfall first.
-- Suggestion text: under ⇒ "Side delts: 6 of 10–20 this week — add 4"; over ⇒ "Quads: 24, above 20 — consider fewer next week". Only muscles trained in the last 4 weeks or below range are shown (**my call**, so unused muscles don't nag).
+- Suggestion text: under ⇒ "Side delts: 6 of 10–20 this week — add 4"; over ⇒ "Quads: 24, above 20 — consider fewer next week". Only muscles trained in the last 4 weeks are shown (**my call**, so unused muscles don't nag).
 - Lives in the Stats tab as a "Volume" view next to Charts and Records (**my call**; UI detail in Plan C).
 
 ## Exercise library content

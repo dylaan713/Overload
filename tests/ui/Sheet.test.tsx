@@ -9,10 +9,10 @@ import { NumberField } from "../../src/ui/NumberField";
 const progress = () => document.documentElement.style.getPropertyValue("--sheet-progress");
 
 describe("Sheet", () => {
-  it("is a labelled modal dialog that takes focus", () => {
+  it("is a labelled dialog that takes focus; modality comes from the caller's inert page, not aria-modal", () => {
     render(<Sheet title="Settings" onClose={() => {}}>body</Sheet>);
     const dialog = screen.getByRole("dialog", { name: "Settings" });
-    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).not.toHaveAttribute("aria-modal");
     expect(dialog).toHaveFocus();
   });
 

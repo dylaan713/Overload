@@ -1099,7 +1099,7 @@ This is where the UI stops being static. Every later screen uses these pieces, s
   - It is a `radiogroup` of `radio` buttons. The thumb is one `motion.span` with a per-instance `layoutId` and `SPRING.snappy`, so it slides from wherever it is, even mid-slide.
   - ArrowLeft/ArrowRight move the selection.
 - `Sheet({ title, onClose, onBack?, backLabel?, headerAction?, children })`, a modal bottom sheet:
-  - Structure: `role="dialog"`, `aria-modal`, labelled by its title. Done and Escape call `onClose`. Focus moves into the sheet on open and back to the opener on unmount. Back appears only with `onBack`.
+  - Structure: `role="dialog"` labelled by its title; modal through the inert page, not `aria-modal` (which hid toasts from VoiceOver; wave 3 review). Done and Escape call `onClose`. Focus moves into the sheet on open and back to the opener on unmount. Back appears only with `onBack`.
   - Enter and exit: it enters with `y: "100%" → 0` and exits back down (`AnimatePresence`, `SPRING.default`).
   - Drag: the grabber and header are a drag handle (`drag="y"`). Down follows the finger 1:1 from the grab point; up goes through `rubberband`. On release it decides with `commitOnRelease(offsetY, velocityY, height)`.
   - Release: on commit it animates to `height` with the release velocity (`SPRING.momentum` if `|v| > FLICK`), then calls `onClose` once. Otherwise it springs back to 0.

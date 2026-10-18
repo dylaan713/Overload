@@ -23,6 +23,8 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  * Dragging the grabber/header follows the finger 1:1 (rubber-banding upward) and can be grabbed mid-animation;
  * release decides by projected momentum. It writes --sheet-progress (0 open → 1 gone) so the page behind
  * can scale back and dim in step. The caller renders it only while open and marks the page inert.
+ * The inert page is what makes it modal: no aria-modal, because VoiceOver would then hide toasts and
+ * alerts rendered beside the sheet (Undo, Dismiss).
  */
 export function Sheet({ title, onClose, onBack, backLabel, headerAction, children }: SheetProps) {
   const titleId = useId();
@@ -110,7 +112,6 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
       <motion.div
         ref={ref}
         role="dialog"
-        aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         className={styles.sheet}

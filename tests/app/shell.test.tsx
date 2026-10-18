@@ -55,6 +55,24 @@ describe("settings sheet", () => {
   });
 });
 
+describe("over the settings sheet (wave 3 review)", () => {
+  // VoiceOver confines navigation to an aria-modal dialog; the inert page is what makes the sheet modal.
+  const reachable = (el: HTMLElement) =>
+    el.closest("[inert]") === null && [...document.querySelectorAll('[aria-modal="true"]')].every((m) => m.contains(el));
+
+  it("Undo and Dismiss stay reachable by assistive tech while the sheet is open", async () => {
+    const { app, uiStore, user } = await renderWithStore(<Shell />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(page()).toHaveAttribute("inert");
+    act(() => uiStore.getState().showToast({ text: "Archived Curl", action: { label: "Undo", onAction: () => {} } }));
+    await act(async () => {
+      app.setState({ saveError: "Couldn't save: QuotaExceededError" });
+    });
+    expect(reachable(screen.getByRole("button", { name: "Undo" }))).toBe(true);
+    expect(reachable(within(screen.getByRole("alert")).getByRole("button", { name: "Dismiss" }))).toBe(true);
+  });
+});
+
 describe("theme", () => {
   it("applies a stored light preference", async () => {
     const d = doc({});

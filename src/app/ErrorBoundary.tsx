@@ -3,8 +3,9 @@ import { Button } from "../ui/Button";
 import styles from "./ErrorScreen.module.css";
 
 // Catches render errors so a crash shows a recoverable screen instead of a blank page.
-// Data is stored on the device, so a reload recovers.
-export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+// Data is stored on the device, so a reload usually recovers; if stored data is what crashes it,
+// the raw download still gets it out.
+export class ErrorBoundary extends Component<{ children: ReactNode; onDownloadRaw?: () => void }, { error: Error | null }> {
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
@@ -24,6 +25,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
         <Button variant="primary" block onClick={() => window.location.reload()}>
           Reload
         </Button>
+        {this.props.onDownloadRaw && (
+          <Button variant="secondary" block onClick={this.props.onDownloadRaw}>
+            Download raw data
+          </Button>
+        )}
         <pre className={styles.detail}>{String(this.state.error.message || this.state.error)}</pre>
       </div>
     );

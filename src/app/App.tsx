@@ -12,6 +12,10 @@ import { ErrorScreen } from "./ErrorScreen";
 import { Shell } from "./Shell";
 import styles from "./ErrorScreen.module.css";
 
+/** Saves everything stored on the device, as-is. Never writes. */
+export const downloadRaw = async (kv: KeyValueStore) =>
+  downloadText(`overload-raw-data-${todayYmd()}.json`, JSON.stringify(await dumpRaw(kv), null, 2));
+
 export function App({ kv }: { kv: KeyValueStore }) {
   const [stores] = useState(() => ({ app: createAppStore(kv), ui: createUiStore(kv), kv }));
   useEffect(() => {
@@ -21,7 +25,7 @@ export function App({ kv }: { kv: KeyValueStore }) {
   }, [stores]);
   return (
     <MotionRoot>
-      <ErrorBoundary>
+      <ErrorBoundary onDownloadRaw={() => void downloadRaw(kv)}>
         <StoreProvider value={stores}>
           <Root />
         </StoreProvider>
@@ -45,7 +49,7 @@ function Root() {
     return (
       <ErrorScreen
         message={error ?? "Unknown error"}
-        onDownloadRaw={async () => downloadText(`overload-raw-data-${todayYmd()}.json`, JSON.stringify(await dumpRaw(kv), null, 2))}
+        onDownloadRaw={() => void downloadRaw(kv)}
       />
     );
   }

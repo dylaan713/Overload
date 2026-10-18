@@ -5,7 +5,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryKV, type KeyValueStore } from "../../src/data/kv";
 import { V2_KEY } from "../../src/data/store";
-import { App } from "../../src/app/App";
+import { App, downloadRaw } from "../../src/app/App";
 import { ErrorBoundary } from "../../src/app/ErrorBoundary";
 import { Shell } from "../../src/app/Shell";
 import { doc, ex } from "../helpers/build";
@@ -58,7 +58,7 @@ describe("settings sheet", () => {
 describe("over the settings sheet (wave 3 review)", () => {
   // VoiceOver confines navigation to an aria-modal dialog; the inert page is what makes the sheet modal.
   const reachable = (el: HTMLElement) =>
-    el.closest("[inert]") === null && [...document.querySelectorAll('[aria-modal="true"]')].every((m) => m.contains(el));
+    el.closest("[inert]") === null && Array.from(document.querySelectorAll('[aria-modal="true"]')).every((m) => m.contains(el));
 
   it("Undo and Dismiss stay reachable by assistive tech while the sheet is open", async () => {
     const { app, uiStore, user } = await renderWithStore(<Shell />);
@@ -150,5 +150,18 @@ describe("ErrorBoundary", () => {
     expect(screen.getByRole("heading", { name: "Something broke" })).toBeInTheDocument();
     expect(screen.getByText("kaboom")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+  });
+
+  it("offers the raw data too, in case stored data is what crashes it (wave 3 review)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const files = captureDownloads(vi);
+    const kv = createMemoryKV({ [V2_KEY]: '{"v":2}', settings: "{}" });
+    const Boom = () => {
+      throw new Error("kaboom");
+    };
+    render(<ErrorBoundary onDownloadRaw={() => downloadRaw(kv)}><Boom /></ErrorBoundary>);
+    await userEvent.click(screen.getByRole("button", { name: "Download raw data" }));
+    await waitFor(() => expect(files).toHaveLength(1));
+    expect(JSON.parse(await blobText(files[0]!.blob))).toEqual({ settings: "{}", [V2_KEY]: '{"v":2}' });
   });
 });

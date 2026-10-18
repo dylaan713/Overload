@@ -1,0 +1,19 @@
+/* Entry row */
+.entry { display: flex; flex-direction: column; gap: 12px; }
+.inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.number { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: max(16px, var(--text-lg)); }
+.toggle {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  transition: background-color var(--dur-press), color var(--dur-press);
+}
+.toggle[aria-pressed="true"] { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+.toggle:active { opacity: 0.7; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions > :last-child { grid-column: 1 / -1; }

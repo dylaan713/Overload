@@ -26,7 +26,7 @@ const show = (v: number | null) => (v == null ? "" : String(v));
 
 // Plain decimals only (no hex, exponents or Infinity). One comma is a decimal point: the iOS decimal
 // keypad types "," in comma locales.
-function parse(text: string): number | null {
+export function parseNumber(text: string): number | null {
   const t = /^[^.,]*,[^.,]*$/.test(text) ? text.replace(",", ".") : text;
   return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(t) ? Number(t) : null;
 }
@@ -54,7 +54,7 @@ export function NumberField({ label, value, min, max, integer = false, optional 
       }
       return;
     }
-    const n = parse(trimmed);
+    const n = parseNumber(trimmed);
     const valid = n !== null && (min == null || n >= min) && (max == null || n <= max) && (!integer || Number.isInteger(n));
     if (valid) {
       setError(null);

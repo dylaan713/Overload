@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref, SelectHTMLAttributes } from "react";
 import styles from "./Field.module.css";
 
 /** Id of a Field's error text; the control sets `aria-describedby` to it so VoiceOver reads the reason. */
@@ -14,7 +14,7 @@ export function Field({ label, htmlFor, error, children }: { label: string; html
   );
 }
 
-export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
   return <input className={[styles.control, className ?? ""].filter(Boolean).join(" ")} {...rest} />;
 }
 

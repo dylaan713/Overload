@@ -180,3 +180,42 @@ describe("wave 3 review", () => {
     expect(button.style.opacity === "" || button.style.opacity === "1").toBe(true);
   });
 });
+
+describe("focus after fixing or removing a set", () => {
+  const twoSets = () => doc({ exercises: [row], sessions: [day(TODAY, [["row", sets(130, [10, 9], [2, 1])]])] });
+  const rowButton = (i: number) => within(setRows()[i]!).getByRole("button");
+
+  it("Save puts focus back on the set that was fixed", async () => {
+    const { user, kv } = await open(twoSets());
+    await user.click(screen.getByRole("button", { name: /130 × 10/ }));
+    await user.clear(screen.getByLabelText("Reps"));
+    await user.type(screen.getByLabelText("Reps"), "8");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(stored(kv).sessions[0]!.blocks[0]!.sets[0]!.reps).toBe(8));
+    await waitFor(() => expect(rowButton(0)).toHaveFocus());
+  });
+
+  it("Cancel puts focus back on the set that was being fixed", async () => {
+    const { user } = await open(twoSets());
+    await user.click(screen.getByRole("button", { name: /130 × 9/ }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(rowButton(1)).toHaveFocus());
+  });
+
+  it("Delete set moves focus to the set that took its place, else the one above", async () => {
+    const { user } = await open(twoSets());
+    await user.click(screen.getByRole("button", { name: /130 × 10/ }));
+    await user.click(screen.getByRole("button", { name: "Delete set" }));
+    await waitFor(() => expect(setRows()).toHaveLength(1));
+    await waitFor(() => expect(rowButton(0)).toHaveFocus());
+    expect(rowButton(0)).toHaveAccessibleName(/130 × 9/);
+  });
+
+  it("deleting the only set moves focus to the weight field", async () => {
+    const { user } = await open(doc({ exercises: [row], sessions: [day(TODAY, [["row", sets(130, [10], [2])]])] }));
+    await user.click(screen.getByRole("button", { name: /130 × 10/ }));
+    await user.click(screen.getByRole("button", { name: "Delete set" }));
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Sets today" })).toBeNull());
+    await waitFor(() => expect(screen.getByLabelText("lb")).toHaveFocus());
+  });
+});

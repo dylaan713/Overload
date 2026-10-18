@@ -4,7 +4,7 @@ import { LogScreen } from "../features/log/LogScreen";
 import { NextExerciseSheet } from "../features/log/NextExerciseView";
 import { HistoryPlaceholder, ProgressPlaceholder } from "../features/placeholders";
 import { settingsView } from "../features/settings/SettingsRoot";
-import { useApp, useUi } from "../state/context";
+import { useApp, useUi, useUiStore } from "../state/context";
 import type { Tab } from "../state/uiStore";
 import { Button } from "../ui/Button";
 import { SheetStack, type SheetView } from "../ui/SheetStack";
@@ -20,6 +20,7 @@ const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogScreen, progress:
 
 /** The app frame: scrolling content under floating chrome, the Settings sheet, toasts and save errors. */
 export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => SheetView }) {
+  const ui = useUiStore();
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
   const sheet = useUi((s) => s.sheet);
@@ -68,12 +69,17 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
     return () => io.disconnect();
   }, [tab]);
 
-  // After the sheet is gone (and the page is no longer inert), focus goes back to the gear.
+  // After the sheet is gone (and the page is no longer inert), focus goes back to what opened it, or the gear
+  // if that has gone. The Sheet can't do this itself: the page is still inert when it unmounts.
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (wasOpen.current && !sheetOpen) gear.current?.focus();
+    if (wasOpen.current && !sheetOpen) {
+      const to = ui.getState().focusAfterSheet;
+      const el = to === "entry" ? document.querySelector<HTMLElement>("[data-entry-focus]") : to;
+      (el?.isConnected ? el : gear.current)?.focus();
+    }
     wasOpen.current = sheetOpen;
-  }, [sheetOpen]);
+  }, [sheetOpen, ui]);
 
   const Panel = PANELS[tab];
   return (

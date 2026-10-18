@@ -94,10 +94,11 @@ export function NextExerciseSheet({ onClose }: { onClose: () => void }) {
   // Read the stores at pick time: an exercise added from the library a moment ago must be seen.
   const [pick] = useState(() => (exerciseId: string) => {
     const { doc, today } = app.getState();
-    const { log, now, setDraft } = ui.getState();
+    const { log, now, setDraft, focusEntryAfterSheet } = ui.getState();
     const day = logDayFor(doc, today(), now(), log.last);
     // Re-picking the exercise already in hand keeps what's typed.
     if (log.draft?.day !== day || log.draft.exerciseId !== exerciseId) setDraft(freshDraft(doc, day, exerciseId));
+    focusEntryAfterSheet();
     close.current?.();
   });
   const [root] = useState(() => nextExerciseView(pick));

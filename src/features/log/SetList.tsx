@@ -96,6 +96,7 @@ function SetRow({ set, label, editing, onEdit, onRemove }: { set: SetEntry; labe
       <motion.button
         type="button"
         className={styles.set}
+        data-set-row
         style={{ x, opacity: fade }}
         aria-current={editing || undefined}
         onClick={() => {

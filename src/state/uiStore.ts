@@ -38,10 +38,14 @@ export interface UiState {
   sheet: SheetId | null;
   toast: Toast | null;
   log: LogUi;
+  /** Where focus goes once the sheet has closed: what opened it, or the Log's entry row after a pick. */
+  focusAfterSheet: HTMLElement | "entry" | null;
   now(): number;
   setTab(tab: Tab): void;
   openSheet(sheet: SheetId): void;
   closeSheet(): void;
+  /** Sends focus to the Log's weight field when the open sheet closes (e.g. after picking an exercise). */
+  focusEntryAfterSheet(): void;
   showToast(toast: Omit<Toast, "id">): void;
   dismissToast(): void;
   setDraft(patch: Partial<LogDraft> & { day: string }): void;
@@ -102,6 +106,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       sheet: null,
       toast: null,
       log: EMPTY_LOG,
+      focusAfterSheet: null,
       now: opts.now ?? (() => Date.now()),
 
       setTab(tab) {
@@ -109,8 +114,9 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         set({ tab });
         void write();
       },
-      openSheet: (sheet) => set({ sheet }),
+      openSheet: (sheet) => set({ sheet, focusAfterSheet: typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null }),
       closeSheet: () => set({ sheet: null }),
+      focusEntryAfterSheet: () => set({ focusAfterSheet: "entry" }),
 
       showToast(toast) {
         clear();

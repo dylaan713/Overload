@@ -57,6 +57,18 @@ export function LogScreen() {
   const openSheet = useUi((s) => s.openSheet);
   const now = useNow(nowFn);
   const saving = useRef(false);
+  const screen = useRef<HTMLDivElement>(null);
+  // Where focus goes after the next render: a set row by position, or the weight field.
+  const focusNext = useRef<number | "entry" | null>(null);
+  useEffect(() => {
+    const to = focusNext.current;
+    if (to == null || !screen.current) return;
+    focusNext.current = null;
+    const rows = screen.current.querySelectorAll<HTMLElement>("[data-set-row]");
+    // A removed last row hands focus to the one above; no rows left, to the weight field.
+    const el = to === "entry" || rows.length === 0 ? screen.current.querySelector<HTMLElement>("[data-entry-focus]") : rows[Math.min(to, rows.length - 1)];
+    el?.focus();
+  });
   const loggedAt = useRef(-Infinity);
 
   const day = logDayFor(doc, today, now, log.last);
@@ -109,8 +121,11 @@ export function LogScreen() {
   const editing = draft?.exerciseId === currentId && draft.editing && block && draft.editing.blockId === block.id ? draft.editing : null;
   const editedSet = editing ? block?.sets[editing.index] : undefined;
   const labels = setLabels(block);
-  // Leaving an edit brings back what was being typed for the next set.
-  const backToNew = () => endEdit();
+  // Leaving an edit brings back what was being typed for the next set, and focus to the set that was being fixed.
+  const backToNew = () => {
+    if (editing) focusNext.current = editing.index;
+    endEdit();
+  };
 
   // Re-picking the exercise already in hand keeps what's typed.
   const pick = (exerciseId: string) => {
@@ -149,13 +164,14 @@ export function LogScreen() {
   }
 
   // By the set itself: its position may have moved since the swipe began.
-  async function remove(set: SetEntry): Promise<boolean> {
+  async function remove(set: SetEntry, opts: { focus?: boolean } = {}): Promise<boolean> {
     const current = blockFor(appStore.getState().doc, day, currentId!);
     const index = current ? current.sets.indexOf(set) : -1;
     if (!current || index < 0) return false;
     const label = setLabels(current)[index]!;
     const removed = await removeSet({ day, blockId: current.id, index });
     if (!removed) return false;
+    if (opts.focus) focusNext.current = index;
     // Positions shift on remove and on Undo, so an edit in progress ends either way rather than land on another set.
     const endEditIn = () => {
       const d = ui.getState().log.draft;
@@ -176,7 +192,7 @@ export function LogScreen() {
   }
 
   return (
-    <div className={styles.screen}>
+    <div ref={screen} className={styles.screen}>
       {header}
       {fatigueCard}
       {chips.length > 0 && (
@@ -237,7 +253,7 @@ export function LogScreen() {
         mode={editing ? "edit" : "new"}
         onSubmit={(set) => void submit(set)}
         onCancel={backToNew}
-        onDelete={() => editedSet && void remove(editedSet)}
+        onDelete={() => editedSet && void remove(editedSet, { focus: true })}
       />
       <SetList block={block} editingIndex={editing?.index ?? null} onEdit={edit} onRemove={remove} />
 

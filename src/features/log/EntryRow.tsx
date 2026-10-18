@@ -73,6 +73,7 @@ export function EntryRow({ day, exerciseId, unit, prefill, mode, onSubmit, onCan
           <Input
             ref={weightRef}
             id={weightId}
+            data-entry-focus
             className={styles.number}
             inputMode="decimal"
             autoComplete="off"

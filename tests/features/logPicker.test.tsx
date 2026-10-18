@@ -60,6 +60,20 @@ describe("next-exercise picker", () => {
     expect(screen.getByRole("heading", { name: "Curl" })).toBeInTheDocument();
   });
 
+  it("picking puts focus on the weight field, not back on the opener", async () => {
+    const { user } = await openPicker(doc({ exercises: [row, curl], sessions: [day(TODAY, [["row", sets(130, [10])]])] }));
+    await user.click(screen.getByRole("button", { name: /^Curl/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.getByLabelText("lb")).toHaveFocus());
+  });
+
+  it("closing the picker without a pick puts focus back on Next exercise", async () => {
+    const { user } = await openPicker(doc({ exercises: [row, curl], sessions: [day(TODAY, [["row", sets(130, [10])]])] }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: "＋ Next exercise" })).toHaveFocus();
+  });
+
   it("a newly picked exercise starts with warm-up off", async () => {
     const { user } = await openPicker(doc({ exercises: [row, curl] }));
     await user.click(screen.getByRole("button", { name: /^Curl/ }));

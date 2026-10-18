@@ -56,6 +56,11 @@ export function floorTo(w: number, step: number): number {
   return clean(Math.floor(w / step + 1e-9) * step);
 }
 
+export function ceilTo(w: number, step: number): number {
+  if (step <= 0) return w;
+  return clean(Math.ceil(w / step - 1e-9) * step);
+}
+
 export function nearestTo(w: number, step: number): number {
   if (step <= 0) return w;
   return clean(Math.round(w / step) * step);
@@ -63,15 +68,15 @@ export function nearestTo(w: number, step: number): number {
 
 /** n steps harder. For assisted lifts that means less assistance. */
 export function heavier(ex: Exercise, w: number, step: number, n = 1): number {
-  if (ex.loadKind === "assisted") return Math.max(0, clean(floorTo(w, step) - n * step));
+  if (ex.loadKind === "assisted") return Math.max(0, clean(ceilTo(w, step) - n * step));
   if (ex.loadKind === "bodyweight") return clean(Math.max(0, floorTo(w, step)) + n * step);
   return clean(floorTo(w, step) + n * step);
 }
 
 /** Easier. `pct` applies to external lifts only; bodyweight and assisted lifts move by steps (spec rule 10). */
 export function lighter(ex: Exercise, w: number, step: number, opts: { pct?: number; steps?: number }): number {
-  if (ex.loadKind === "bodyweight") return Math.max(0, clean(w - (opts.steps ?? 1) * step));
-  if (ex.loadKind === "assisted") return clean(w + (opts.steps ?? 1) * step);
+  if (ex.loadKind === "bodyweight") return Math.max(0, floorTo(w - (opts.steps ?? 1) * step, step));
+  if (ex.loadKind === "assisted") return clean(ceilTo(w, step) + (opts.steps ?? 1) * step);
   return Math.max(step, floorTo(w * (opts.pct ?? 1) - (opts.steps ?? 0) * step, step));
 }
 

@@ -94,3 +94,34 @@ describe("validateDoc", () => {
     expect(() => run(mutate((d) => (d.sessions[0].date = "09/02/2026")))).toThrow(DataError);
   });
 });
+
+describe("validateDoc: values the engine depends on", () => {
+  it("replaces an equipment step ≤ 0 (except band) with the default, with a warning", () => {
+    const { result, warnings } = run(mutate((d) => { d.settings.equipmentSteps.barbell = 0; d.settings.equipmentSteps.cable = -5; }));
+    expect(result.settings.equipmentSteps.barbell).toBe(5);
+    expect(result.settings.equipmentSteps.cable).toBe(5);
+    expect(result.settings.equipmentSteps.band).toBe(0);
+    expect(warnings.length).toBe(2);
+  });
+
+  it("repairs style rules the engine can't use", () => {
+    const { result, warnings } = run(mutate((d) => {
+      d.settings.styles.hypertrophy.compound.sets = 2.5;
+      d.settings.styles.hypertrophy.isolation.repLow = 20; // above repHigh 15
+      d.settings.styles.strength.compound.rirHigh = 7;
+    }));
+    expect(result.settings.styles.hypertrophy.compound.sets).toBe(3);
+    expect(result.settings.styles.hypertrophy.isolation).toMatchObject({ repLow: 10, repHigh: 15 });
+    expect(result.settings.styles.strength.compound.rirHigh).toBe(2);
+    expect(warnings.length).toBe(3);
+  });
+
+  it("drops malformed fatigue decisions with a warning", () => {
+    const good = { weekStart: "2026-10-11", status: "accepted", decidedOn: "2026-10-14" };
+    const { result, warnings } = run(mutate((d) => {
+      d.coaching = { fatigueWeeks: [null, good, { weekStart: "2026-10-11", status: "accepted", decidedOn: "1" }, { ...good, status: "maybe" }] };
+    }));
+    expect(result.coaching.fatigueWeeks).toEqual([good]);
+    expect(warnings.length).toBe(3);
+  });
+});

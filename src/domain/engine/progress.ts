@@ -1,4 +1,4 @@
-import { heavier } from "../settings";
+import { heavier, nearestTo } from "../settings";
 import { predictE1rm, repsAt } from "../strength";
 import type { ClassRules, Exercise, Unit } from "../types";
 import type { LiftSession } from "./history";
@@ -92,8 +92,9 @@ export function phaseStartTargets(ex: Exercise, last: LiftSession, rules: ClassR
     return { rule: "phase-start", weight: last.W, reps: fill(n, clamp(last.best, rules.repLow, rules.repHigh)), reason };
   }
   const e = bestE1rm(last);
-  let weight = last.W;
-  while (weight > step && repsAt(weight, e) < rules.repLow) weight = Math.max(step, weight - step);
+  // Start on the grid; a non-positive step can't step down (and must never loop).
+  let weight = step > 0 ? Math.max(step, nearestTo(last.W, step)) : last.W;
+  while (step > 0 && weight > step && repsAt(weight, e) < rules.repLow) weight = Math.max(step, weight - step);
   const reps = clamp(repsAt(weight, e) - rules.rirHigh, rules.repLow, rules.repHigh);
   return {
     rule: "phase-start", weight, reps: fill(n, reps),

@@ -80,6 +80,7 @@ describe("load steps", () => {
     expect(heavier(ex("p", { loadKind: "bodyweight" }), 0, 5)).toBe(5);
     expect(heavier(ex("p", { loadKind: "assisted" }), 40, 5)).toBe(35);
     expect(heavier(ex("p", { loadKind: "assisted" }), 0, 5)).toBe(0);
+    expect(heavier(ex("p", { loadKind: "assisted" }), 18.1, 2.5)).toBe(17.5); // off-grid assistance → next grid value below
   });
   it("lighter means easier and never goes below one step on external lifts", () => {
     expect(lighter(ex("a"), 225, 5, { pct: 0.9 })).toBe(200); // 202.5 → 200

@@ -1,5 +1,5 @@
 import { daysBetween } from "../dates";
-import { lighter, loadStep, phaseOf, rulesFor } from "../settings";
+import { lighter, loadStep, nearestTo, phaseOf, rulesFor } from "../settings";
 import type { StoreDoc } from "../types";
 import { warmupRamp } from "../warmup";
 import { liftHistory } from "./history";
@@ -106,6 +106,14 @@ export function targetsFor(exerciseId: string, doc: StoreDoc, today: string, opt
     }
     return null;
   }
+
+  // Every suggestion lands on the lift's grid (history can be off-grid, e.g. after a unit switch).
+  // External loads are at least one step; added load and assistance are at least 0.
+  let weight = pick.weight;
+  if (weight !== null && !band && step > 0) {
+    weight = ex.loadKind === "external" && weight > 0 ? Math.max(step, nearestTo(weight, step)) : Math.max(0, nearestTo(weight, step));
+  }
+  pick = { ...pick, weight, reason: weight === pick.weight ? pick.reason : pick.reason.replaceAll(`${pick.weight} ${unit}`, `${weight} ${unit}`) };
 
   return {
     exerciseId,

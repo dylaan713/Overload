@@ -2,7 +2,7 @@ import { todayYmd } from "../domain/dates";
 import { EQUIPMENT_STEPS, STYLE_DEFAULTS, defaultSettings } from "../domain/settings";
 import {
   EQUIPMENT, MUSCLES,
-  type Block, type ClassRules, type Equipment, type Exercise, type Muscle, type Phase, type Program,
+  type Block, type ClassRules, type Equipment, type FatigueDecision, type Exercise, type Muscle, type Phase, type Program,
   type Session, type SetEntry, type Settings, type Style, type StyleRules, type ThemePref, type Unit, type StoreDoc,
 } from "../domain/types";
 
@@ -137,6 +137,23 @@ function mergeNumbers<T extends Record<string, number>>(raw: unknown, def: T, la
   return out;
 }
 
+const isInt = (n: number, lo: number, hi = Infinity) => Number.isInteger(n) && n >= lo && n <= hi;
+
+// The engine builds arrays from these and compares ranges, so impossible values fall back to the default.
+function checkClass(c: ClassRules, def: ClassRules, label: string, warn: Warn): ClassRules {
+  const out = { ...c };
+  const reset = (keys: (keyof ClassRules)[], why: string) => {
+    warn(`settings.${label}: ${why}; using defaults`);
+    for (const k of keys) out[k] = def[k];
+  };
+  if (!isInt(out.sets, 1, 20)) reset(["sets"], `sets ${out.sets} is not a whole number from 1 to 20`);
+  if (!isInt(out.repLow, 1) || !isInt(out.repHigh, 1) || out.repLow > out.repHigh) reset(["repLow", "repHigh"], `rep range ${out.repLow}–${out.repHigh} is not valid`);
+  if (!isInt(out.rirLow, 0, 4) || !isInt(out.rirHigh, 0, 4) || out.rirLow > out.rirHigh) reset(["rirLow", "rirHigh"], `RIR range ${out.rirLow}–${out.rirHigh} is not valid`);
+  if (!(out.restSeconds >= 0)) reset(["restSeconds"], `rest ${out.restSeconds} is negative`);
+  if (!isInt(out.warmupSets, 0, 10)) reset(["warmupSets"], `warm-up sets ${out.warmupSets} is not a whole number from 0 to 10`);
+  return out;
+}
+
 function normalizeStyles(raw: unknown, warn: Warn): Record<Style, StyleRules> {
   const src = isObj(raw) ? raw : {};
   const out = {} as Record<Style, StyleRules>;
@@ -144,10 +161,15 @@ function normalizeStyles(raw: unknown, warn: Warn): Record<Style, StyleRules> {
     const s = isObj(src[style]) ? src[style] : {};
     const def = STYLE_DEFAULTS[style];
     out[style] = {
-      compound: mergeNumbers<ClassRules & Record<string, number>>(s.compound, { ...def.compound }, `styles.${style}.compound`, warn),
-      isolation: mergeNumbers<ClassRules & Record<string, number>>(s.isolation, { ...def.isolation }, `styles.${style}.isolation`, warn),
+      compound: checkClass(mergeNumbers<ClassRules & Record<string, number>>(s.compound, { ...def.compound }, `styles.${style}.compound`, warn), def.compound, `styles.${style}.compound`, warn),
+      isolation: checkClass(mergeNumbers<ClassRules & Record<string, number>>(s.isolation, { ...def.isolation }, `styles.${style}.isolation`, warn), def.isolation, `styles.${style}.isolation`, warn),
       volume: mergeNumbers(s.volume, { ...def.volume }, `styles.${style}.volume`, warn),
     };
+    const v = out[style].volume;
+    if (!(v.low >= 0 && v.low <= v.high)) {
+      warn(`settings.styles.${style}.volume ${v.low}–${v.high} is not valid; using defaults`);
+      out[style].volume = { ...def.volume };
+    }
   }
   return out;
 }
@@ -165,6 +187,20 @@ function normalizePhases(raw: unknown, firstDate: string, warn: Warn): Phase[] {
   });
 }
 
+// A step ≤ 0 would stall every weight suggestion; only bands are reps-only (step 0).
+function normalizeSteps(raw: unknown, unit: Unit, warn: Warn): Record<Equipment, number> {
+  const def = EQUIPMENT_STEPS[unit];
+  const steps = mergeNumbers<Record<Equipment, number>>(raw, { ...def }, "equipmentSteps", warn);
+  for (const e of Object.keys(steps) as Equipment[]) {
+    const ok = e === "band" ? steps[e] >= 0 : steps[e] > 0;
+    if (!ok) {
+      warn(`settings.equipmentSteps.${e} ${steps[e]} must be more than 0; using default ${def[e]}`);
+      steps[e] = def[e];
+    }
+  }
+  return steps;
+}
+
 export function normalizeSettings(raw: unknown, firstDate: string, warn: Warn): Settings {
   const s = isObj(raw) ? raw : {};
   let unit: Unit = "lb";
@@ -175,7 +211,7 @@ export function normalizeSettings(raw: unknown, firstDate: string, warn: Warn): 
     unit,
     phases: normalizePhases(s.phases, firstDate, warn),
     styles: normalizeStyles(s.styles, warn),
-    equipmentSteps: mergeNumbers<Record<Equipment, number>>(s.equipmentSteps, { ...EQUIPMENT_STEPS[unit] }, "equipmentSteps", warn),
+    equipmentSteps: normalizeSteps(s.equipmentSteps, unit, warn),
     theme,
   };
 }
@@ -189,7 +225,11 @@ export function validateDoc(raw: unknown, warn: Warn): StoreDoc {
   const settings = normalizeSettings(raw.settings, firstDate, warn);
   const programs = Array.isArray(raw.programs) ? (raw.programs as Program[]) : [];
   const coachingRaw = isObj(raw.coaching) ? raw.coaching : {};
-  const fatigueWeeks = Array.isArray(coachingRaw.fatigueWeeks) ? (coachingRaw.fatigueWeeks as StoreDoc["coaching"]["fatigueWeeks"]) : [];
+  const fatigueWeeks = (Array.isArray(coachingRaw.fatigueWeeks) ? coachingRaw.fatigueWeeks : []).filter((f, i): f is FatigueDecision => {
+    const ok = isObj(f) && isDate(f.weekStart) && isDate(f.decidedOn) && (f.status === "accepted" || f.status === "dismissed");
+    if (!ok) warn(`coaching.fatigueWeeks[${i}] is not valid; dropped`);
+    return ok;
+  }).map((f) => ({ weekStart: f.weekStart, status: f.status, decidedOn: f.decidedOn }));
   const ids = new Set(exercises.map((e) => e.id));
   for (const s of sessions) {
     for (const b of s.blocks) {

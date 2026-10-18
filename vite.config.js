@@ -9,13 +9,16 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   base: './',
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.{ts,tsx}'],
+    setupFiles: ['tests/setup.ts'],
+    css: { modules: { classNameStrategy: 'non-scoped' } },
   },
   build: {
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         dev: fileURLToPath(new URL('./dev.html', import.meta.url)),
+        next: fileURLToPath(new URL('./next.html', import.meta.url)),
       },
     },
   },
@@ -26,7 +29,7 @@ export default defineConfig({
       includeAssets: ['icon.svg', 'apple-touch-icon-180x180.png'],
       workbox: {
         // Let /dev.html load as its own page instead of falling back to the app shell.
-        navigateFallbackDenylist: [/dev\.html$/],
+        navigateFallbackDenylist: [/dev\.html$/, /next\.html$/],
         // Precache fonts too, so the installed app is fully styled offline.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
       },

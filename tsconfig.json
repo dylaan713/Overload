@@ -10,7 +10,8 @@
     "isolatedModules": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["node"]
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx"
   },
-  "include": ["src/domain", "src/data", "src/dev", "tests"]
+  "include": ["src/domain", "src/data", "src/dev", "src/ui", "src/state", "src/app", "src/features", "src/next", "tests"]
 }

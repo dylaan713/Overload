@@ -25,14 +25,14 @@ describe("log draft", () => {
     await ui.getState().flush();
     expect((await reloaded(kv)).log).toEqual(ui.getState().log);
     expect(ui.getState().log.draft).toEqual({
-      day: DAY, exerciseId: "row", weight: "140", reps: "1", difficulty: "hard", warmup: false, editing: { day: DAY, blockId: "b", index: 2 }, test: true,
+      day: DAY, exerciseId: "row", weight: "140", reps: "1", difficulty: "hard", warmup: false, editing: { day: DAY, blockId: "b", index: 2 }, pending: null, test: true,
     });
   });
 
   it("starts a draft with warm-up on and nothing typed", () => {
     const ui = createUiStore(createMemoryKV());
     ui.getState().setDraft({ day: DAY, exerciseId: "row" });
-    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: true, editing: null, test: false });
+    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false });
   });
 
   it("a keystroke right before the page is hidden is not lost", async () => {
@@ -82,7 +82,7 @@ describe("log draft", () => {
     const ui = createUiStore(createMemoryKV());
     ui.getState().setDraft({ day: DAY, exerciseId: "row", weight: "140", reps: "8", difficulty: "hard", warmup: false, test: true, editing: { day: DAY, blockId: "b", index: 0 } });
     ui.getState().clearDraftFields();
-    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: false, editing: null, test: true });
+    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: false, editing: null, pending: null, test: true });
   });
 
   it("markLogged starts the workout clock on a new day only", () => {
@@ -105,7 +105,7 @@ describe("log draft", () => {
     createMemoryKV({
       [UI_KEY]: JSON.stringify({
         version: 2, tab: "log",
-        log: { draft: { day: DAY, exerciseId: "row", weight, reps: "", difficulty: null, warmup: true, editing: null, test: false }, startedAt: 5, last: { day: DAY, at: 9 } },
+        log: { draft: { day: DAY, exerciseId: "row", weight, reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false }, startedAt: 5, last: { day: DAY, at: 9 } },
       }),
     });
 

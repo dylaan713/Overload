@@ -21,6 +21,8 @@ export interface LogDraft {
   difficulty: Difficulty | null;
   warmup: boolean;
   editing: SetRef | null;
+  /** The next set's half-typed fields, kept aside while an earlier set is being fixed. */
+  pending: Pick<LogDraft, "weight" | "reps" | "difficulty" | "warmup"> | null;
   test: boolean;
 }
 
@@ -44,6 +46,10 @@ export interface UiState {
   setDraft(patch: Partial<LogDraft> & { day: string }): void;
   /** Back to an empty entry row, keeping the exercise, warm-up and test choices. */
   clearDraftFields(): void;
+  /** Starts fixing a set, keeping the next set's half-typed fields aside. */
+  startEdit(day: string, editing: SetRef, fields: Pick<LogDraft, "weight" | "reps" | "difficulty" | "warmup">): void;
+  /** Stops fixing a set and brings back what was being typed for the next one. */
+  endEdit(fallbackWarmup: boolean): void;
   markLogged(day: string, at: number): void;
   /** Writes any pending change now. */
   flush(): Promise<void>;
@@ -57,7 +63,7 @@ const TOAST_MS = 6000;
 export const DRAFT_DEBOUNCE_MS = 250;
 const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null };
 
-const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: "", reps: "", difficulty: null, warmup: true, editing: null, test: false });
+const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: "", reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false });
 
 /** Transient UI state: never in backups, and its storage errors never block the app. */
 export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = {}): UiStore {
@@ -124,7 +130,23 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       clearDraftFields() {
         const { log } = get();
         touched.draft = true;
-        if (log.draft) setLog({ ...log, draft: { ...log.draft, weight: "", reps: "", difficulty: null, editing: null } });
+        if (log.draft) setLog({ ...log, draft: { ...log.draft, weight: "", reps: "", difficulty: null, editing: null, pending: null } });
+      },
+      startEdit(day, editing, fields) {
+        touched.draft = true;
+        const { log } = get();
+        const base = log.draft && log.draft.day === day ? log.draft : newDraft(day);
+        // Switching from one set being fixed to another keeps the original half-typed next set.
+        const pending = base.editing ? base.pending : { weight: base.weight, reps: base.reps, difficulty: base.difficulty, warmup: base.warmup };
+        setLog({ ...log, draft: { ...base, ...fields, editing, pending } });
+      },
+      endEdit(fallbackWarmup) {
+        const { log } = get();
+        const d = log.draft;
+        if (!d?.editing) return;
+        touched.draft = true;
+        const back = d.pending ?? { weight: "", reps: "", difficulty: null, warmup: fallbackWarmup };
+        setLog({ ...log, draft: { ...d, ...back, editing: null, pending: null } });
       },
       markLogged(day, at) {
         const { log } = get();
@@ -165,7 +187,9 @@ function readDraft(v: unknown): LogDraft | null {
   if (v.difficulty !== null && !DIFFICULTIES.includes(v.difficulty as Difficulty)) return null;
   const e = v.editing;
   if (e !== null && !(isObj(e) && str(e.day) && str(e.blockId) && num(e.index))) return null;
-  return v as unknown as LogDraft;
+  const p = v.pending;
+  const pendingOk = isObj(p) && str(p.weight) && str(p.reps) && typeof p.warmup === "boolean" && (p.difficulty === null || DIFFICULTIES.includes(p.difficulty as Difficulty));
+  return { ...(v as unknown as LogDraft), pending: pendingOk ? (p as unknown as LogDraft["pending"]) : null };
 }
 
 /** Stored UI state is untrusted: any malformed field falls back to empty instead of crashing the Log. */

@@ -3,7 +3,7 @@ import { aimLabel, difficultyOf } from "../../domain/difficulty";
 import { fatigueSuggestion } from "../../domain/engine/fatigue";
 import { blockFor, canTest, coachFor, logDayFor, prefill, sessionOn, setCount, withoutDay } from "../../domain/log";
 import type { Block, SetEntry } from "../../domain/types";
-import { useApp, useAppStore, useUi } from "../../state/context";
+import { useApp, useAppStore, useUi, useUiStore } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/EmptyState";
 import { freshDraft } from "./draft";
@@ -40,6 +40,9 @@ export function LogScreen() {
   const doc = useApp((s) => s.doc);
   const today = useApp((s) => s.today)();
   const appStore = useAppStore();
+  const ui = useUiStore();
+  const startEdit = useUi((s) => s.startEdit);
+  const endEdit = useUi((s) => s.endEdit);
   const logSet = useApp((s) => s.logSet);
   const editSet = useApp((s) => s.editSet);
   const removeSet = useApp((s) => s.removeSet);
@@ -107,8 +110,8 @@ export function LogScreen() {
   const editing = draft?.exerciseId === currentId && draft.editing && block && draft.editing.blockId === block.id ? draft.editing : null;
   const editedSet = editing ? block?.sets[editing.index] : undefined;
   const labels = setLabels(block);
-  const backToNew = () =>
-    setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: !hasWorking(blockFor(appStore.getState().doc, day, currentId!)), test });
+  // Leaving an edit brings back what was being typed for the next set.
+  const backToNew = () => endEdit(!hasWorking(blockFor(appStore.getState().doc, day, currentId!)));
 
   // Re-picking the exercise already in hand keeps what's typed.
   const pick = (exerciseId: string) => {
@@ -140,18 +143,37 @@ export function LogScreen() {
 
   function edit(index: number) {
     const set = block!.sets[index]!;
-    setDraft({
-      day, exerciseId: currentId!, editing: { day, blockId: block!.id, index },
-      weight: String(set.weight), reps: String(set.reps), warmup: set.warmup, difficulty: set.rir == null ? null : difficultyOf(set.rir), test,
+    if (draft?.exerciseId !== currentId) setDraft(freshDraft(doc, day, currentId!));
+    startEdit(day, { day, blockId: block!.id, index }, {
+      weight: String(set.weight), reps: String(set.reps), warmup: set.warmup, difficulty: set.rir == null ? null : difficultyOf(set.rir),
     });
   }
 
-  async function remove(index: number) {
-    const label = labels[index]!;
-    const removed = await removeSet({ day, blockId: block!.id, index });
-    if (!removed) return;
-    if (editing) backToNew(); // positions shifted: whatever was being edited is no longer at its index
-    showToast({ text: label === "W" ? "Removed warm-up" : `Removed set ${label}`, action: { label: "Undo", onAction: () => void restoreSet(removed) } });
+  // By the set itself: its position may have moved since the swipe began.
+  async function remove(set: SetEntry): Promise<boolean> {
+    const current = blockFor(appStore.getState().doc, day, currentId!);
+    const index = current ? current.sets.indexOf(set) : -1;
+    if (!current || index < 0) return false;
+    const label = setLabels(current)[index]!;
+    const removed = await removeSet({ day, blockId: current.id, index });
+    if (!removed) return false;
+    // Positions shift on remove and on Undo, so an edit in progress ends either way rather than land on another set.
+    const endEditIn = () => {
+      const d = ui.getState().log.draft;
+      if (d?.editing?.blockId === removed.block.id) ui.getState().endEdit(!hasWorking(blockFor(appStore.getState().doc, removed.day, removed.block.exerciseId)));
+    };
+    endEditIn();
+    showToast({
+      text: label === "W" ? "Removed warm-up" : `Removed set ${label}`,
+      action: {
+        label: "Undo",
+        onAction: () => {
+          endEditIn();
+          void restoreSet(removed);
+        },
+      },
+    });
+    return true;
   }
 
   return (
@@ -217,9 +239,9 @@ export function LogScreen() {
         mode={editing ? "edit" : "new"}
         onSubmit={(set) => void submit(set)}
         onCancel={backToNew}
-        onDelete={() => editing && void remove(editing.index)}
+        onDelete={() => editedSet && void remove(editedSet)}
       />
-      <SetList block={block} editingIndex={editing?.index ?? null} onEdit={edit} onRemove={(i) => void remove(i)} />
+      <SetList block={block} editingIndex={editing?.index ?? null} onEdit={edit} onRemove={remove} />
 
       <div className={styles.dock}>
         <Button variant="secondary" block onClick={() => openSheet("next-exercise")}>＋ Next exercise</Button>

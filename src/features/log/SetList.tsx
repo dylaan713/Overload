@@ -13,12 +13,24 @@ export function setLabels(block: Block | undefined): string[] {
   return (block?.sets ?? []).map((s) => (s.warmup ? "W" : String(++n)));
 }
 
-/** Today's sets for one exercise: tap one to fix it, swipe it left to remove it. */
+// Sets have no ids; their objects are stable across saves (changes copy only what changed), so they key rows.
+const keys = new WeakMap<SetEntry, number>();
+let nextKey = 0;
+const keyOf = (s: SetEntry) => {
+  if (!keys.has(s)) keys.set(s, ++nextKey);
+  return keys.get(s)!;
+};
+
+/**
+ * Today's sets for one exercise: tap one to fix it, swipe it left to remove it. Removal is by the set itself,
+ * not its position, so two quick swipes can't hit a row that moved up in between.
+ */
 export function SetList({ block, editingIndex, onEdit, onRemove }: {
   block: Block | undefined;
   editingIndex?: number | null;
   onEdit?: (index: number) => void;
-  onRemove?: (index: number) => void;
+  /** Resolves false when the set wasn't removed, so the row comes back. */
+  onRemove?: (set: SetEntry) => Promise<boolean>;
 }) {
   if (!block?.sets.length) return null;
   const labels = setLabels(block);
@@ -26,19 +38,19 @@ export function SetList({ block, editingIndex, onEdit, onRemove }: {
     <ol className={styles.sets} aria-label="Sets today">
       {block.sets.map((s, i) => (
         <SetRow
-          key={`${block.id}:${i}:${s.weight}:${s.reps}`}
+          key={keyOf(s)}
           set={s}
           label={labels[i]!}
           editing={editingIndex === i}
           onEdit={() => onEdit?.(i)}
-          onRemove={() => onRemove?.(i)}
+          onRemove={() => onRemove?.(s) ?? Promise.resolve(false)}
         />
       ))}
     </ol>
   );
 }
 
-function SetRow({ set, label, editing, onEdit, onRemove }: { set: SetEntry; label: string; editing: boolean; onEdit: () => void; onRemove: () => void }) {
+function SetRow({ set, label, editing, onEdit, onRemove }: { set: SetEntry; label: string; editing: boolean; onEdit: () => void; onRemove: () => Promise<boolean> }) {
   const reduced = useReducedMotionConfig() ?? false;
   const x = useMotionValue(0);
   const fade = useMotionValue(1);
@@ -58,7 +70,12 @@ function SetRow({ set, label, editing, onEdit, onRemove }: { set: SetEntry; labe
     onRelease(raw, velocity) {
       if (commitOnRelease(-raw, -velocity, width())) {
         const out = reduced ? animate(fade, 0, FADE) : animate(x, -width(), { ...(Math.abs(velocity) > FLICK ? SPRING.momentum : SPRING.default), velocity });
-        void out.then(onRemove);
+        void out.then(async () => {
+          if (await onRemove()) return;
+          // Not removed (e.g. the save failed): bring it back rather than leave a gap.
+          animate(x, 0, reduced ? FADE : SPRING.default);
+          animate(fade, 1, FADE);
+        });
       } else {
         animate(x, 0, reduced ? FADE : { ...SPRING.default, velocity });
       }
@@ -67,7 +84,15 @@ function SetRow({ set, label, editing, onEdit, onRemove }: { set: SetEntry; labe
 
   const feel = set.warmup ? "Warm-up" : set.rir == null ? "" : DIFFICULTY_LABEL[difficultyOf(set.rir)];
   return (
-    <li ref={ref} className={styles.setItem} {...drag}>
+    <li
+      ref={ref}
+      className={styles.setItem}
+      {...drag}
+      onPointerDown={(e) => {
+        dragged.current = false; // a new press: whether it's a tap is decided afresh
+        drag.onPointerDown(e);
+      }}
+    >
       <motion.button
         type="button"
         className={styles.set}

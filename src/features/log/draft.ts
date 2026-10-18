@@ -6,7 +6,7 @@ import type { LogDraft } from "../../state/uiStore";
 /** A clean entry row for an exercise: warm-up on until it has a working set today. */
 export function freshDraft(doc: StoreDoc, day: string, exerciseId: string): LogDraft {
   const b = blockFor(doc, day, exerciseId);
-  return { day, exerciseId, weight: "", reps: "", difficulty: null, editing: null, warmup: !b?.sets.some((s) => !s.warmup), test: b?.test ?? false };
+  return { day, exerciseId, weight: "", reps: "", difficulty: null, editing: null, pending: null, warmup: !b?.sets.some((s) => !s.warmup), test: b?.test ?? false };
 }
 
 /** The day the Log is on right now (today, or a workout still going past midnight). */

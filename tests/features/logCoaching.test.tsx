@@ -21,7 +21,7 @@ const device = (d: StoreDoc, exerciseId: string | null = null): MemoryKV =>
     [V2_KEY]: JSON.stringify(d),
     [UI_KEY]: JSON.stringify({
       version: 2, tab: "log",
-      log: { draft: exerciseId && { day: TODAY, exerciseId, weight: "", reps: "", difficulty: null, warmup: true, editing: null, test: false }, startedAt: null, last: null },
+      log: { draft: exerciseId && { day: TODAY, exerciseId, weight: "", reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false }, startedAt: null, last: null },
     }),
   });
 const open = (kv: MemoryKV) => renderWithStore(<Shell />, { kv, today: TODAY, now: () => NOW });

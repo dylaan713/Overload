@@ -44,7 +44,7 @@ export function EntryRow({ day, exerciseId, warmupDefault = false, unit, placeho
   const warmup = draft?.warmup ?? warmupDefault;
   const difficulty = draft?.difficulty ?? null;
   const update = (patch: Omit<Partial<LogDraft>, "day">) =>
-    setDraft(draft ? { day, ...patch } : { day, exerciseId, warmup, weight: "", reps: "", difficulty: null, editing: null, test: false, ...patch });
+    setDraft(draft ? { day, ...patch } : { day, exerciseId, warmup, weight: "", reps: "", difficulty: null, editing: null, pending: null, test: false, ...patch });
 
   function submit() {
     const weight = weightText.trim() ? parseNumber(weightText.trim()) : placeholder.weight;

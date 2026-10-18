@@ -23,7 +23,7 @@ function device(d: StoreDoc, log: Partial<LogUi> = {}): MemoryKV {
     [UI_KEY]: JSON.stringify({ version: 2, tab: "log", log: { draft: null, startedAt: null, last: null, ...log } }),
   });
 }
-const draftFor = (exerciseId: string, dayYmd = TODAY) => ({ day: dayYmd, exerciseId, weight: "", reps: "", difficulty: null, warmup: true, editing: null, test: false });
+const draftFor = (exerciseId: string, dayYmd = TODAY) => ({ day: dayYmd, exerciseId, weight: "", reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false });
 const open = (kv: MemoryKV, now = NOON, today = TODAY) => renderWithStore(<Shell />, { kv, today, now: () => now });
 const target = () => screen.getByRole("region", { name: "Target" });
 const lastTime = () => screen.getByRole("region", { name: "Last time" });

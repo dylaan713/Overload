@@ -5,7 +5,7 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
-State Update 2026-10-17: Training engine done on `rewrite` (pure domain, no UI): new v2 model, start-empty boot, v2-only backups, exercise library (154), phases, step-aware targetsFor with setbacks/stall/time-off/fatigue/test-day, weekly volume. Old engine and golden tests removed. 108 tests green.
+State Update 2026-10-17: Training engine done on `rewrite` (pure domain, no UI): new v2 model, start-empty boot, v2-only backups, exercise library (154), phases, step-aware targetsFor with setbacks/stall/time-off/fatigue/test-day, weekly volume. Old engine and golden tests removed. Final review fixed (step-grid snapping, step ≤ 0 hang, input validation); 113 tests green. 8 deferred minors listed in the 2026-10-17 session summary.
 Next: revise Plan A for the new model (no migration banner; Settings: Units, Training style, Equipment steps, Download old app data; library browser + Create your own), then Plan B on targetsFor.
 
 State Update 2026-10-17 (wave 2): Engine plan Tasks 4–6 done (estimates + lift history; `targetsFor` with earn/extend/build/phase-start/bodyweight/band; bad-session, drop and stall rules with cooldown). 88 tests, typecheck, lint, build green.

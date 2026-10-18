@@ -2,62 +2,88 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the design system, app store, shell (bottom tab bar + sheets), the Settings sheet and the Exercise library of the new Overload UI on the foundation data layer, served at a temporary `/next.html` entry while the old app keeps shipping.
+**Goal:** Build a whole new, native-feeling UI foundation on the new training-engine data model. It covers design tokens, primitives, a spring-driven motion layer (draggable sheets, a navigation stack inside them, sliding segmented controls, undo toasts), the app store, the shell (Log · Progress · History), the Settings sheet and the Exercise library. It is served at `/next.html` while the old app keeps shipping.
 
-> **Revision 2026-10-17 (Apple-design audit, App Store target).** Changes from the 2026-10-09 draft: tabs move to a translucent bottom tab bar; Settings opens as a sheet with Done instead of acting as a hidden fourth tab; Manage exercises becomes the "Exercise library" view inside that sheet (with Back) instead of living in the Log placeholder; type sizes become `rem` tokens that honor the iOS text-size setting; motion, material and accessibility tokens (`prefers-reduced-motion`, `prefers-reduced-transparency`, `prefers-contrast: more`) are defined now so later animation work doesn't retrofit them; every pressable control gets an instant pressed state and hover only on hover-capable devices; segmented options reach 44px; delete-exercise confirmation states how many sessions it removes and can be cancelled; backup filenames use the local date (the draft used UTC); `next.html` gets per-scheme `theme-color`; the body font is the system font (San Francisco on Apple devices) instead of Inter. Engine behavior is unchanged in Plan A; the engine redesign gets its own spec before Plan B.
+> **Revision 2026-10-17b (training engine + Apple-design interaction).** This revision replaces the 2026-10-09 draft and its first revision.
+> - **Data model:** the app starts empty, so there is no migration banner. Exercises come from the library or are created by the user, so muscle groups, custom groups and the type badge are gone. Settings becomes Units (converting) · Training style · Equipment steps · Appearance · Exercise library · Data & backup.
+> - **Interaction:** springs (`motion@13.5.1`), drag-to-dismiss sheets, an in-sheet navigation stack, a sliding segmented thumb, translucent chrome with scroll-edge fades, and Archive + Undo instead of delete.
+> - **Tabs:** Log · Progress · History.
+> - **Tasks:** 1–3 keep their 2026-10-09 text except where marked. Segmented and Sheet move out of Task 3 into the new Task 4 (motion foundation). Tasks 5–10 are new.
 
-**Architecture:** React 19 + TypeScript. CSS variables (tokens) with CSS Modules; Zustand vanilla stores injected with a `KeyValueStore` so every test runs on an in-memory store. UI screens read/write only through store actions, which persist the whole `overload.v2` document and roll back on failure. The legacy `src/App.jsx`, `index.html` and the 62 foundation tests are untouched.
+**Architecture:** React 19 + TypeScript. CSS variables (tokens) with CSS Modules; `motion` springs for anything that moves under the finger; Zustand vanilla stores injected with a `KeyValueStore`, so every test runs on an in-memory store. Screens read and write only through store actions, which persist the whole `overload.v2` document and roll back on failure. The domain (`src/domain`, engine and library) is already built. Plan A adds only the small helpers in Task 5. `src/App.jsx` and `index.html` (the live app) are untouched.
 
-**Tech Stack:** React 19, TypeScript strict, Vite 6, Zustand, CSS Modules, system font (San Francisco on Apple devices) + JetBrains Mono, lucide-react, Vitest + Testing Library + jsdom.
+**Tech Stack:** React 19, TypeScript strict, Vite 6, Zustand, `motion@13.5.1` (MIT; `motion/react`), CSS Modules, system font + JetBrains Mono, lucide-react, Vitest + Testing Library + jsdom.
 
-**Spec:** `docs/superpowers/specs/2026-10-09-design-system-and-shell-design.md` (this is Plan A of 3: A = design system/store/shell/Settings/Manage exercises; B = Log + rest timer + undo + UI-state persistence; C = Stats + History + e2e + cutover.)
+**Spec:** `docs/superpowers/specs/2026-10-09-design-system-and-shell-design.md`. Its first section (Revision 2026-10-17b) wins over the older text below it. Also `docs/superpowers/specs/2026-10-17-training-engine-design.md` ("Impact on the other plans → Plan A"). Interaction principles come from the `apple-design` skill. Plan A is 1 of 3: A = foundation, Settings and library; B = Log + coaching + rest timer + UI-state persistence; C = Progress + History + e2e + cutover.
 
 ## Global Constraints
 
-- Dark tokens: bg `#0e1118`, surface `#161a24`, surface2 `#1d2230`, line `#222836`, text `#e9edf5`, accent `#3fd0c9`, on-accent `#04191a`. Light tokens: bg `#f6f4ef`, surface `#ffffff`, line `#e4e0d6`, text `#15181f`. The contrast test is authoritative for the remaining values; when it rejects a value, change the value, never the threshold, and say so in the commit.
-- Contrast thresholds: 4.5:1 for body/small text, 3:1 for large numerals (≥24px, or ≥19px bold). No `font-size` below 13px (0.8125rem) in any CSS under `src/`; inputs never under 16px (`max(16px, var(--text-base))`).
-- Font sizes in CSS Modules use the `--text-*` tokens (rem), never raw px, so the layout scales with the iPhone text-size setting.
-- Tap targets ≥44px tall (`min-height: 44px`) for buttons, inputs, tabs and segmented options.
-- Every pressable control has an `:active` pressed state that appears on touch-down (≤100ms, `--dur-press`). Hover styles live only inside `@media (hover: hover)` so they never stick after a tap on iOS.
-- Motion uses the `--dur-*`/`--ease-*` tokens; under `prefers-reduced-motion: reduce` movement becomes a cross-fade (`--motion-offset: 0`), never a hard cut and never a slide.
-- App Store target: the UI must read as a native iOS app (bottom tab bar, sheets with Done, no hidden pseudo-tabs). Platform calls that differ between browser and native (file download, haptics, notifications, storage) go through one small module each so the Capacitor wrap can swap them.
-- Type: the platform system font (`-apple-system`/`system-ui`: San Francisco on iPhone and Mac, so it gets Apple's optical sizing and tracking for free; Segoe/Roboto elsewhere) with `font-variant-numeric: tabular-nums` on numerals; JetBrains Mono for set logs/timer. No body webfont is bundled.
-- Theme preference is `settings.theme` ∈ `"system" | "dark" | "light"`; any other stored value (legacy `ember`, `slate`, `violet`, `paper`, or missing) is treated as `system` at read time and is not rewritten until the user changes it.
-- Legacy keys `exercises`, `sessions`, `customGroups`, `settings` are never written. `overload.v2` is written only through `saveDoc` (whole document, one write). Transient UI state uses a separate key `overload.v2.ui`.
-- Do not modify `src/App.jsx`, `index.html`, `src/storage.js`, `src/index.css` or the engine in `src/domain/progression.ts`.
-- Gate for every task: `npm test && npm run typecheck && npm run lint` must pass before commit.
-- Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (shown as the second `-m`).
-- Work on branch `rewrite`.
+- **Colors:**
+  - Dark tokens: bg `#0e1118`, surface `#161a24`, surface2 `#1d2230`, line `#222836`, text `#e9edf5`, accent `#3fd0c9`, on-accent `#04191a`.
+  - Light tokens: bg `#f6f4ef`, surface `#ffffff`, line `#e4e0d6`, text `#15181f`.
+  - The contrast test is authoritative for the remaining values. When it rejects a value, change the value, never the threshold, and say so in the commit.
+- **Contrast and type size:** 4.5:1 for body/small text, 3:1 for large numerals (≥24px, or ≥19px bold). No `font-size` below 13px (0.8125rem) in any CSS under `src/`. Inputs are never under 16px (`max(16px, var(--text-base))`).
+- **Font sizes** in CSS Modules use the `--text-*` tokens (rem), never raw px.
+- **Tap targets** are ≥44px tall for buttons, inputs, tabs, segmented options, chips and list rows.
+- **Response:**
+  - Every pressable control shows its pressed state on touch-down (`:active`, ≤100ms, `--dur-press`).
+  - Hover styles live only inside `@media (hover: hover)`.
+  - No debounce or artificial delay on any input path (search filters on every keystroke).
+- **Motion:**
+  - Anything that moves in response to touch, or that the user can interrupt, uses `motion` springs from `src/ui/motion.ts`. Default is critically damped (`bounce: 0`); `bounce: 0.2` only after a release with momentum.
+  - CSS transitions only for press states, color and opacity.
+  - Animations start from the current on-screen value, keep input live, and hand release velocity to the spring.
+- **Spatial consistency:** sheets enter from the bottom and leave downward. Pushed views enter from the right and pop back to the right. Toasts enter and leave at the bottom.
+- **Reduced motion and accessibility:**
+  - Under `prefers-reduced-motion: reduce`, movement becomes a cross-fade: `<MotionConfig reducedMotion="user">` plus `--motion-offset: 0`. Never a hard cut, and no overshoot.
+  - `prefers-reduced-transparency` makes chrome solid. `prefers-contrast: more` strengthens edges.
+- **Materials:** the header and tab bar are translucent (`--material` + `backdrop-filter`) only while content scrolls under them, with a soft fade edge instead of a hairline. Never put a translucent surface on another translucent surface.
+- **Agency:**
+  - Prefer Undo to confirmation. Confirm only irreversible actions: permanent delete, import replace, unit conversion.
+  - Validate inline (on blur/Enter), with a message under the field. Never fail silently.
+- **Wayfinding:** tabs are exactly **Log**, **Progress**, **History**. Settings is a sheet opened by the header's gear, with Done. Nested views show Back labelled with the parent's title.
+- **App Store target:** the UI reads as a native iOS app. Platform calls that differ between browser and native (file download, storage, later haptics and notifications) go through one small module each.
+- **Type:** the platform system font with `font-variant-numeric: tabular-nums` on numerals, and JetBrains Mono for set logs and the timer.
+- **Theme:** the preference is `settings.theme` ∈ `"system" | "dark" | "light"` (validation already maps anything else to `system`).
+- **Data:**
+  - The new app starts empty. Legacy keys `exercises`, `sessions`, `customGroups`, `settings` are never written or deleted.
+  - `overload.v2` is written only through `saveDoc` (whole document, one write). Transient UI state uses `overload.v2.ui`.
+  - Weights are shown in `settings.unit`. Suggested weights come only from the engine.
+- **Do not modify:** `src/App.jsx`, `index.html`, `src/storage.js`, `src/index.css`, or the engine rules in `src/domain/engine/`.
+- **Gate:** `npm test && npm run typecheck && npm run lint` must pass before every commit. UI tasks are also checked at 390×844 in both themes during Task 10.
+- **Commits** end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (as the second `-m`). Work on branch `rewrite`.
 
 ## Review Focus
 
-1. **A failed save must roll back in-memory state and show an error**, never leave the UI showing data that was not stored — Tasks 5 and 6.
-2. **A boot failure must never overwrite stored data**; the error screen's "Download raw data" must include `overload.v2` as well as the legacy keys — Task 6.
-3. **Invalid settings input must never reach storage** (non-numeric, out of range, rep-low ≥ rep-high) and must explain itself — Tasks 3 and 7.
-4. **Importing an invalid or wrong file leaves existing data intact; a valid file requires confirmation showing counts before it replaces anything** — Task 7.
-5. **Legacy or unknown theme values must not crash or flash the wrong theme** — Task 2.
+1. **Grabbing a sheet mid-animation** (dragging it while it closes, or pressing Done during a drag) must follow the finger from where it is. It must close exactly once and never leave the page scaled back or `inert` after it's gone (Task 4).
+2. **Switching units** must show the exact number of sets it converts. Cancel changes nothing. A failed save restores both the unit and every weight (Tasks 6, 8).
+3. **Changing training style twice on the same day** must not create zero-length phases. A phase start date can't be in the future or before the previous phase (Task 5).
+4. **Adding a library exercise that's already in My exercises** must not create a duplicate. If it's archived, it's restored with its history (Tasks 6, 9).
+5. **Undo after a failed save:** an archive whose save fails rolls back and shows the save error, not an Undo toast for something that never happened (Tasks 6, 9).
 
 ## File Structure
 
 ```
 next.html                         temporary entry for the new UI (cutover is Plan C)
 src/next/main.tsx                 renders <App kv={localStorage KV}/>
-src/styles/tokens.css             design tokens, dark + light (colors, type, motion, material)
-src/styles/a11y.css               reduced-motion, reduced-transparency, more-contrast overrides
-src/styles/base.css               reset, typography, focus ring, touch behavior, safe areas
-src/domain/theme.ts               ThemePref, themePreference()
-src/domain/exercises.ts           allMuscleGroups, groupByMuscleFull, deleteExerciseCascade, addCustomGroup, sessionsWithExercise
-src/state/appStore.ts             createAppStore(kv): doc + actions + persistence/rollback
-src/state/uiStore.ts              createUiStore(kv): tab + open sheet (more in Plan B), key overload.v2.ui
+src/styles/{tokens,a11y,base}.css design tokens (color, type, motion, material), a11y overrides, base styles
+src/domain/theme.ts               themePreference() (ThemePref lives in domain/types)
+src/domain/exercises.ts           region grouping, library state, cascade delete, usage count
+src/domain/settings.ts            (+ startPhase, setPhaseStart)
+src/domain/library/index.ts       (+ exerciseError, equipmentLabel, groupByMovement)
+src/ui/motion.ts                  SPRING presets, MotionRoot
+src/ui/gesture.ts                 project, rubberband, commitOnRelease (pure, tested)
+src/ui/*.tsx + *.module.css       Button, IconButton, Card, Field/Input/Select, NumberField, Pill, ChipGroup,
+                                  EmptyState, Segmented, Sheet, SheetStack, Toast, ListRow
+src/state/{appStore,uiStore}.ts   doc + actions + persistence/rollback; tab, sheet, toast
 src/state/context.tsx             StoreProvider, useApp, useUi, useKv
-src/ui/*.tsx + *.module.css       Button, IconButton, Card, Input/Select/Field, NumberField, Segmented, TypeBadge, EmptyState, Sheet
-src/app/App.tsx                   boot, theme apply, routing by tab
+src/app/App.tsx, Shell.tsx        boot, theme apply, chrome, tab routing, sheet + toast hosts
 src/app/{Header,TabBar,ErrorScreen,ErrorBoundary,Banner}.tsx
-src/app/{theme.ts,download.ts}    applyTheme, downloadText, backupFilename
-src/features/settings/SettingsScreen.tsx
-src/features/exercises/ExercisesManager.tsx
-src/features/placeholders.tsx     temporary Log/Stats/History placeholders
-tests/setup.ts, tests/helpers/{contrast.ts,blob.ts,renderWithStore.tsx}
+src/app/{theme,download,readFile}.ts
+src/features/settings/*           SettingsRoot, StyleRulesView, EquipmentStepsView
+src/features/exercises/*          LibraryView, ExerciseDetailView, AddExerciseView, ChooseEquipmentView, CreateExerciseView
+src/features/placeholders.tsx     temporary Log/Progress/History placeholders
+tests/setup.ts, tests/helpers/{contrast,blob,seed,renderWithStore}.ts(x), tests/helpers/build.ts (exists)
 tests/{ui,state,app,features,styles,domain}/*.test.ts(x)
 ```
 
@@ -222,7 +248,7 @@ git add -A && git commit -m "build: add React/jsdom test toolchain and /next.htm
 - Modify: `src/styles/base.css`, `src/next/main.tsx` (import tokens)
 
 **Interfaces:**
-- Produces: CSS variables `--bg --surface --surface2 --line --text --muted --accent --on-accent --warn --danger --on-danger` (+ `--accent-soft --warn-soft --danger-soft`, `--font-body --font-mono --radius --radius-sm`); type scale `--text-xs` (13) `--text-sm` (14) `--text-md` (15) `--text-base` (16) `--text-lg` (17) `--text-xl` (22) `--text-2xl` (28) `--text-3xl` (40) `--text-4xl` (64), in rem, with `--leading-tight --leading-snug` and `--tracking-tight --tracking-tighter`; motion `--dur-press --dur-fast --dur-sheet --ease-out --motion-offset`; material `--material --material-blur --scrim`; layout `--tabbar-h`; `type ThemePref = "system" | "dark" | "light"`; `themePreference(stored: string | undefined): ThemePref`; `applyTheme(pref: ThemePref, root?: HTMLElement): void`; `contrast(hexA: string, hexB: string): number`.
+- Produces: CSS variables `--bg --surface --surface2 --line --text --muted --accent --on-accent --warn --danger --on-danger` (+ `--accent-soft --warn-soft --danger-soft`, `--font-body --font-mono --radius --radius-sm`); type scale `--text-xs` (13) `--text-sm` (14) `--text-md` (15) `--text-base` (16) `--text-lg` (17) `--text-xl` (22) `--text-2xl` (28) `--text-3xl` (40) `--text-4xl` (64), in rem, with `--leading-tight --leading-snug` and `--tracking-tight --tracking-tighter`; motion `--dur-press --dur-fast --dur-sheet --ease-out --motion-offset`; material `--material --material-blur --scrim`; layout `--tabbar-h`; `ThemePref` (re-exported from `src/domain/types.ts`, where the engine plan defined it); `themePreference(stored: string | undefined): ThemePref`; `applyTheme(pref: ThemePref, root?: HTMLElement): void`; `contrast(hexA: string, hexB: string): number`.
 
 Why rem: on iOS `html { font: -apple-system-body }` sets the root size from the user's text-size setting (17px at the default), so `rem` tokens scale with Dynamic Type in Safari and in the later WKWebView wrap. Browsers without that keyword keep the 16px root.
 
@@ -560,7 +586,8 @@ Then remove the `import "../styles/tokens.css"` need: `base.css` already imports
 
 `src/domain/theme.ts`:
 ```ts
-export type ThemePref = "system" | "dark" | "light";
+import type { ThemePref } from "./types";
+export type { ThemePref };
 
 /** Legacy ("ember", "slate", ...), unknown or missing values all mean "system". */
 export function themePreference(stored: string | undefined): ThemePref {
@@ -591,11 +618,13 @@ git add -A && git commit -m "feat(ui): add design tokens, theme preference and c
 
 ---
 
-### Task 3: UI primitives
+### Task 3: Static UI primitives
+
+> Revised 2026-10-17b: `Segmented` and `Sheet` move to Task 4, where they become spring-driven. `TypeBadge` is replaced by `Pill`, because the type badge is gone. `ChipGroup` is new (muscle pickers). `NumberField` gains `integer`, `optional`, `suffix` and `placeholder`.
 
 **Files:**
-- Create: `src/ui/Button.tsx`, `Button.module.css`, `IconButton.tsx`, `IconButton.module.css`, `Card.tsx`, `Card.module.css`, `Field.tsx`, `Field.module.css`, `NumberField.tsx`, `Segmented.tsx`, `Segmented.module.css`, `TypeBadge.tsx`, `TypeBadge.module.css`, `EmptyState.tsx`, `EmptyState.module.css`, `Sheet.tsx`, `Sheet.module.css`
-- Test: `tests/ui/Button.test.tsx`, `tests/ui/NumberField.test.tsx`, `tests/ui/Segmented.test.tsx`, `tests/ui/primitives.test.tsx`, `tests/ui/Sheet.test.tsx`
+- Create: `src/ui/Button.tsx`, `Button.module.css`, `IconButton.tsx`, `IconButton.module.css`, `Card.tsx`, `Card.module.css`, `Field.tsx`, `Field.module.css`, `NumberField.tsx`, `Pill.tsx`, `Pill.module.css`, `ChipGroup.tsx`, `ChipGroup.module.css`, `EmptyState.tsx`, `EmptyState.module.css`
+- Test: `tests/ui/Button.test.tsx`, `tests/ui/NumberField.test.tsx`, `tests/ui/primitives.test.tsx`, `tests/ui/ChipGroup.test.tsx`
 
 **Interfaces:**
 - Produces:
@@ -603,10 +632,12 @@ git add -A && git commit -m "feat(ui): add design tokens, theme preference and c
   - `IconButton({ label: string; children: ReactNode } & ButtonHTMLAttributes)` (sets `aria-label` and `title` to `label`)
   - `Card({ title?: string; children: ReactNode })`
   - `Field({ label: string; htmlFor: string; error?: string | null; children: ReactNode })`, `Input` and `Select` (styled native elements, props pass through)
-  - `NumberField({ label: string; value: number; min?: number; max?: number; onChange(v: number): void })` and `rangeMessage(min?, max?): string`
-  - `Segmented<T extends string>({ label: string; value: T; options: { value: T; label: string }[]; onChange(v: T): void })`
-  - `TypeBadge({ type: "compound" | "isolation" })`, `EmptyState({ text: string })`
-  - `Sheet({ title: string; onClose(): void; onBack?: () => void; backLabel?: string; children: ReactNode })` — modal bottom sheet (`role="dialog"`, `aria-modal`), Done button and Escape close it, focus moves into it on open and back to the opener on close. The caller renders it only while open and marks the rest of the page `inert`.
+  - `NumberField({ label: string; value: number | null; min?: number; max?: number; integer?: boolean; optional?: boolean; suffix?: string; placeholder?: string; onChange(v: number | null): void })` and `rangeMessage(min?, max?, integer?): string`.
+    - With `integer`, the message says "whole number" (e.g. "Enter a whole number from 1 to 20").
+    - With `optional`, an empty field commits `null`; without it, empty is invalid and `value` is never `null`.
+    - `suffix` renders after the input (e.g. "lb"), and `placeholder` passes through.
+  - `Pill({ tone?: "neutral" | "accent"; children: ReactNode })`, `EmptyState({ text: string })`
+  - `ChipGroup<T extends string>({ label: string; options: { value: T; label: string; disabled?: boolean }[]; value: T[]; onChange(v: T[]): void; error?: string | null })`: a labelled `group` of toggle buttons (`aria-pressed`), ≥44px tall, wrapping. Tapping toggles membership, and `onChange` receives the new list in `options` order.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -739,35 +770,6 @@ describe("NumberField", () => {
 });
 ```
 
-`tests/ui/Segmented.test.tsx`:
-```tsx
-// @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { Segmented } from "../../src/ui/Segmented";
-
-const options = [
-  { value: "lb", label: "lb" },
-  { value: "kg", label: "kg" },
-] as const;
-
-describe("Segmented", () => {
-  it("exposes a radiogroup with the active option checked", () => {
-    render(<Segmented label="Units" value="lb" options={[...options]} onChange={() => {}} />);
-    expect(screen.getByRole("radiogroup", { name: "Units" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "lb" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radio", { name: "kg" })).toHaveAttribute("aria-checked", "false");
-  });
-  it("calls onChange with the chosen value", async () => {
-    const onChange = vi.fn();
-    render(<Segmented label="Units" value="lb" options={[...options]} onChange={onChange} />);
-    await userEvent.click(screen.getByRole("radio", { name: "kg" }));
-    expect(onChange).toHaveBeenCalledWith("kg");
-  });
-});
-```
-
 `tests/ui/primitives.test.tsx`:
 ```tsx
 // @vitest-environment jsdom
@@ -776,7 +778,7 @@ import { render, screen } from "@testing-library/react";
 import { Card } from "../../src/ui/Card";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Field, Input } from "../../src/ui/Field";
-import { TypeBadge } from "../../src/ui/TypeBadge";
+import { Pill } from "../../src/ui/Pill";
 
 describe("primitives", () => {
   it("Card renders an optional title", () => {
@@ -793,11 +795,9 @@ describe("primitives", () => {
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Required");
   });
-  it("TypeBadge names the exercise type", () => {
-    const { rerender } = render(<TypeBadge type="compound" />);
-    expect(screen.getByText("Compound")).toBeInTheDocument();
-    rerender(<TypeBadge type="isolation" />);
-    expect(screen.getByText("Isolation")).toBeInTheDocument();
+  it("Pill renders its label", () => {
+    render(<Pill tone="accent">Added</Pill>);
+    expect(screen.getByText("Added")).toBeInTheDocument();
   });
   it("EmptyState shows its text", () => {
     render(<EmptyState text="Nothing yet" />);
@@ -897,7 +897,7 @@ export function IconButton({ label, children, className, type = "button", ...res
 }
 ```
 
-- [ ] **Step 4: Implement `Card`, `Field`/`Input`/`Select`, `TypeBadge`, `EmptyState`**
+- [ ] **Step 4: Implement `Card`, `Field`/`Input`/`Select`, `Pill`, `EmptyState`**
 
 `src/ui/Card.tsx`:
 ```tsx
@@ -960,20 +960,12 @@ export function Select({ className, ...rest }: SelectHTMLAttributes<HTMLSelectEl
 .error { font-size: var(--text-xs); color: var(--danger); }
 ```
 
-`src/ui/TypeBadge.tsx`:
-```tsx
-import styles from "./TypeBadge.module.css";
-
-export function TypeBadge({ type }: { type: "compound" | "isolation" }) {
-  const compound = type === "compound";
-  return <span className={[styles.badge, compound ? styles.compound : styles.isolation].join(" ")}>{compound ? "Compound" : "Isolation"}</span>;
-}
-```
-`src/ui/TypeBadge.module.css`:
+`src/ui/Pill.tsx`: a `<span>` with `styles.pill` and `styles[tone ?? "neutral"]`.
+`src/ui/Pill.module.css`:
 ```css
-.badge { display: inline-block; font-size: var(--text-xs); font-weight: 500; padding: 2px 8px; border-radius: 999px; }
-.compound { color: var(--accent); background: var(--accent-soft); }
-.isolation { color: var(--warn); background: var(--warn-soft); }
+.pill { display: inline-flex; align-items: center; font-size: var(--text-xs); font-weight: 500; padding: 2px 8px; border-radius: 999px; }
+.neutral { color: var(--muted); background: var(--surface2); }
+.accent { color: var(--accent); background: var(--accent-soft); }
 ```
 
 `src/ui/EmptyState.tsx`:
@@ -989,9 +981,23 @@ export function EmptyState({ text }: { text: string }) {
 .empty { padding: 40px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius-sm); font-size: var(--text-md); }
 ```
 
-- [ ] **Step 5: Implement `NumberField` and `Segmented`**
+- [ ] **Step 5: Implement `NumberField` and `ChipGroup`**
 
-`src/ui/NumberField.tsx`:
+`NumberField` follows the code below, extended per the Interfaces block. Validity is `trimmed === "" ? optional : (finite && in range && (!integer || Number.isInteger(n)))`, and an empty optional field commits `null`. Append these cases to `tests/ui/NumberField.test.tsx` before implementing:
+  - `integer` rejects 2.5 with "Enter a whole number from 1 to 20";
+  - `optional` commits `null` on an emptied field;
+  - a non-optional field rejects empty;
+  - `suffix` text renders.
+
+`tests/ui/ChipGroup.test.tsx`:
+  - a `group` named by `label`, with one `button` per option;
+  - selected options have `aria-pressed="true"`;
+  - clicking an unselected option calls `onChange` with it added, in options order;
+  - clicking a selected one removes it;
+  - a disabled option can't be toggled;
+  - `error` renders under the group as `role="alert"`.
+
+`src/ui/NumberField.tsx` (2026-10-09 base; extend it as described above):
 ```tsx
 import { useEffect, useId, useState } from "react";
 import { Field, Input } from "./Field";
@@ -1057,179 +1063,7 @@ export function NumberField({ label, value, min, max, onChange }: NumberFieldPro
 }
 ```
 
-`src/ui/Segmented.tsx`:
-```tsx
-import styles from "./Segmented.module.css";
-
-export interface SegmentedProps<T extends string> {
-  label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}
-
-export function Segmented<T extends string>({ label, value, options, onChange }: SegmentedProps<T>) {
-  return (
-    <div role="radiogroup" aria-label={label} className={styles.group}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={o.value === value}
-          className={[styles.option, o.value === value ? styles.active : ""].filter(Boolean).join(" ")}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-```
-`src/ui/Segmented.module.css`:
-```css
-.group { display: flex; gap: 4px; padding: 4px; background: var(--surface2); border-radius: var(--radius-sm); }
-.option { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: var(--text-md); font-weight: 500; cursor: pointer; }
-.active { background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
-.option { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-.option:active:not(.active) { background: var(--accent-soft); }
-```
-
-`tests/ui/Sheet.test.tsx`:
-```tsx
-// @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { Sheet } from "../../src/ui/Sheet";
-
-describe("Sheet", () => {
-  it("is a labelled modal dialog that takes focus", () => {
-    render(<Sheet title="Settings" onClose={() => {}}>body</Sheet>);
-    const dialog = screen.getByRole("dialog", { name: "Settings" });
-    expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(dialog).toHaveFocus();
-  });
-  it("closes on Done and on Escape", async () => {
-    const onClose = vi.fn();
-    render(<Sheet title="Settings" onClose={onClose}>body</Sheet>);
-    await userEvent.click(screen.getByRole("button", { name: "Done" }));
-    await userEvent.keyboard("{Escape}");
-    expect(onClose).toHaveBeenCalledTimes(2);
-  });
-  it("shows a Back button only when onBack is given", async () => {
-    const onBack = vi.fn();
-    const { rerender } = render(<Sheet title="Exercises" onClose={() => {}}>x</Sheet>);
-    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
-    rerender(<Sheet title="Exercises" onClose={() => {}} onBack={onBack} backLabel="Settings">x</Sheet>);
-    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(onBack).toHaveBeenCalledTimes(1);
-  });
-  it("returns focus to the opener when it unmounts", () => {
-    const opener = document.createElement("button");
-    document.body.appendChild(opener);
-    opener.focus();
-    const { unmount } = render(<Sheet title="Settings" onClose={() => {}}>x</Sheet>);
-    unmount();
-    expect(opener).toHaveFocus();
-    opener.remove();
-  });
-});
-```
-
-`src/ui/Sheet.tsx`:
-```tsx
-import { ChevronLeft } from "lucide-react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
-import { Button } from "./Button";
-import styles from "./Sheet.module.css";
-
-export interface SheetProps {
-  title: string;
-  onClose: () => void;
-  onBack?: () => void;
-  backLabel?: string;
-  children: ReactNode;
-}
-
-// Modal bottom sheet, iOS style: rises from the bottom edge, Done top-right, optional Back top-left.
-// Drag-to-dismiss and spring motion come with the gestures sub-project.
-export function Sheet({ title, onClose, onBack, backLabel = "Back", children }: SheetProps) {
-  const titleId = useId();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
-    return () => opener?.focus();
-  }, []);
-
-  return (
-    <div className={styles.layer}>
-      <div className={styles.scrim} onClick={onClose} aria-hidden />
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className={styles.sheet}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
-      >
-        <header className={styles.bar}>
-          <div className={styles.side}>
-            {onBack && (
-              <Button variant="ghost" onClick={onBack}>
-                <ChevronLeft size={20} aria-hidden />
-                {backLabel}
-              </Button>
-            )}
-          </div>
-          <h2 id={titleId} className={styles.title}>{title}</h2>
-          <div className={[styles.side, styles.end].join(" ")}>
-            <Button variant="ghost" onClick={onClose}>Done</Button>
-          </div>
-        </header>
-        <div className={styles.body}>{children}</div>
-      </div>
-    </div>
-  );
-}
-```
-`src/ui/Sheet.module.css`:
-```css
-.layer { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
-.scrim { position: absolute; inset: 0; background: var(--scrim); animation: fade var(--dur-sheet) var(--ease-out); }
-.sheet {
-  position: relative; width: 100%; max-width: 720px;
-  max-height: calc(100% - env(safe-area-inset-top) - 12px);
-  display: flex; flex-direction: column;
-  background: var(--bg); border-radius: var(--radius) var(--radius) 0 0;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.28);
-  animation: rise var(--dur-sheet) var(--ease-out);
-  outline: none;
-}
-.bar {
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-  min-height: 56px; padding: 0 8px; border-bottom: 1px solid var(--line);
-}
-.side { display: flex; }
-.end { justify-content: flex-end; }
-.title { font-size: var(--text-lg); font-weight: 600; }
-.body {
-  overflow-y: auto; overscroll-behavior: contain;
-  padding: 16px max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-}
-/* Travel scales with --motion-offset, so reduced motion turns the rise into a fade. */
-@keyframes rise {
-  from { transform: translateY(calc(40px * var(--motion-offset))); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-```
+`src/ui/ChipGroup.tsx`: implement per the Interfaces block (a `role="group"` with `aria-labelledby` on a visible label, and `Button`-styled toggle chips with `aria-pressed`). Pressed chips use `--accent-soft` and `--accent`.
 
 - [ ] **Step 6: Run the gate**
 
@@ -1239,2033 +1073,465 @@ Expected: PASS (the typography-floor test also scans the new CSS: all sizes ≥1
 - [ ] **Step 7: Commit**
 
 ```bash
-git add -A && git commit -m "feat(ui): add Button, Card, Field, NumberField, Segmented, Sheet and badges" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
-
-
-### Task 4: Exercise domain helpers
-
-**Files:**
-- Create: `src/domain/exercises.ts`, `tests/domain/exercises.test.ts`
-
-**Interfaces:**
-- Consumes: `Exercise`, `StoreDoc` types.
-- Produces:
-  - `MUSCLE_GROUPS: string[]` (`Chest, Back, Shoulders, Legs, Arms, Core`)
-  - `allMuscleGroups(exercises: Exercise[], customGroups?: string[]): string[]` (fixed + custom + groups used by exercises, deduped, in that order)
-  - `groupByMuscle(exercises): Record<string, Exercise[]>` and `groupByMuscleFull(allGroups: string[], exercises): Record<string, Exercise[]>` (missing group → `"Other"`)
-  - `deleteExerciseCascade(doc: StoreDoc, id: string): StoreDoc`
-  - `type AddGroupResult = "added" | "empty" | "duplicate"`; `addCustomGroup(doc: StoreDoc, name: string): { doc: StoreDoc; result: AddGroupResult }`
-  - `sessionsWithExercise(doc: StoreDoc, id: string): number` (how many logged sessions a delete would touch; shown in the delete confirmation)
-
-- [ ] **Step 1: Write the failing test `tests/domain/exercises.test.ts`**
-
-```ts
-import { describe, it, expect } from "vitest";
-import { emptyDoc } from "../../src/data/store";
-import {
-  MUSCLE_GROUPS, addCustomGroup, allMuscleGroups, deleteExerciseCascade, groupByMuscle, groupByMuscleFull, sessionsWithExercise,
-} from "../../src/domain/exercises";
-import type { Exercise, StoreDoc } from "../../src/domain/types";
-
-const ex = (id: string, group: string, type: "compound" | "isolation" = "compound"): Exercise => ({ id, name: id, type, muscleGroup: group });
-
-function docWith(): StoreDoc {
-  return {
-    ...emptyDoc(),
-    exercises: [ex("bench", "Chest"), ex("curl", "Arms", "isolation")],
-    customGroups: ["Neck"],
-    sessions: [
-      { id: "s1", date: "2026-01-01", name: "A", blocks: [{ id: "b1", exerciseId: "bench", sets: [] }, { id: "b2", exerciseId: "curl", sets: [] }] },
-      { id: "s2", date: "2026-01-02", name: "B", blocks: [{ id: "b3", exerciseId: "bench", sets: [] }] },
-    ],
-  };
-}
-
-describe("allMuscleGroups", () => {
-  it("unions fixed, custom and used groups without duplicates", () => {
-    const groups = allMuscleGroups([ex("a", "Forearms"), ex("b", "Chest")], ["Neck", "Chest"]);
-    expect(groups.slice(0, MUSCLE_GROUPS.length)).toEqual(MUSCLE_GROUPS);
-    expect(groups).toContain("Neck");
-    expect(groups).toContain("Forearms");
-    expect(new Set(groups).size).toBe(groups.length);
-  });
-});
-
-describe("grouping", () => {
-  it("buckets exercises without a group as Other", () => {
-    expect(groupByMuscle([ex("a", "")])["Other"]).toHaveLength(1);
-  });
-  it("groupByMuscleFull keeps empty groups", () => {
-    const map = groupByMuscleFull(["Chest", "Neck"], [ex("bench", "Chest")]);
-    expect(map["Chest"]).toHaveLength(1);
-    expect(map["Neck"]).toEqual([]);
-  });
-});
-
-describe("deleteExerciseCascade", () => {
-  it("removes the exercise, its blocks, and sessions left empty", () => {
-    const next = deleteExerciseCascade(docWith(), "bench");
-    expect(next.exercises.map((e) => e.id)).toEqual(["curl"]);
-    expect(next.sessions.map((s) => s.id)).toEqual(["s1"]);
-    expect(next.sessions[0]!.blocks.map((b) => b.id)).toEqual(["b2"]);
-  });
-  it("does not mutate the input", () => {
-    const doc = docWith();
-    deleteExerciseCascade(doc, "bench");
-    expect(doc.exercises).toHaveLength(2);
-    expect(doc.sessions).toHaveLength(2);
-  });
-});
-
-describe("sessionsWithExercise", () => {
-  it("counts sessions containing the exercise", () => {
-    expect(sessionsWithExercise(docWith(), "bench")).toBe(2);
-    expect(sessionsWithExercise(docWith(), "curl")).toBe(1);
-    expect(sessionsWithExercise(docWith(), "nope")).toBe(0);
-  });
-});
-
-describe("addCustomGroup", () => {
-  it("adds a trimmed new group", () => {
-    const r = addCustomGroup(docWith(), "  Forearms ");
-    expect(r.result).toBe("added");
-    expect(r.doc.customGroups).toEqual(["Neck", "Forearms"]);
-  });
-  it("rejects blank names", () => {
-    const doc = docWith();
-    const r = addCustomGroup(doc, "   ");
-    expect(r.result).toBe("empty");
-    expect(r.doc).toBe(doc);
-  });
-  it("rejects case-insensitive duplicates of fixed, custom and used groups", () => {
-    for (const name of ["chest", "NECK", "arms"]) {
-      expect(addCustomGroup(docWith(), name).result).toBe("duplicate");
-    }
-  });
-});
-```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npx vitest run tests/domain/exercises.test.ts`
-Expected: FAIL — module not found.
-
-- [ ] **Step 3: Implement `src/domain/exercises.ts`**
-
-```ts
-import type { Exercise, StoreDoc } from "./types";
-
-export const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Legs", "Arms", "Core"];
-
-export function allMuscleGroups(exercises: Exercise[], customGroups: string[] = []): string[] {
-  const used = exercises.map((e) => e.muscleGroup).filter(Boolean);
-  return Array.from(new Set([...MUSCLE_GROUPS, ...customGroups, ...used]));
-}
-
-export function groupByMuscle(exercises: Exercise[]): Record<string, Exercise[]> {
-  const map: Record<string, Exercise[]> = {};
-  exercises.forEach((e) => {
-    (map[e.muscleGroup || "Other"] ??= []).push(e);
-  });
-  return map;
-}
-
-export function groupByMuscleFull(allGroups: string[], exercises: Exercise[]): Record<string, Exercise[]> {
-  const map: Record<string, Exercise[]> = {};
-  allGroups.forEach((g) => (map[g] = []));
-  exercises.forEach((e) => {
-    (map[e.muscleGroup || "Other"] ??= []).push(e);
-  });
-  return map;
-}
-
-/** Removes the exercise and all of its blocks; sessions left with no blocks are removed too. */
-export function deleteExerciseCascade(doc: StoreDoc, id: string): StoreDoc {
-  return {
-    ...doc,
-    exercises: doc.exercises.filter((e) => e.id !== id),
-    sessions: doc.sessions
-      .map((s) => ({ ...s, blocks: s.blocks.filter((b) => b.exerciseId !== id) }))
-      .filter((s) => s.blocks.length > 0),
-  };
-}
-
-export function sessionsWithExercise(doc: StoreDoc, id: string): number {
-  return doc.sessions.filter((s) => s.blocks.some((b) => b.exerciseId === id)).length;
-}
-
-export type AddGroupResult = "added" | "empty" | "duplicate";
-
-export function addCustomGroup(doc: StoreDoc, name: string): { doc: StoreDoc; result: AddGroupResult } {
-  const trimmed = name.trim();
-  if (!trimmed) return { doc, result: "empty" };
-  const existing = allMuscleGroups(doc.exercises, doc.customGroups).map((g) => g.toLowerCase());
-  if (existing.includes(trimmed.toLowerCase())) return { doc, result: "duplicate" };
-  return { doc: { ...doc, customGroups: [...doc.customGroups, trimmed] }, result: "added" };
-}
-```
-
-- [ ] **Step 4: Run the gate**
-
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add -A && git commit -m "feat(domain): add exercise grouping, cascade delete, usage count and custom-group helpers" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git add -A && git commit -m "feat(ui): add Button, Card, Field, NumberField, Pill, ChipGroup and EmptyState" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 5: App store and UI store
+### Task 4: Motion foundation: springs, gestures, Segmented, Sheet, SheetStack, Toast
+
+This is where the UI stops being static. Every later screen uses these pieces, so their feel is decided here: interruptible springs, 1:1 drags, momentum projection and symmetric paths (apple-design §1–7, 9, 14).
+
+**Files:**
+- Modify: `package.json` (add `"motion": "13.5.1"`, exact pin), `tests/setup.ts` (skip animations in tests)
+- Create: `src/ui/motion.ts`, `src/ui/gesture.ts`, `src/ui/Segmented.tsx`, `Segmented.module.css`, `src/ui/Sheet.tsx`, `Sheet.module.css`, `src/ui/SheetStack.tsx`, `SheetStack.module.css`, `src/ui/Toast.tsx`, `Toast.module.css`
+- Test: `tests/ui/gesture.test.ts`, `tests/ui/Segmented.test.tsx`, `tests/ui/Sheet.test.tsx`, `tests/ui/SheetStack.test.tsx`, `tests/ui/Toast.test.tsx`
+
+**Interfaces (produces):**
+- `motion.ts`:
+  - `SPRING = { default: { type: "spring", bounce: 0, duration: 0.4 }, snappy: { type: "spring", bounce: 0, duration: 0.3 }, momentum: { type: "spring", bounce: 0.2, duration: 0.3 } } as const`. `momentum` is used only after a release whose speed exceeds `FLICK = 300` px/s.
+  - `MotionRoot({ children })` = `<MotionConfig reducedMotion="user" transition={SPRING.default}>`.
+- `gesture.ts`, all pure:
+  - `project(velocity: number, decelerationRate = 0.998): number` → `(velocity / 1000) * decelerationRate / (1 - decelerationRate)` (Apple's projection).
+  - `rubberband(overshoot: number, dimension: number, constant = 0.55): number` → `(overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot))`, sign preserved.
+  - `commitOnRelease(offset: number, velocity: number, size: number): boolean`. It commits (dismiss or go back) when the projected end `offset + project(velocity)` is past `size / 2`. A release moving back toward the start faster than `FLICK` px/s never commits, because the velocity sign decides reversal.
+- `Segmented<T extends string>({ label: string; value: T | null; options: { value: T; label: string }[]; onChange(v: T): void })`. This is the 2026-10-09 API, except `value` may be `null` (no option checked and no thumb shown), which the Create view uses for an unselected Type.
+  - It is a `radiogroup` of `radio` buttons. The thumb is one `motion.span` with a per-instance `layoutId` and `SPRING.snappy`, so it slides from wherever it is, even mid-slide.
+  - ArrowLeft/ArrowRight move the selection.
+- `Sheet({ title, onClose, onBack?, backLabel?, headerAction?, children })`, a modal bottom sheet:
+  - Structure: `role="dialog"`, `aria-modal`, labelled by its title. Done and Escape call `onClose`. Focus moves into the sheet on open and back to the opener on unmount. Back appears only with `onBack`.
+  - Enter and exit: it enters with `y: "100%" → 0` and exits back down (`AnimatePresence`, `SPRING.default`).
+  - Drag: the grabber and header are a drag handle (`drag="y"`). Down follows the finger 1:1 from the grab point; up goes through `rubberband`. On release it decides with `commitOnRelease(offsetY, velocityY, height)`.
+  - Release: on commit it animates to `height` with the release velocity (`SPRING.momentum` if `|v| > FLICK`), then calls `onClose` once. Otherwise it springs back to 0.
+  - Scrim and push-back: the scrim's opacity follows the sheet's y. The sheet writes `--sheet-progress` (0 = fully open, 1 = gone) on `document.documentElement` on every frame and removes it on unmount, so the page behind can scale and dim in step. A Done press during a drag closes once.
+- `SheetStack({ root: SheetView, onClose })` with `SheetView = { id: string; title: string; render(nav: SheetNav): ReactNode; headerAction?: ReactNode }` and `SheetNav = { push(v: SheetView): void; pop(): void; popToRoot(): void; depth: number }`. Also `useSheetNav(): SheetNav`.
+  - Layout: it renders one `Sheet` whose title and Back follow the top view. Back is labelled with the previous view's title and pops.
+  - Push: the incoming view slides in from `x: "100%"` while the parent shifts to `x: "-30%"` and dims.
+  - Pop: the reverse, along the same path.
+  - Edge swipe: a drag starting within 20px of the left edge tracks 1:1 and pops when `commitOnRelease(offsetX, velocityX, width)`.
+- `Toast` is driven by the UI store (Task 6). Here it's presentational: `ToastView({ toast: { id: string; text: string; action?: { label: string; onAction(): void } }, onDismiss })`.
+  - Rendered in a `role="status"` live region.
+  - It enters from the bottom above the tab bar and leaves the same way.
+  - A downward drag with `commitOnRelease` dismisses it.
+
+- [ ] **Step 1: Add the dependency and test setup**
+  - `npm install motion@13.5.1 --save-exact`.
+  - Add to `tests/setup.ts`: `import { MotionGlobalConfig } from "motion/react"; MotionGlobalConfig.skipAnimations = true;`. jsdom can't run frame-based animation, so tests assert end states. The physics is covered by `gesture.test.ts`.
+
+- [ ] **Step 2: Write the failing tests**
+
+`tests/ui/gesture.test.ts`:
+```ts
+expect(project(1000)).toBeCloseTo(499, 0);              // 1 × 0.998 / 0.002
+expect(project(-1500)).toBeCloseTo(-748.5, 1);
+expect(project(1000, 0.99)).toBeCloseTo(99, 0);
+expect(rubberband(100, 800)).toBeCloseTo(51.46, 1);    // 100·800·0.55 / (800 + 55)
+expect(rubberband(-100, 800)).toBeCloseTo(-51.46, 1);
+expect(rubberband(0, 800)).toBe(0);
+expect(commitOnRelease(100, 0, 600)).toBe(false);       // slow, not past half
+expect(commitOnRelease(350, 0, 600)).toBe(true);        // past half
+expect(commitOnRelease(100, 1500, 600)).toBe(true);     // flick: projects to ~848
+expect(commitOnRelease(400, -800, 600)).toBe(false);    // moving back up: the sign wins
+```
+- `tests/ui/Segmented.test.tsx`: keep the 2026-10-09 cases (radiogroup with the active option checked; `onChange` with the chosen value), and add "ArrowRight moves to the next option and calls onChange" and "value null checks no option".
+- `tests/ui/Sheet.test.tsx`: keep the 2026-10-09 cases (labelled modal dialog that takes focus; Done and Escape close it; Back only with `onBack`; focus returns to the opener on unmount). Add:
+  - "sets --sheet-progress while open and removes it on unmount";
+  - "Done pressed twice calls onClose once" (the second press lands during the exit);
+  - "renders headerAction in the header".
+- `tests/ui/SheetStack.test.tsx`:
+  - the root title shows with no Back;
+  - `push` shows the new title with Back labelled with the root title;
+  - Back pops;
+  - `popToRoot` from depth 3 returns to the root;
+  - Escape closes the whole stack (`onClose` once) at any depth.
+- `tests/ui/Toast.test.tsx`:
+  - text and action button render inside `role="status"`;
+  - pressing the action calls `onAction` then `onDismiss`.
+
+- [ ] **Step 3: Run and confirm failure**: `npx vitest run tests/ui`. Expected: FAIL, because the modules are missing.
+
+- [ ] **Step 4: Implement** the files above.
+  - Drag handling uses `motion`'s `drag` with `dragListener={false}` and `dragControls`, started from the handle's `onPointerDown`. That way only the handle starts a drag and content inside the sheet keeps scrolling.
+  - Velocity comes from the `onDragEnd` `info.velocity`. The release animation is `animate(y, target, { ...spring, velocity })`.
+  - Sheet CSS: `--material` background, top corners `--radius`, a 36×5px grabber with a 44px hit area.
+  - Under `prefers-reduced-transparency` the background is solid `--surface`.
+
+- [ ] **Step 5: Gate**: `npm test && npm run typecheck && npm run lint`. Expected: PASS.
+
+- [ ] **Step 6: Commit**: `git add -A && git commit -m "feat(ui): add spring motion layer with draggable sheet, sheet navigation stack, sliding segmented control and toast" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+
+---
+
+### Task 5: Exercise and phase helpers
+
+**Files:**
+- Create: `src/domain/exercises.ts`, `tests/domain/exercises.test.ts`
+- Modify: `src/domain/settings.ts`, `src/domain/library/index.ts`, `src/domain/library/catalog.ts` (export the label map), `tests/domain/settings.test.ts`, `tests/domain/library.test.ts`
+
+**Interfaces:**
+- Consumes: `Exercise`, `StoreDoc`, `Settings`, `Style`, `Muscle` (types); `REGION_OF`, `Region` (`library/muscles.ts`); `LIBRARY`, `LibraryExercise`, `customExercise` (`library/index.ts`); `phaseOf`.
+- Produces:
+  - `exercises.ts`:
+    - `REGIONS: readonly Region[]` = `["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"]`
+    - `regionOf(ex: Exercise): Region` → `REGION_OF[ex.primary[0]]`
+    - `groupByRegion(exercises: Exercise[], opts?: { archived?: boolean }): { region: Region; exercises: Exercise[] }[]`
+      - non-empty regions only, in `REGIONS` order, exercises sorted by name;
+      - by default archived exercises are excluded; with `archived: true` only archived ones are listed.
+    - `sessionsWithExercise(doc: StoreDoc, id: string): number`
+    - `deleteExerciseCascade(doc: StoreDoc, id: string): StoreDoc` removes the exercise, its blocks, and any session left with no blocks.
+    - `libraryState(doc: StoreDoc, libraryId: string): { status: "new" } | { status: "added" | "archived"; exerciseId: string }`
+  - `library/index.ts`:
+    - `exerciseError(input: { name: string; primary: Muscle[]; step?: number | null }): string | null`, with the same three messages as `customExercise` (which now calls it);
+    - `equipmentLabel(e: Equipment): string` (the catalog's labels: "Smith machine", "EZ bar" …);
+    - `groupByMovement(entries: LibraryExercise[]): { movement: string; entries: LibraryExercise[] }[]`, in order of first appearance.
+  - `settings.ts`:
+    - `startPhase(settings: Settings, style: Style, today: string): Settings`. If the current phase already has `style`, it returns `settings` unchanged (same object). If the current phase started `today`, it changes that phase's style instead of adding one. When that makes it equal to the phase before it, the phase is removed instead. Otherwise it appends `{ id: \`phase-${today}\`, style, startDate: today }`.
+    - `setPhaseStart(settings: Settings, phaseId: string, date: string, today: string): Settings | { error: string }`. Errors:
+      - `"Start date can't be in the future"`;
+      - `"Start date must be after the previous phase starts"` (date ≤ previous phase's startDate);
+      - `"Start date must be before the next phase starts"`.
+
+- [ ] **Step 1: Write the failing tests** (build with `tests/helpers/build.ts`):
+  - **Grouping:**
+    - `groupByRegion` puts a lateral raise (`primary: ["side-delts"]`) under Shoulders.
+    - Regions come in `REGIONS` order and names sort within a region.
+    - An archived exercise is absent by default and is the only one listed with `{ archived: true }`.
+  - **Cascade and counts:**
+    - `deleteExerciseCascade`: a session with blocks for `a` and `b` keeps `b`; a session with only `a` is removed; other exercises are untouched.
+    - `sessionsWithExercise` counts sessions, not blocks: two `a` blocks on one day count 1.
+  - **Library state:**
+    - `"new"` for an unknown libraryId.
+    - `{ status: "added", exerciseId }` for an active one.
+    - `{ status: "archived", exerciseId }` when archived.
+  - **Library helpers:**
+    - `exerciseError({ name: " ", primary: ["chest"] })` → `"Name can't be empty"`.
+    - `exerciseError({ name: "x", primary: [] })` → `"Pick at least one muscle worked"`.
+    - `exerciseError({ name: "x", primary: ["chest"], step: 0 })` → `"Step must be more than 0"`.
+    - `exerciseError({ name: "x", primary: ["chest"] })` → `null`.
+    - `equipmentLabel("smith")` → `"Smith machine"`.
+    - `groupByMovement(searchLibrary("bench press"))` has a `"Bench press"` group with 4 entries.
+  - **`startPhase`:**
+    - from one hypertrophy phase (09-01) to strength on 10-17 → two phases, the new one `{ id: "phase-2026-10-17", style: "strength", startDate: "2026-10-17" }`;
+    - same style → the same object;
+    - switching again on 10-17 back to hypertrophy → back to one phase (no zero-length phase);
+    - a phase that started today with no previous phase just changes style.
+  - **`setPhaseStart`:**
+    - a future date → future error;
+    - a date on or before the previous phase's start → previous error;
+    - a valid date → that phase's `startDate` changes and the others are untouched.
+
+- [ ] **Step 2: Run and confirm failure**: `npx vitest run tests/domain`. Expected: FAIL in the new cases only.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Gate.** Expected: PASS, with every existing engine and library test still green.
+- [ ] **Step 5: Commit**: `git add -A && git commit -m "feat(domain): add region grouping, library state, cascade delete and phase editing helpers" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+
+---
+
+### Task 6: App store and UI store
 
 **Files:**
 - Create: `src/state/appStore.ts`, `src/state/uiStore.ts`, `tests/helpers/seed.ts`, `tests/state/appStore.test.ts`, `tests/state/uiStore.test.ts`
 
 **Interfaces:**
-- Consumes: `KeyValueStore`, `bootStore`, `saveDoc`, `emptyDoc`, `StoreDoc`, `Settings`, `Exercise`, `deleteExerciseCascade`, `addCustomGroup`, `AddGroupResult`.
+- Consumes: `bootStore`, `hasLegacyData`, `saveDoc`, `emptyDoc`, `convertUnits`, `startPhase`, `setPhaseStart`, `exerciseFromLibrary`, `customExercise`, `deleteExerciseCascade`, `libraryState`, `LibraryExercise`, `KeyValueStore`, `todayYmd`.
 - Produces:
-  - `createAppStore(kv: KeyValueStore): StoreApi<AppState>` with
+  - `createAppStore(kv: KeyValueStore, opts?: { today?: () => string; newId?: () => string }): StoreApi<AppState>` (defaults: `todayYmd`, `crypto.randomUUID`):
     ```ts
     interface AppState {
-      status: "loading" | "ready" | "error";
-      error: string | null;
-      bootKind: "v2" | "migrated" | "fresh" | null;
-      warnings: string[];
-      doc: StoreDoc;
-      saveError: string | null;
-      init(): Promise<void>;                       // idempotent: repeated calls share one boot
+      status: "loading" | "ready" | "error"; error: string | null;
+      bootKind: "v2" | "fresh" | null; hasLegacy: boolean; warnings: string[];
+      doc: StoreDoc; saveError: string | null;
+      init(): Promise<void>;                                            // idempotent: repeated calls share one boot
       updateSettings(fn: (s: Settings) => Settings): Promise<boolean>;
-      updateExercise(id: string, patch: Partial<Pick<Exercise, "name" | "muscleGroup" | "type">>): Promise<boolean>;
+      setUnit(unit: Unit): Promise<boolean>;                            // convertUnits, one save
+      startPhase(style: Style): Promise<boolean>;
+      setPhaseStart(phaseId: string, date: string): Promise<string | null>;  // error text, or null when saved
+      addFromLibrary(entry: LibraryExercise): Promise<string | null>;   // exercise id; restores an archived one; never duplicates
+      addCustom(input: Parameters<typeof customExercise>[0]): Promise<{ id: string } | { error: string }>;
+      updateExercise(id: string, patch: Partial<Pick<Exercise, "name" | "primary" | "secondary" | "step" | "equipment" | "class">>): Promise<boolean>;
+      setArchived(id: string, archived: boolean): Promise<boolean>;
       deleteExercise(id: string): Promise<boolean>;
-      addGroup(name: string): Promise<AddGroupResult | "failed">;
       replaceDoc(doc: StoreDoc): Promise<boolean>;
       dismissSaveError(): void;
     }
     ```
-    Every mutating action updates `doc` immediately, then persists via `saveDoc`; on a write error it restores the previous `doc`, sets `saveError` (`"Couldn't save: <message>"`) and returns `false`/`"failed"`.
-  - `UI_KEY = "overload.v2.ui"`, `type Tab = "log" | "stats" | "history"`, `type SheetId = "settings" | "exercises"`, `createUiStore(kv): StoreApi<UiState>` with `{ tab: Tab; sheet: SheetId | null; setTab(t: Tab): void; openSheet(s: SheetId): void; closeSheet(): void; hydrate(): Promise<void> }`. Persisted JSON: `{ version: 1, tab }` (an open sheet is not persisted; a reload lands on the tab). All UI-state I/O errors are swallowed (transient state must never block the app).
-  - Test helper `seedLegacy(b: BackupV1): ReturnType<typeof createMemoryKV>` (the four legacy keys).
+    Every mutating action updates `doc` immediately, then persists with `saveDoc`. On a write error it restores the previous `doc`, sets `saveError = "Couldn't save: <message>"` and returns `false` / `null` / an `{ error }`.
+  - `UI_KEY = "overload.v2.ui"`; `type Tab = "log" | "progress" | "history"`; `type SheetId = "settings"`; `interface Toast { id: string; text: string; action?: { label: string; onAction(): void } }`.
+  - `createUiStore(kv): StoreApi<UiState>` with `{ tab; sheet: SheetId | null; toast: Toast | null; setTab; openSheet; closeSheet; showToast(t: Omit<Toast, "id">): void; dismissToast(): void; hydrate(): Promise<void> }`.
+    - Persisted JSON is `{ version: 1, tab }`.
+    - A toast auto-dismisses after 6000 ms, and a new toast replaces the current one.
+    - UI-state I/O errors are swallowed.
+  - `tests/helpers/seed.ts`: `seedDoc(d: StoreDoc)` → a memory KV holding `overload.v2`; `seedLegacy(raw?: Record<string, string>)` → a memory KV holding raw legacy keys (default: one tiny exercise and session in the old shape).
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing tests** (`tests/state/appStore.test.ts`; a `failing(kv)` wrapper makes `set` throw):
+  - **Boot:**
+    - Legacy keys only → `bootKind: "fresh"`, `hasLegacy: true`, empty doc. Only `overload.v2` was added, and legacy values are byte-identical.
+    - An existing v2 → `"v2"`.
+    - A corrupt v2 → `status: "error"` and nothing written.
+    - `init()` twice → one boot.
+  - **Units:** `setUnit("kg")` on a doc with 225×5 and 0×10 sets stores `[102.1, 0]`, `unit: "kg"` and the kg steps. With a failing KV it returns `false`, `doc.settings.unit` is still `"lb"`, the weights are still `[225, 0]`, and `saveError` starts with `"Couldn't save:"`.
+  - **Phases:**
+    - `startPhase("strength")` (with `today: () => "2026-10-17"`) appends the phase and persists it.
+    - Calling `startPhase("hypertrophy")` the same day leaves one phase.
+    - `setPhaseStart` returns the error text for a future date and writes nothing.
+  - **Library:**
+    - `addFromLibrary(bench)` returns a new id. A second call returns the same id and the doc still has one exercise.
+    - After `setArchived(id, true)`, `addFromLibrary(bench)` returns that id with `archived: false`.
+  - **Custom:** `addCustom` with a blank name → `{ error: "Name can't be empty" }`, nothing written. A valid input → `{ id }` with `libraryId: null`.
+  - **Edits and delete:**
+    - `updateExercise(id, { step: 2.5 })` persists.
+    - `deleteExercise` cascades.
+    - Archive with a failing KV → returns `false`, the exercise is still active, and `saveError` is set.
 
-`tests/helpers/seed.ts`:
-```ts
-import { createMemoryKV } from "../../src/data/kv";
-import type { BackupV1 } from "./fixtures";
+  `tests/state/uiStore.test.ts`:
+  - **Tabs:** tabs persist and restore. An unknown stored tab falls back to `"log"`.
+  - **Sheet:** `openSheet` / `closeSheet`. The sheet isn't persisted.
+  - **Toasts** (fake timers):
+    - `showToast` sets a toast with an id; it clears after 6000 ms.
+    - A second toast replaces the first and restarts the timer.
+    - `dismissToast` clears it.
+  - **Errors:** a KV that throws doesn't break `hydrate` or `setTab`.
 
-export function seedLegacy(b: BackupV1) {
-  return createMemoryKV({
-    exercises: JSON.stringify(b.exercises),
-    sessions: JSON.stringify(b.sessions),
-    customGroups: JSON.stringify(b.customGroups),
-    settings: JSON.stringify(b.settings),
-  });
-}
-```
-
-`tests/state/appStore.test.ts`:
-```ts
-import { describe, it, expect } from "vitest";
-import { createMemoryKV, type KeyValueStore } from "../../src/data/kv";
-import { V2_KEY } from "../../src/data/store";
-import { createAppStore } from "../../src/state/appStore";
-import { syntheticBackup } from "../helpers/fixtures";
-import { seedLegacy } from "../helpers/seed";
-
-function stored(kv: { dump(): Record<string, string> }) {
-  return JSON.parse(kv.dump()[V2_KEY]!);
-}
-
-async function ready() {
-  const kv = seedLegacy(syntheticBackup());
-  let failWrites = false;
-  const wrapped: KeyValueStore = {
-    get: kv.get,
-    set: async (k, v) => {
-      if (failWrites) throw new Error("QuotaExceededError");
-      await kv.set(k, v);
-    },
-  };
-  const store = createAppStore(wrapped);
-  await store.getState().init();
-  return { kv, store, failNext: () => (failWrites = true) };
-}
-
-describe("init", () => {
-  it("migrates legacy data and becomes ready", async () => {
-    const { kv, store } = await ready();
-    const s = store.getState();
-    expect(s.status).toBe("ready");
-    expect(s.bootKind).toBe("migrated");
-    expect(s.doc.exercises).toHaveLength(syntheticBackup().exercises.length);
-    expect(stored(kv).schemaVersion).toBe(2);
-  });
-
-  it("is idempotent: a second init does not re-boot or downgrade bootKind", async () => {
-    const { store } = await ready();
-    await store.getState().init();
-    expect(store.getState().bootKind).toBe("migrated");
-  });
-
-  it("goes to error state on a corrupt v2 document and does not overwrite it", async () => {
-    const kv = seedLegacy(syntheticBackup());
-    await kv.set(V2_KEY, "{corrupt");
-    const store = createAppStore(kv);
-    await store.getState().init();
-    expect(store.getState().status).toBe("error");
-    expect(store.getState().error).toMatch(/overload\.v2/);
-    expect(kv.dump()[V2_KEY]).toBe("{corrupt");
-  });
-});
-
-describe("actions", () => {
-  it("updateSettings persists the change", async () => {
-    const { kv, store } = await ready();
-    expect(await store.getState().updateSettings((s) => ({ ...s, unit: "kg", increment: 2.5 }))).toBe(true);
-    expect(store.getState().doc.settings.unit).toBe("kg");
-    expect(stored(kv).settings).toMatchObject({ unit: "kg", increment: 2.5 });
-  });
-
-  it("rolls back and reports when the write fails", async () => {
-    const { store, failNext } = await ready();
-    failNext();
-    const before = store.getState().doc.settings.unit;
-    expect(await store.getState().updateSettings((s) => ({ ...s, unit: "kg" }))).toBe(false);
-    expect(store.getState().doc.settings.unit).toBe(before);
-    expect(store.getState().saveError).toMatch(/Couldn't save: QuotaExceededError/);
-    store.getState().dismissSaveError();
-    expect(store.getState().saveError).toBeNull();
-  });
-
-  it("updateExercise merges a patch and persists", async () => {
-    const { kv, store } = await ready();
-    await store.getState().updateExercise("ex-iso", { name: "Hammer Curl", type: "compound" });
-    const e = store.getState().doc.exercises.find((x) => x.id === "ex-iso")!;
-    expect(e).toMatchObject({ name: "Hammer Curl", type: "compound", muscleGroup: "Arms" });
-    expect(stored(kv).exercises.find((x: { id: string }) => x.id === "ex-iso").name).toBe("Hammer Curl");
-  });
-
-  it("deleteExercise cascades into sessions and persists", async () => {
-    const { kv, store } = await ready();
-    await store.getState().deleteExercise("ex-blow");
-    const doc = store.getState().doc;
-    expect(doc.exercises.some((e) => e.id === "ex-blow")).toBe(false);
-    expect(doc.sessions.flatMap((s) => s.blocks).some((b) => b.exerciseId === "ex-blow")).toBe(false);
-    expect(stored(kv).sessions).toEqual(doc.sessions);
-  });
-
-  it("addGroup reports added / empty / duplicate and writes only on added", async () => {
-    const { kv, store } = await ready();
-    const before = kv.dump()[V2_KEY];
-    expect(await store.getState().addGroup("  ")).toBe("empty");
-    expect(await store.getState().addGroup("chest")).toBe("duplicate");
-    expect(kv.dump()[V2_KEY]).toBe(before);
-    expect(await store.getState().addGroup("Forearms")).toBe("added");
-    expect(store.getState().doc.customGroups).toContain("Forearms");
-    expect(stored(kv).customGroups).toContain("Forearms");
-  });
-
-  it("replaceDoc swaps the whole document and persists", async () => {
-    const { kv, store } = await ready();
-    const next = { ...store.getState().doc, exercises: [], sessions: [], customGroups: [] };
-    expect(await store.getState().replaceDoc(next)).toBe(true);
-    expect(stored(kv).exercises).toEqual([]);
-  });
-});
-```
-
-`tests/state/uiStore.test.ts`:
-```ts
-import { describe, it, expect } from "vitest";
-import { createMemoryKV } from "../../src/data/kv";
-import { UI_KEY, createUiStore } from "../../src/state/uiStore";
-
-describe("uiStore", () => {
-  it("defaults to the log tab", async () => {
-    const store = createUiStore(createMemoryKV());
-    await store.getState().hydrate();
-    expect(store.getState().tab).toBe("log");
-  });
-
-  it("persists the tab and restores it on the next hydrate", async () => {
-    const kv = createMemoryKV();
-    const a = createUiStore(kv);
-    a.getState().setTab("history");
-    await new Promise((r) => setTimeout(r, 0));
-    expect(JSON.parse(kv.dump()[UI_KEY]!)).toEqual({ version: 1, tab: "history" });
-    const b = createUiStore(kv);
-    await b.getState().hydrate();
-    expect(b.getState().tab).toBe("history");
-  });
-
-  it("falls back to log for corrupt or unknown stored state", async () => {
-    for (const raw of ["{nope", JSON.stringify({ version: 1, tab: "bogus" }), JSON.stringify({ version: 1, tab: "settings" }), "null"]) {
-      const store = createUiStore(createMemoryKV({ [UI_KEY]: raw }));
-      await store.getState().hydrate();
-      expect(store.getState().tab).toBe("log");
-    }
-  });
-
-  it("opens and closes sheets without persisting them", async () => {
-    const kv = createMemoryKV();
-    const store = createUiStore(kv);
-    store.getState().openSheet("settings");
-    expect(store.getState().sheet).toBe("settings");
-    store.getState().openSheet("exercises");
-    expect(store.getState().sheet).toBe("exercises");
-    store.getState().closeSheet();
-    expect(store.getState().sheet).toBeNull();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(kv.dump()[UI_KEY]).toBeUndefined();
-  });
-
-  it("never throws when storage fails", async () => {
-    const failing = { get: async () => { throw new Error("x"); }, set: async () => { throw new Error("x"); } };
-    const store = createUiStore(failing);
-    await expect(store.getState().hydrate()).resolves.toBeUndefined();
-    store.getState().setTab("stats");
-    await new Promise((r) => setTimeout(r, 0));
-    expect(store.getState().tab).toBe("stats");
-  });
-});
-```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npx vitest run tests/state`
-Expected: FAIL — modules not found.
-
-- [ ] **Step 3: Implement `src/state/appStore.ts`**
-
-```ts
-import { createStore, type StoreApi } from "zustand/vanilla";
-import { bootStore } from "../data/boot";
-import type { KeyValueStore } from "../data/kv";
-import { emptyDoc, saveDoc } from "../data/store";
-import { addCustomGroup, deleteExerciseCascade, type AddGroupResult } from "../domain/exercises";
-import type { Exercise, Settings, StoreDoc } from "../domain/types";
-
-export interface AppState {
-  status: "loading" | "ready" | "error";
-  error: string | null;
-  bootKind: "v2" | "migrated" | "fresh" | null;
-  warnings: string[];
-  doc: StoreDoc;
-  saveError: string | null;
-  init(): Promise<void>;
-  updateSettings(fn: (s: Settings) => Settings): Promise<boolean>;
-  updateExercise(id: string, patch: Partial<Pick<Exercise, "name" | "muscleGroup" | "type">>): Promise<boolean>;
-  deleteExercise(id: string): Promise<boolean>;
-  addGroup(name: string): Promise<AddGroupResult | "failed">;
-  replaceDoc(doc: StoreDoc): Promise<boolean>;
-  dismissSaveError(): void;
-}
-
-export type AppStore = StoreApi<AppState>;
-
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-export function createAppStore(kv: KeyValueStore): AppStore {
-  let booting: Promise<void> | null = null;
-
-  return createStore<AppState>()((set, get) => {
-    // Update the UI immediately, then write once; restore the previous doc if the write fails.
-    async function persist(next: StoreDoc): Promise<boolean> {
-      const prev = get().doc;
-      set({ doc: next, saveError: null });
-      try {
-        await saveDoc(kv, next);
-        return true;
-      } catch (e) {
-        set({ doc: prev, saveError: `Couldn't save: ${message(e)}` });
-        return false;
-      }
-    }
-
-    return {
-      status: "loading",
-      error: null,
-      bootKind: null,
-      warnings: [],
-      doc: emptyDoc(),
-      saveError: null,
-
-      init() {
-        booting ??= (async () => {
-          try {
-            const r = await bootStore(kv);
-            set({ status: "ready", doc: r.doc, bootKind: r.kind, warnings: r.warnings });
-          } catch (e) {
-            set({ status: "error", error: message(e) });
-          }
-        })();
-        return booting;
-      },
-
-      updateSettings: (fn) => persist({ ...get().doc, settings: fn(get().doc.settings) }),
-
-      updateExercise: (id, patch) =>
-        persist({ ...get().doc, exercises: get().doc.exercises.map((e) => (e.id === id ? { ...e, ...patch } : e)) }),
-
-      deleteExercise: (id) => persist(deleteExerciseCascade(get().doc, id)),
-
-      async addGroup(name) {
-        const { doc, result } = addCustomGroup(get().doc, name);
-        if (result !== "added") return result;
-        return (await persist(doc)) ? "added" : "failed";
-      },
-
-      replaceDoc: (doc) => persist(doc),
-
-      dismissSaveError: () => set({ saveError: null }),
-    };
-  });
-}
-```
-
-- [ ] **Step 4: Implement `src/state/uiStore.ts`**
-
-```ts
-import { createStore, type StoreApi } from "zustand/vanilla";
-import type { KeyValueStore } from "../data/kv";
-
-export const UI_KEY = "overload.v2.ui";
-export type Tab = "log" | "stats" | "history";
-const TABS: readonly Tab[] = ["log", "stats", "history"];
-export type SheetId = "settings" | "exercises";
-
-export interface UiState {
-  tab: Tab;
-  sheet: SheetId | null;
-  setTab(tab: Tab): void;
-  openSheet(sheet: SheetId): void;
-  closeSheet(): void;
-  hydrate(): Promise<void>;
-}
-
-export type UiStore = StoreApi<UiState>;
-
-// Transient UI state: failures here must never block the app, so all I/O errors are swallowed.
-export function createUiStore(kv: KeyValueStore): UiStore {
-  return createStore<UiState>()((set, get) => {
-    function save() {
-      void kv.set(UI_KEY, JSON.stringify({ version: 1, tab: get().tab })).catch(() => {});
-    }
-    return {
-      tab: "log",
-      sheet: null,
-      setTab(tab) {
-        set({ tab });
-        save();
-      },
-      openSheet: (sheet) => set({ sheet }),
-      closeSheet: () => set({ sheet: null }),
-      async hydrate() {
-        try {
-          const raw = await kv.get(UI_KEY);
-          if (raw === null) return;
-          const parsed: unknown = JSON.parse(raw);
-          const tab = (parsed as { tab?: unknown } | null)?.tab;
-          if (typeof tab === "string" && (TABS as readonly string[]).includes(tab)) set({ tab: tab as Tab });
-        } catch {
-          /* corrupt or unavailable: keep defaults */
-        }
-      },
-    };
-  });
-}
-```
-
-- [ ] **Step 5: Run the gate**
-
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add -A && git commit -m "feat(state): add app store with rollback-on-failure and ui store" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
+- [ ] **Step 2: Run and confirm failure**: `npx vitest run tests/state`. Expected: FAIL, because the modules are missing.
+- [ ] **Step 3: Implement.** Use Zustand `createStore` (vanilla). Actions use one internal `commit(next: StoreDoc)` that sets, saves and rolls back.
+- [ ] **Step 4: Gate.** Expected: PASS.
+- [ ] **Step 5: Commit**: `git add -A && git commit -m "feat(state): add app store over the new model with rollback, and ui store with tabs, sheet and toasts" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
 
 ---
 
-### Task 6: App shell, error handling and migration banner
+### Task 7: App shell: chrome, tabs, sheet and toast hosts, error screens
 
 **Files:**
 - Create: `src/state/context.tsx`, `src/app/Shell.tsx`, `Shell.module.css`, `Header.tsx`, `Header.module.css`, `TabBar.tsx`, `TabBar.module.css`, `ErrorBoundary.tsx`, `ErrorScreen.tsx`, `Banner.tsx`, `Banner.module.css`, `download.ts`, `src/features/placeholders.tsx`, `tests/helpers/blob.ts`, `tests/helpers/renderWithStore.tsx`, `tests/app/shell.test.tsx`, `tests/app/download.test.ts`
-- Modify: `src/app/App.tsx` (replace stub), `src/data/boot.ts` (add `dumpRaw`), `tests/data/boot.test.ts` (add one test)
+- Modify: `src/app/App.tsx` (replace the stub), `src/data/boot.ts` (add `dumpRaw`), `tests/data/boot.test.ts` (one test)
 
 **Interfaces:**
-- Consumes: `createAppStore`, `createUiStore`, `exportBackup`, `applyTheme`, `themePreference`, `bootStore`.
+- Consumes: `createAppStore`, `createUiStore`, `applyTheme`, `themePreference`, `MotionRoot`, `SheetStack`, `ToastView`, `EmptyState`, `IconButton`.
 - Produces:
-  - `dumpRaw(kv): Promise<Record<string,string>>` — legacy keys **plus** `overload.v2` when present
-  - `downloadText(filename: string, text: string, mime?: string): void` (the one place a file leaves the app; the native wrap swaps it for the iOS share sheet) and `backupFilename(now?: Date): string` → `overload-backup-YYYY-MM-DD.json` from **local** date parts
-  - `StoreProvider({ value: { app: AppStore; ui: UiStore; kv: KeyValueStore }, children })`, hooks `useApp(selector)`, `useUi(selector)`, `useKv()`, `useAppStore()`
-  - `Shell()` (reads stores from context), `App({ kv })` (creates stores, hydrates, boots)
-  - Test helper `renderWithStore(ui, opts?)` → `{ ...renderResult, kv, app, uiStore, user }` (`opts.legacy` defaults to `syntheticBackup()`, `opts.kv` overrides, `opts.init` default true)
-
-- [ ] **Step 1: Write failing tests**
-
-Append to `tests/data/boot.test.ts` (new `it` inside `describe("boot edge cases", ...)`, plus add `dumpRaw` to the existing import from `../../src/data/boot`):
-```ts
-  it("dumpRaw includes overload.v2 as well as legacy keys", async () => {
-    const kv = createMemoryKV({ exercises: "[1]", [V2_KEY]: "{corrupt" });
-    expect(await dumpRaw(kv)).toEqual({ exercises: "[1]", [V2_KEY]: "{corrupt" });
-  });
-```
-
-`tests/helpers/blob.ts`:
-```ts
-export function blobText(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(r.error);
-    r.readAsText(blob);
-  });
-}
-```
-
-`tests/helpers/renderWithStore.tsx`:
-```tsx
-import { render } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import type { ReactElement } from "react";
-import { createMemoryKV } from "../../src/data/kv";
-import { createAppStore } from "../../src/state/appStore";
-import { StoreProvider } from "../../src/state/context";
-import { createUiStore } from "../../src/state/uiStore";
-import { syntheticBackup, type BackupV1 } from "./fixtures";
-import { seedLegacy } from "./seed";
-
-export async function renderWithStore(
-  element: ReactElement,
-  opts: { legacy?: BackupV1; kv?: ReturnType<typeof createMemoryKV>; init?: boolean } = {},
-) {
-  const kv = opts.kv ?? seedLegacy(opts.legacy ?? syntheticBackup());
-  const app = createAppStore(kv);
-  const uiStore = createUiStore(kv);
-  if (opts.init !== false) {
-    await uiStore.getState().hydrate();
-    await app.getState().init();
-  }
-  const utils = render(<StoreProvider value={{ app, ui: uiStore, kv }}>{element}</StoreProvider>);
-  return { ...utils, kv, app, uiStore, user: userEvent.setup() };
-}
-```
-
-`tests/app/download.test.ts`:
-```ts
-// @vitest-environment jsdom
-import { afterEach, describe, it, expect, vi } from "vitest";
-import { backupFilename, downloadText } from "../../src/app/download";
-import { blobText } from "../helpers/blob";
-
-afterEach(() => vi.restoreAllMocks());
-
-describe("downloadText", () => {
-  it("creates a blob URL, clicks a download anchor with the filename, and revokes the URL", async () => {
-    const created: Blob[] = [];
-    URL.createObjectURL = vi.fn((b: Blob | MediaSource) => {
-      created.push(b as Blob);
-      return "blob:x";
-    });
-    URL.revokeObjectURL = vi.fn();
-    let name = "";
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-      name = this.download;
-    });
-    downloadText("a.json", '{"ok":true}');
-    expect(name).toBe("a.json");
-    expect(await blobText(created[0]!)).toBe('{"ok":true}');
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:x");
-  });
-});
-
-describe("backupFilename", () => {
-  it("uses the local calendar date, not UTC (a late-evening export keeps today's date)", () => {
-    expect(backupFilename(new Date(2026, 9, 17, 23, 45))).toBe("overload-backup-2026-10-17.json");
-    expect(backupFilename(new Date(2026, 0, 2, 0, 15))).toBe("overload-backup-2026-01-02.json");
-  });
-});
-```
-
-`tests/app/shell.test.tsx`:
-```tsx
-// @vitest-environment jsdom
-import { afterEach, describe, it, expect, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
-import { render } from "@testing-library/react";
-import { App } from "../../src/app/App";
-import { ErrorBoundary } from "../../src/app/ErrorBoundary";
-import { Shell } from "../../src/app/Shell";
-import { createMemoryKV } from "../../src/data/kv";
-import { V2_KEY } from "../../src/data/store";
-import { UI_KEY } from "../../src/state/uiStore";
-import { syntheticBackup } from "../helpers/fixtures";
-import { renderWithStore } from "../helpers/renderWithStore";
-import { seedLegacy } from "../helpers/seed";
-
-const download = vi.hoisted(() => vi.fn());
-vi.mock("../../src/app/download", async (orig) => ({ ...(await orig<object>()), downloadText: download }));
-
-afterEach(() => {
-  document.documentElement.removeAttribute("data-theme");
-  download.mockClear();
-});
-
-describe("Shell", () => {
-  it("shows the header, a bottom tab bar with three tabs and a settings button once ready", async () => {
-    await renderWithStore(<Shell />);
-    expect(screen.getByRole("heading", { name: "Overload" })).toBeInTheDocument();
-    expect(screen.getByRole("tablist", { name: "Sections" }).closest("nav")).toHaveClass("tabbar");
-    expect(screen.getByRole("tab", { name: "Log" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Stats" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
-  });
-
-  it("switches tabs and persists the choice", async () => {
-    const { user, kv } = await renderWithStore(<Shell />);
-    await user.click(screen.getByRole("tab", { name: "Stats" }));
-    expect(screen.getByRole("tab", { name: "Stats" })).toHaveAttribute("aria-selected", "true");
-    await waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!).tab).toBe("stats"));
-  });
-
-  it("the gear opens Settings as a sheet over the current tab; Done closes it and returns focus", async () => {
-    const { user } = await renderWithStore(<Shell />);
-    await user.click(screen.getByRole("tab", { name: "History" }));
-    const gear = screen.getByRole("button", { name: "Settings" });
-    await user.click(gear);
-    const sheet = screen.getByRole("dialog", { name: "Settings" });
-    expect(sheet).toBeInTheDocument();
-    expect(document.querySelector("[data-shell-content]")).toHaveAttribute("inert");
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.querySelector("[data-shell-content]")).not.toHaveAttribute("inert");
-    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute("aria-selected", "true");
-    expect(gear).toHaveFocus();
-  });
-
-  it("restores the last tab from a previous session", async () => {
-    const kv = seedLegacy(syntheticBackup());
-    await kv.set(UI_KEY, JSON.stringify({ version: 1, tab: "history" }));
-    await renderWithStore(<Shell />, { kv });
-    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("shows the migration banner after copying legacy data and lets the user dismiss it", async () => {
-    const { user } = await renderWithStore(<Shell />);
-    expect(screen.getByText(/Your data was copied/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByText(/Your data was copied/)).toBeNull();
-  });
-
-  it("offers a v2 backup download from the banner", async () => {
-    const { user } = await renderWithStore(<Shell />);
-    await user.click(screen.getByRole("button", { name: "Download backup" }));
-    expect(download).toHaveBeenCalledTimes(1);
-    const [filename, text] = download.mock.calls[0]!;
-    expect(filename).toMatch(/^overload-backup-\d{4}-\d{2}-\d{2}\.json$/);
-    expect(JSON.parse(text)).toMatchObject({ app: "overload", version: 2 });
-  });
-
-  it("applies a stored dark/light preference and treats legacy themes as system", async () => {
-    const light = { ...syntheticBackup(), settings: { ...syntheticBackup().settings, theme: "light" } };
-    await renderWithStore(<Shell />, { legacy: light });
-    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
-    document.documentElement.removeAttribute("data-theme");
-    const legacy = { ...syntheticBackup(), settings: { ...syntheticBackup().settings, theme: "violet" } };
-    await renderWithStore(<Shell />, { legacy });
-    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
-  });
-
-  it("shows a dismissible alert when a save fails and the screen keeps the stored data", async () => {
-    const inner = seedLegacy(syntheticBackup());
-    let fail = false;
-    const kv = {
-      get: inner.get,
-      set: async (k: string, v: string) => {
-        if (fail) throw new Error("QuotaExceededError");
-        await inner.set(k, v);
-      },
-      dump: inner.dump,
-    };
-    const { app, user } = await renderWithStore(<Shell />, { kv });
-    fail = true;
-    await app.getState().updateSettings((s) => ({ ...s, unit: "kg" }));
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Couldn't save: QuotaExceededError");
-    await user.click(screen.getByRole("button", { name: "Dismiss error" }));
-    expect(screen.queryByText(/Couldn't save/)).toBeNull();
-    expect(JSON.parse(inner.dump()[V2_KEY]!).settings.unit).toBe("lb");
-  });
-});
-
-describe("boot failure", () => {
-  it("shows the error and a raw-data download that includes overload.v2", async () => {
-    const kv = seedLegacy(syntheticBackup());
-    await kv.set(V2_KEY, "{corrupt");
-    render(<App kv={kv} />);
-    expect(await screen.findByText(/overload\.v2/)).toBeInTheDocument();
-    const { default: userEvent } = await import("@testing-library/user-event");
-    await userEvent.click(screen.getByRole("button", { name: "Download raw data" }));
-    const [filename, text] = download.mock.calls[0]!;
-    expect(filename).toBe("overload-raw.json");
-    expect(JSON.parse(text)[V2_KEY]).toBe("{corrupt");
-    expect(kv.dump()[V2_KEY]).toBe("{corrupt");
-  });
-});
-
-describe("App", () => {
-  it("boots from legacy data end to end", async () => {
-    const kv = seedLegacy(syntheticBackup());
-    render(<App kv={kv} />);
-    expect(await screen.findByRole("heading", { name: "Overload" })).toBeInTheDocument();
-    expect(kv.dump()[V2_KEY]).toBeDefined();
-  });
-
-  it("survives StrictMode-style double effects without losing the migration banner", async () => {
-    const kv = createMemoryKV(seedLegacy(syntheticBackup()).dump());
-    const { StrictMode } = await import("react");
-    render(
-      <StrictMode>
-        <App kv={kv} />
-      </StrictMode>,
-    );
-    expect(await screen.findByText(/Your data was copied/)).toBeInTheDocument();
-  });
-});
-
-describe("ErrorBoundary", () => {
-  it("renders a recoverable screen with the error message instead of a blank page", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    function Boom(): never {
-      throw new Error("kaboom");
-    }
-    render(
-      <ErrorBoundary>
-        <Boom />
-      </ErrorBoundary>,
-    );
-    expect(screen.getByText("Something broke")).toBeInTheDocument();
-    expect(screen.getByText(/kaboom/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
-  });
-});
-```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npx vitest run tests/app tests/data/boot.test.ts`
-Expected: FAIL — modules missing (`Shell`, `ErrorBoundary`, `download`, `context`, `dumpRaw`).
-
-- [ ] **Step 3: Add `dumpRaw` to `src/data/boot.ts`**
-
-Add import `import { V2_KEY, emptyDoc, loadDoc, saveDoc } from "./store";` (extend the existing store import) and append:
-```ts
-/** Everything stored, raw: legacy keys plus overload.v2. For the error-screen escape hatch. */
-export async function dumpRaw(kv: KeyValueStore): Promise<Record<string, string>> {
-  const out = await dumpLegacyRaw(kv);
-  const v2 = await kv.get(V2_KEY);
-  if (v2 !== null) out[V2_KEY] = v2;
-  return out;
-}
-```
-
-- [ ] **Step 4: Implement `src/app/download.ts` and `src/state/context.tsx`**
-
-`src/app/download.ts`:
-```ts
-export function downloadText(filename: string, text: string, mime = "application/json"): void {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-/** Backup filename from local calendar parts (never UTC), matching how sessions are dated. */
-export function backupFilename(now: Date = new Date()): string {
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `overload-backup-${now.getFullYear()}-${mm}-${dd}.json`;
-}
-```
-
-`src/state/context.tsx`:
-```tsx
-import { createContext, useContext, type ReactNode } from "react";
-import { useStore } from "zustand";
-import type { KeyValueStore } from "../data/kv";
-import type { AppState, AppStore } from "./appStore";
-import type { UiState, UiStore } from "./uiStore";
-
-interface Stores {
-  app: AppStore;
-  ui: UiStore;
-  kv: KeyValueStore;
-}
-
-const Ctx = createContext<Stores | null>(null);
-
-export function StoreProvider({ value, children }: { value: Stores; children: ReactNode }) {
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
-
-function useStores(): Stores {
-  const v = useContext(Ctx);
-  if (!v) throw new Error("StoreProvider is missing");
-  return v;
-}
-
-export const useApp = <T,>(selector: (s: AppState) => T): T => useStore(useStores().app, selector);
-export const useUi = <T,>(selector: (s: UiState) => T): T => useStore(useStores().ui, selector);
-export const useKv = (): KeyValueStore => useStores().kv;
-export const useAppStore = (): AppStore => useStores().app;
-```
-
-- [ ] **Step 5: Implement the shell pieces**
-
-`src/features/placeholders.tsx`:
-```tsx
-import { EmptyState } from "../ui/EmptyState";
-
-export const LogPlaceholder = () => <EmptyState text="Logging arrives in Plan B." />;
-export const StatsPlaceholder = () => <EmptyState text="Stats arrive in Plan C." />;
-export const HistoryPlaceholder = () => <EmptyState text="History arrives in Plan C." />;
-export const SettingsPlaceholder = () => <EmptyState text="Settings arrive in Task 7." />;
-```
-
-`src/app/ErrorBoundary.tsx`:
-```tsx
-import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Button } from "../ui/Button";
-
-// Catches render errors so a crash shows a recoverable screen instead of a blank page.
-// Data is stored on the device, so a reload recovers.
-export class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("Overload crashed:", error, info);
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children;
-    return (
-      <div role="alert" style={{ padding: 24, maxWidth: 560, margin: "40px auto", textAlign: "center" }}>
-        <h1 style={{ fontSize: 22 }}>Something broke</h1>
-        <p style={{ color: "var(--muted)", margin: "8px 0 16px" }}>
-          Your logged data is safe — it&apos;s stored on this device. Reload to get back in.
-        </p>
-        <Button variant="primary" block onClick={() => window.location.reload()}>
-          Reload
-        </Button>
-        <pre style={{ marginTop: 16, textAlign: "left", fontSize: 13, color: "var(--muted)", whiteSpace: "pre-wrap" }}>
-          {String(this.state.error.message || this.state.error)}
-        </pre>
-      </div>
-    );
-  }
-}
-```
-
-`src/app/ErrorScreen.tsx`:
-```tsx
-import { Button } from "../ui/Button";
-
-export function ErrorScreen({ message, onDownloadRaw }: { message: string; onDownloadRaw: () => void }) {
-  return (
-    <main style={{ padding: 24, maxWidth: 560, margin: "40px auto" }}>
-      <h1 style={{ fontSize: 22 }}>Couldn&apos;t read your data</h1>
-      <p style={{ color: "var(--muted)", margin: "8px 0 16px" }}>
-        Nothing was changed or deleted. You can save exactly what is stored on this device.
-      </p>
-      <pre style={{ fontSize: 13, whiteSpace: "pre-wrap", marginBottom: 16 }}>{message}</pre>
-      <Button variant="primary" block onClick={onDownloadRaw}>
-        Download raw data
-      </Button>
-    </main>
-  );
-}
-```
-
-`src/app/Banner.tsx`:
-```tsx
-import type { ReactNode } from "react";
-import styles from "./Banner.module.css";
-
-export function Banner({ tone = "info", role, children }: { tone?: "info" | "error"; role?: "alert"; children: ReactNode }) {
-  return (
-    <div role={role} className={[styles.banner, tone === "error" ? styles.error : ""].filter(Boolean).join(" ")}>
-      {children}
-    </div>
-  );
-}
-```
-`src/app/Banner.module.css`:
-```css
-.banner { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 16px; margin-bottom: 16px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--text); font-size: var(--text-md); }
-.error { background: var(--danger-soft); }
-```
-
-`src/app/Header.tsx`:
-```tsx
-import { Dumbbell, Settings as SettingsIcon } from "lucide-react";
-import { IconButton } from "../ui/IconButton";
-import styles from "./Header.module.css";
-
-export function Header({ onSettings }: { onSettings: () => void }) {
-  return (
-    <header className={styles.header}>
-      <div className={styles.inner}>
-        <div className={styles.brand}>
-          <Dumbbell size={22} color="var(--accent)" aria-hidden />
-          <h1 className={styles.title}>Overload</h1>
-        </div>
-        <IconButton label="Settings" onClick={onSettings}>
-          <SettingsIcon size={22} />
-        </IconButton>
-      </div>
-    </header>
-  );
-}
-```
-`src/app/Header.module.css`:
-```css
-.header { padding-top: env(safe-area-inset-top); }
-.inner { max-width: 720px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 12px max(8px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
-.brand { display: flex; align-items: center; gap: 10px; }
-.title { font-size: var(--text-2xl); font-weight: 700; line-height: var(--leading-snug); letter-spacing: var(--tracking-tight); }
-```
-
-`src/app/TabBar.tsx` (bottom tab bar, iOS convention: icon over label, within thumb reach):
-```tsx
-import { CalendarDays, ChartLine, NotebookPen, type LucideIcon } from "lucide-react";
-import type { Tab } from "../state/uiStore";
-import styles from "./TabBar.module.css";
-
-const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
-  { id: "log", label: "Log", icon: NotebookPen },
-  { id: "stats", label: "Stats", icon: ChartLine },
-  { id: "history", label: "History", icon: CalendarDays },
-];
-
-export function TabBar({ tab, onTab }: { tab: Tab; onTab: (t: Tab) => void }) {
-  return (
-    <nav className={styles.tabbar}>
-      <div role="tablist" aria-label="Sections" className={styles.inner}>
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            role="tab"
-            type="button"
-            aria-selected={tab === id}
-            className={[styles.tab, tab === id ? styles.active : ""].filter(Boolean).join(" ")}
-            onClick={() => onTab(id)}
-          >
-            <Icon size={24} strokeWidth={tab === id ? 2.25 : 1.75} aria-hidden />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
-    </nav>
-  );
-}
-```
-`src/app/TabBar.module.css`:
-```css
-/* Translucent material: content scrolls underneath; solid under reduced transparency (a11y.css). */
-.tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-  background: var(--material);
-  -webkit-backdrop-filter: var(--material-blur);
-  backdrop-filter: var(--material-blur);
-  border-top: 1px solid var(--line);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.inner { max-width: 720px; margin: 0 auto; display: flex; height: var(--tabbar-h); padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); }
-.tab {
-  flex: 1; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  background: none; border: 0; color: var(--muted); font-size: var(--text-xs); font-weight: 600; cursor: pointer;
-  transition: transform var(--dur-press) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.tab:active { transform: scale(0.94); }
-.active { color: var(--accent); }
-```
-Plan B docks the rest timer directly above this bar (`bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom))`) and adds its height to the main padding.
-
-`src/app/Shell.tsx`:
-```tsx
-import { useEffect, useState } from "react";
-import { exportBackup } from "../data/backup";
-import { dumpRaw } from "../data/boot";
-import { themePreference } from "../domain/theme";
-import {
-  HistoryPlaceholder, LogPlaceholder, SettingsPlaceholder, StatsPlaceholder,
-} from "../features/placeholders";
-import { useApp, useKv, useUi } from "../state/context";
-import { Button } from "../ui/Button";
-import { Sheet } from "../ui/Sheet";
-import { Banner } from "./Banner";
-import { ErrorScreen } from "./ErrorScreen";
-import { Header } from "./Header";
-import { TabBar } from "./TabBar";
-import { backupFilename, downloadText } from "./download";
-import { applyTheme } from "./theme";
-import styles from "./Shell.module.css";
-
-export function Shell() {
-  const kv = useKv();
-  const status = useApp((s) => s.status);
-  const error = useApp((s) => s.error);
-  const bootKind = useApp((s) => s.bootKind);
-  const doc = useApp((s) => s.doc);
-  const saveError = useApp((s) => s.saveError);
-  const dismissSaveError = useApp((s) => s.dismissSaveError);
-  const tab = useUi((s) => s.tab);
-  const setTab = useUi((s) => s.setTab);
-  const sheet = useUi((s) => s.sheet);
-  const openSheet = useUi((s) => s.openSheet);
-  const closeSheet = useUi((s) => s.closeSheet);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-
-  useEffect(() => {
-    applyTheme(themePreference(doc.settings.theme));
-  }, [doc.settings.theme]);
-
-  if (status === "loading") return <main className={styles.center}>Loading…</main>;
-  if (status === "error") {
-    return (
-      <ErrorScreen
-        message={error ?? "Unknown error"}
-        onDownloadRaw={async () => downloadText("overload-raw.json", JSON.stringify(await dumpRaw(kv), null, 2))}
-      />
-    );
-  }
-
-  return (
-    <>
-      {/* Everything behind an open sheet is inert: not focusable, not clickable, hidden from VoiceOver. */}
-      <div data-shell-content inert={sheet !== null} aria-hidden={sheet !== null || undefined}>
-      <Header onSettings={() => openSheet("settings")} />
-      <main className={styles.main}>
-        {bootKind === "migrated" && !bannerDismissed && (
-          <Banner>
-            <span>Your data was copied to the new version. Your original data is untouched.</span>
-            <Button variant="ghost" onClick={() => downloadText(backupFilename(), exportBackup(doc))}>
-              Download backup
-            </Button>
-            <Button variant="ghost" onClick={() => setBannerDismissed(true)}>
-              Dismiss
-            </Button>
-          </Banner>
-        )}
-        {saveError && (
-          <Banner tone="error" role="alert">
-            <span>{saveError}</span>
-            <Button variant="ghost" onClick={dismissSaveError} aria-label="Dismiss error">
-              Dismiss
-            </Button>
-          </Banner>
-        )}
-        {tab === "log" && <LogPlaceholder />}
-        {tab === "stats" && <StatsPlaceholder />}
-        {tab === "history" && <HistoryPlaceholder />}
-      </main>
-      <TabBar tab={tab} onTab={setTab} />
-      </div>
-      {sheet === "settings" && (
-        <Sheet title="Settings" onClose={closeSheet}>
-          <SettingsPlaceholder />
-        </Sheet>
-      )}
-    </>
-  );
-}
-```
-`src/app/Shell.module.css`:
-```css
-.main { max-width: 720px; margin: 0 auto; padding: 16px max(16px, env(safe-area-inset-right)) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px) max(16px, env(safe-area-inset-left)); }
-.center { padding: 40px; text-align: center; color: var(--muted); }
-```
-The banner's "Dismiss" button and the error bar's "Dismiss error" button must remain distinguishable by accessible name: the banner uses text "Dismiss"; the error bar button uses `aria-label="Dismiss error"`.
-
-`src/app/App.tsx` (replace the stub):
-```tsx
-import { useEffect, useState } from "react";
-import type { KeyValueStore } from "../data/kv";
-import { createAppStore } from "../state/appStore";
-import { StoreProvider } from "../state/context";
-import { createUiStore } from "../state/uiStore";
-import { ErrorBoundary } from "./ErrorBoundary";
-import { Shell } from "./Shell";
-
-export function App({ kv }: { kv: KeyValueStore }) {
-  const [stores] = useState(() => ({ app: createAppStore(kv), ui: createUiStore(kv) }));
-
-  useEffect(() => {
-    void stores.ui.getState().hydrate();
-    void stores.app.getState().init();
-  }, [stores]);
-
-  return (
-    <StoreProvider value={{ ...stores, kv }}>
-      <ErrorBoundary>
-        <Shell />
-      </ErrorBoundary>
-    </StoreProvider>
-  );
-}
-```
-
-- [ ] **Step 6: Run the gate**
-
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: PASS. If React warns about `act` in the App-level tests, wrap awaited UI changes with `findBy*`/`waitFor` (already used); do not silence the warning with mocks.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add -A && git commit -m "feat(app): add shell with bottom tab bar, settings sheet, migration banner and error screens" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
-
-
-### Task 7: Settings sheet
-
-**Files:**
-- Create: `src/features/settings/SettingsScreen.tsx`, `src/features/settings/SettingsScreen.module.css`, `src/app/readFile.ts`, `tests/features/settings.test.tsx`
-- Modify: `src/app/Shell.tsx` (render `SettingsScreen` inside the Settings sheet), `src/features/placeholders.tsx` (delete `SettingsPlaceholder`)
-
-**Interfaces:**
-- Consumes: `useApp`, `useUi` (`openSheet`), `Segmented`, `NumberField`, `Card`, `Button`, `downloadText`, `backupFilename`, `exportBackup`, `parseBackup`, `themePreference`, `StoreDoc`.
-- Produces: `SettingsScreen()`; `readFileText(file: File): Promise<string>` (FileReader-based, works in browsers and jsdom).
-
-Behavior (matches the parity appendix, plus fix 4): Units (lb/kg; choosing a unit sets `increment` to 2.5 for kg, 5 for lb; hint "Relabels only; won't convert logged numbers."); Increment (min 0, decimals ok, label `Increment (${unit} per jump)`); one card per type titled "Compound rules"/"Isolation rules" with Sets to advance (min 1), Warm-up sets (min 0), Rep range — low (min 1, max repTop−1), Rep range — high (min repBottom+1), and the live hint `{repTop}+ × {sets} set(s) → +{increment} {unit}.`; Rest timer card (Default (seconds), min 5); Appearance (System/Dark/Light); Exercise library (a "Manage exercises" row that switches the sheet to the Exercise library view); Data & backup (Export backup; Import backup with a confirmation step showing counts before anything is replaced). The screen renders inside the Settings sheet, so it has no page title of its own.
-
-- [ ] **Step 1: Write the failing test `tests/features/settings.test.tsx`**
-
-```tsx
-// @vitest-environment jsdom
-import { afterEach, describe, it, expect, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
-import { SettingsScreen } from "../../src/features/settings/SettingsScreen";
-import { V2_KEY } from "../../src/data/store";
-import { DEFAULT_SETTINGS } from "../../src/domain/settings";
-import { syntheticBackup } from "../helpers/fixtures";
-import { renderWithStore } from "../helpers/renderWithStore";
-
-const download = vi.hoisted(() => vi.fn());
-vi.mock("../../src/app/download", async (orig) => ({ ...(await orig<object>()), downloadText: download }));
-
-afterEach(() => download.mockClear());
-
-const stored = (kv: { dump(): Record<string, string> }) => JSON.parse(kv.dump()[V2_KEY]!);
-const region = (name: string) => within(screen.getByRole("region", { name }));
-const file = (obj: unknown) => new File([typeof obj === "string" ? obj : JSON.stringify(obj)], "backup.json", { type: "application/json" });
-
-describe("units and increment", () => {
-  it("choosing kg relabels and sets the increment to 2.5; lb sets it back to 5", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    await user.click(screen.getByRole("radio", { name: "kg" }));
-    await waitFor(() => expect(stored(kv).settings).toMatchObject({ unit: "kg", increment: 2.5 }));
-    expect(screen.getByLabelText("Increment (kg per jump)")).toHaveValue("2.5");
-    await user.click(screen.getByRole("radio", { name: "lb" }));
-    await waitFor(() => expect(stored(kv).settings).toMatchObject({ unit: "lb", increment: 5 }));
-    expect(screen.getByText("Relabels only; won't convert logged numbers.")).toBeInTheDocument();
-  });
-
-  it("accepts a decimal increment and rejects a negative one with a message", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const input = screen.getByLabelText("Increment (lb per jump)");
-    await user.clear(input);
-    await user.type(input, "2.5");
-    await user.tab();
-    await waitFor(() => expect(stored(kv).settings.increment).toBe(2.5));
-    await user.clear(input);
-    await user.type(input, "-1");
-    await user.tab();
-    expect(screen.getByRole("alert")).toHaveTextContent("Enter a number 0 or higher");
-    expect(stored(kv).settings.increment).toBe(2.5);
-  });
-});
-
-describe("rules cards", () => {
-  it("edits sets-to-advance per type and updates the live hint (singular for one set)", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const compound = region("Compound rules");
-    expect(compound.getByText("8+ × 2 sets → +5 lb.")).toBeInTheDocument();
-    const sets = compound.getByLabelText("Sets to advance");
-    await user.clear(sets);
-    await user.type(sets, "1");
-    await user.tab();
-    await waitFor(() => expect(stored(kv).settings.compound.sets).toBe(1));
-    expect(compound.getByText("8+ × 1 set → +5 lb.")).toBeInTheDocument();
-    expect(stored(kv).settings.isolation.sets).toBe(DEFAULT_SETTINGS.isolation.sets);
-  });
-
-  it("rejects a rep-low at or above rep-high and leaves storage unchanged", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const compound = region("Compound rules");
-    const low = compound.getByLabelText("Rep range — low");
-    await user.clear(low);
-    await user.type(low, "8");
-    await user.tab();
-    expect(compound.getByRole("alert")).toHaveTextContent("Enter a number from 1 to 7");
-    expect(low).toHaveValue("6");
-    expect(stored(kv).settings.compound.repBottom).toBe(6);
-  });
-
-  it("rejects rep-high at or below rep-low", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const compound = region("Compound rules");
-    const high = compound.getByLabelText("Rep range — high");
-    await user.clear(high);
-    await user.type(high, "6");
-    await user.tab();
-    expect(compound.getByRole("alert")).toHaveTextContent("Enter a number 7 or higher");
-    expect(stored(kv).settings.compound.repTop).toBe(8);
-  });
-});
-
-describe("rest timer", () => {
-  it("edits the default and rejects values under 5 seconds", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const card = region("Rest timer");
-    const input = card.getByLabelText("Default (seconds)");
-    await user.clear(input);
-    await user.type(input, "90");
-    await user.tab();
-    await waitFor(() => expect(stored(kv).settings.restTimer.defaultSeconds).toBe(90));
-    await user.clear(input);
-    await user.type(input, "3");
-    await user.tab();
-    expect(card.getByRole("alert")).toHaveTextContent("Enter a number 5 or higher");
-    expect(stored(kv).settings.restTimer.defaultSeconds).toBe(90);
-  });
-});
-
-describe("appearance", () => {
-  it("shows System for legacy theme values and stores a new choice", async () => {
-    const legacy = { ...syntheticBackup(), settings: { ...syntheticBackup().settings, theme: "ember" } };
-    const { user, kv } = await renderWithStore(<SettingsScreen />, { legacy });
-    expect(screen.getByRole("radio", { name: "System" })).toHaveAttribute("aria-checked", "true");
-    await user.click(screen.getByRole("radio", { name: "Dark" }));
-    await waitFor(() => expect(stored(kv).settings.theme).toBe("dark"));
-    expect(screen.getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
-  });
-});
-
-describe("exercise library", () => {
-  it("Manage exercises switches the sheet to the library view", async () => {
-    const { user, uiStore } = await renderWithStore(<SettingsScreen />);
-    uiStore.getState().openSheet("settings");
-    await user.click(screen.getByRole("button", { name: "Manage exercises" }));
-    expect(uiStore.getState().sheet).toBe("exercises");
-  });
-});
-
-describe("export", () => {
-  it("downloads a v2 backup of the current data", async () => {
-    const { user } = await renderWithStore(<SettingsScreen />);
-    await user.click(screen.getByRole("button", { name: "Export backup" }));
-    const [filename, text] = download.mock.calls[0]!;
-    expect(filename).toMatch(/^overload-backup-\d{4}-\d{2}-\d{2}\.json$/);
-    const parsed = JSON.parse(text);
-    expect(parsed).toMatchObject({ app: "overload", version: 2 });
-    expect(parsed.exercises).toHaveLength(syntheticBackup().exercises.length);
-  });
-});
-
-describe("import", () => {
-  const v1 = {
-    app: "overload", version: 1,
-    exercises: [{ id: "x", name: "X Press", type: "compound", muscleGroup: "Chest" }],
-    sessions: [], customGroups: [], settings: DEFAULT_SETTINGS,
-  };
-
-  it("asks for confirmation with counts, and Cancel changes nothing", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const before = kv.dump()[V2_KEY];
-    await user.upload(screen.getByLabelText("Import backup"), file(v1));
-    const dialog = await screen.findByRole("alertdialog", { name: "Confirm import" });
-    expect(dialog).toHaveTextContent("This backup has 1 exercises and 0 sessions");
-    expect(dialog).toHaveTextContent(`currently stored (${syntheticBackup().exercises.length} exercises, ${syntheticBackup().sessions.length} sessions)`);
-    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(kv.dump()[V2_KEY]).toBe(before);
-  });
-
-  it("Replace my data replaces the store and confirms", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    await user.upload(screen.getByLabelText("Import backup"), file(v1));
-    await user.click(await screen.findByRole("button", { name: "Replace my data" }));
-    expect(await screen.findByText("Backup imported.")).toBeInTheDocument();
-    expect(stored(kv).exercises.map((e: { id: string }) => e.id)).toEqual(["x"]);
-    expect(stored(kv).sessions).toEqual([]);
-  });
-
-  it("rejects non-JSON and non-Overload files with a message and keeps existing data", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const before = kv.dump()[V2_KEY];
-    await user.upload(screen.getByLabelText("Import backup"), file("{nope"));
-    expect(await screen.findByText("Import failed: Backup file is not valid JSON")).toBeInTheDocument();
-    await user.upload(screen.getByLabelText("Import backup"), file({ hello: 1 }));
-    expect(await screen.findByText("Import failed: Not an Overload backup file")).toBeInTheDocument();
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(kv.dump()[V2_KEY]).toBe(before);
-  });
-
-  it("rejects a structurally invalid backup before offering to replace anything", async () => {
-    const { user, kv } = await renderWithStore(<SettingsScreen />);
-    const before = kv.dump()[V2_KEY];
-    const bad = { ...v1, sessions: [{ id: "s", date: "not-a-date", name: "", blocks: [] }] };
-    await user.upload(screen.getByLabelText("Import backup"), file(bad));
-    expect(await screen.findByText(/Import failed: sessions\[0\] has invalid date/)).toBeInTheDocument();
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(kv.dump()[V2_KEY]).toBe(before);
-  });
-});
-```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npx vitest run tests/features/settings.test.tsx`
-Expected: FAIL — `SettingsScreen` not found.
-
-- [ ] **Step 3: Implement `src/app/readFile.ts`**
-
-```ts
-export function readFileText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("Could not read the file"));
-    reader.readAsText(file);
-  });
-}
-```
-
-- [ ] **Step 4: Implement `SettingsScreen.tsx` and its CSS**
-
-`src/features/settings/SettingsScreen.tsx`:
-```tsx
-import { ChevronRight, Timer } from "lucide-react";
-import { useState, type ChangeEvent } from "react";
-import { backupFilename, downloadText } from "../../app/download";
-import { readFileText } from "../../app/readFile";
-import { exportBackup, parseBackup } from "../../data/backup";
-import { themePreference, type ThemePref } from "../../domain/theme";
-import type { StoreDoc } from "../../domain/types";
-import { useApp, useUi } from "../../state/context";
-import { Button } from "../../ui/Button";
-import { Card } from "../../ui/Card";
-import { NumberField } from "../../ui/NumberField";
-import { Segmented } from "../../ui/Segmented";
-import styles from "./SettingsScreen.module.css";
-
-const errMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-export function SettingsScreen() {
-  const doc = useApp((s) => s.doc);
-  const settings = doc.settings;
-  const updateSettings = useApp((s) => s.updateSettings);
-  const replaceDoc = useApp((s) => s.replaceDoc);
-  const openSheet = useUi((s) => s.openSheet);
-  const [pending, setPending] = useState<StoreDoc | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-importing the same file
-    setMsg(null);
-    setPending(null);
-    if (!file) return;
-    try {
-      setPending(parseBackup(await readFileText(file), () => {}));
-    } catch (err) {
-      setMsg({ ok: false, text: `Import failed: ${errMessage(err)}` });
-    }
-  }
-
-  async function confirmImport() {
-    if (!pending) return;
-    const ok = await replaceDoc(pending);
-    setPending(null);
-    setMsg(ok ? { ok: true, text: "Backup imported." } : { ok: false, text: "Import failed: could not save the backup." });
-  }
-
-  return (
-    <div className={styles.stack}>
-      <Card title="Units">
-        <Segmented
-          label="Units"
-          value={settings.unit}
-          options={[
-            { value: "lb", label: "lb" },
-            { value: "kg", label: "kg" },
-          ]}
-          onChange={(unit) => updateSettings((s) => ({ ...s, unit, increment: unit === "kg" ? 2.5 : 5 }))}
-        />
-        <p className={styles.hint}>Relabels only; won&apos;t convert logged numbers.</p>
-        <div className={styles.narrow}>
-          <NumberField
-            label={`Increment (${settings.unit} per jump)`}
-            value={settings.increment}
-            min={0}
-            onChange={(v) => updateSettings((s) => ({ ...s, increment: v }))}
-          />
-        </div>
-      </Card>
-
-      {(["compound", "isolation"] as const).map((type) => {
-        const t = settings[type];
-        const patch = (p: Partial<typeof t>) => updateSettings((s) => ({ ...s, [type]: { ...s[type], ...p } }));
-        return (
-          <Card key={type} title={`${type === "compound" ? "Compound" : "Isolation"} rules`}>
-            <div className={styles.grid}>
-              <NumberField label="Sets to advance" value={t.sets} min={1} onChange={(v) => patch({ sets: v })} />
-              <NumberField label="Warm-up sets" value={t.warmupSets} min={0} onChange={(v) => patch({ warmupSets: v })} />
-              <NumberField label="Rep range — low" value={t.repBottom} min={1} max={t.repTop - 1} onChange={(v) => patch({ repBottom: v })} />
-              <NumberField label="Rep range — high" value={t.repTop} min={t.repBottom + 1} onChange={(v) => patch({ repTop: v })} />
-            </div>
-            <p className={styles.hint}>
-              {t.repTop}+ × {t.sets} set{t.sets === 1 ? "" : "s"} → +{settings.increment} {settings.unit}.
-            </p>
-          </Card>
-        );
-      })}
-
-      <Card title="Rest timer">
-        <div className={styles.narrow}>
-          <NumberField
-            label="Default (seconds)"
-            value={settings.restTimer.defaultSeconds}
-            min={5}
-            onChange={(v) => updateSettings((s) => ({ ...s, restTimer: { ...s.restTimer, defaultSeconds: v } }))}
-          />
-        </div>
-        <p className={styles.hint}>
-          <Timer size={14} aria-hidden /> Presets are 1:00, 2:00, 3:00 and your default.
-        </p>
-      </Card>
-
-      <Card title="Appearance">
-        <Segmented<ThemePref>
-          label="Appearance"
-          value={themePreference(settings.theme)}
-          options={[
-            { value: "system", label: "System" },
-            { value: "dark", label: "Dark" },
-            { value: "light", label: "Light" },
-          ]}
-          onChange={(theme) => updateSettings((s) => ({ ...s, theme }))}
-        />
-      </Card>
-
-      <Card title="Exercise library">
-        <button type="button" className={styles.navRow} onClick={() => openSheet("exercises")}>
-          <span>Manage exercises</span>
-          <span className={styles.navMeta}>
-            {doc.exercises.length} <ChevronRight size={18} aria-hidden />
-          </span>
-        </button>
-      </Card>
-
-      <Card title="Data & backup">
-        <p className={styles.hint}>Stored on this device. Export to back up; import replaces current data.</p>
-        <div className={styles.actions}>
-          <Button variant="primary" onClick={() => downloadText(backupFilename(), exportBackup(doc))}>
-            Export backup
-          </Button>
-          <label className={styles.fileButton}>
-            Import backup
-            <input type="file" accept="application/json,.json" onChange={onFile} className={styles.file} />
-          </label>
-        </div>
-        {pending && (
-          <div role="alertdialog" aria-label="Confirm import" className={styles.confirm}>
-            <p>
-              This backup has {pending.exercises.length} exercises and {pending.sessions.length} sessions. Importing
-              replaces everything currently stored ({doc.exercises.length} exercises, {doc.sessions.length} sessions).
-            </p>
-            <div className={styles.actions}>
-              <Button variant="danger" onClick={confirmImport}>
-                Replace my data
-              </Button>
-              <Button onClick={() => setPending(null)}>Cancel</Button>
-            </div>
-          </div>
-        )}
-        {msg && (
-          <p role="status" className={msg.ok ? styles.ok : styles.fail}>
-            {msg.text}
-          </p>
-        )}
-      </Card>
-    </div>
-  );
-}
-```
-
-`src/features/settings/SettingsScreen.module.css`:
-```css
-.stack { display: flex; flex-direction: column; gap: 16px; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.narrow { max-width: 220px; margin-top: 14px; }
-.hint { font-size: var(--text-sm); color: var(--muted); margin-top: 10px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.fileButton {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  font-size: var(--text-md); font-weight: 600; cursor: pointer; position: relative;
-}
-.fileButton:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.fileButton { transition: transform var(--dur-press) var(--ease-out); }
-.fileButton:active { transform: scale(0.97); }
-.navRow {
-  width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between;
-  background: none; border: 0; padding: 0; color: var(--text); font-size: var(--text-base); cursor: pointer;
-}
-.navRow:active { opacity: 0.6; }
-.navMeta { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
-.file { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.confirm { margin-top: 14px; padding: 12px; border-radius: var(--radius-sm); background: var(--warn-soft); font-size: var(--text-md); }
-.confirm p { margin-bottom: 12px; }
-.ok { margin-top: 10px; font-size: var(--text-sm); color: var(--accent); }
-.fail { margin-top: 10px; font-size: var(--text-sm); color: var(--danger); }
-```
-
-- [ ] **Step 5: Wire the screen into the shell**
-
-In `src/features/placeholders.tsx` delete the `SettingsPlaceholder` export. In `src/app/Shell.tsx` remove `SettingsPlaceholder` from the import list, add `import { SettingsScreen } from "../features/settings/SettingsScreen";` and render `<SettingsScreen />` as the Settings sheet's child in place of `<SettingsPlaceholder />`.
-
-- [ ] **Step 6: Run the gate**
-
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: PASS. (Region queries rely on `Card` exposing `aria-label` from its title; see Task 3.)
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add -A && git commit -m "feat(settings): add Settings sheet with validation, appearance, library link and guarded import" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
+  - `dumpRaw(kv): Promise<Record<string, string>>`: legacy keys **plus** `overload.v2` when present (for the boot-error escape hatch).
+  - `downloadText(filename, text, mime?)`, which is the only place a file leaves the app. `backupFilename(now?: Date)` → `overload-backup-YYYY-MM-DD.json`, and `oldDataFilename(now?)` → `overload-old-app-data-YYYY-MM-DD.json`, both from **local** date parts.
+  - `StoreProvider`, `useApp(selector)`, `useUi(selector)`, `useKv()`, `useAppStore()`, `useUiStore()`.
+  - `Shell()` and `App({ kv })`.
+  - `renderWithStore(ui, opts?: { doc?: StoreDoc; legacy?: Record<string, string>; kv?: MemoryKV; init?: boolean })` → `{ ...render, kv, app, uiStore, user }`. The default is an empty v2 doc from `doc()`.
+
+Shell behavior:
+- **Tabs:** `TabBar` is a `tablist` of three `tab`s: **Log** (Dumbbell icon), **Progress** (TrendingUp), **History** (CalendarDays). Each shows an icon and a label. It sits above the home indicator (`env(safe-area-inset-bottom)`).
+- **Header:** shows a large title per tab inside the scrolling content, and a gear `IconButton` labelled "Settings".
+  - When the large title scrolls under the header (IntersectionObserver), the header shows the small centered title.
+  - Header and tab bar switch to their translucent material with a fade edge only while content is under them (`data-scrolled`).
+- **Settings sheet:** the gear opens it (`openSheet("settings")`) as a `SheetStack` whose root is a placeholder until Task 8. While it's open the page is `inert` and scales `calc(0.94 + 0.06 * var(--sheet-progress, 1))` with top corners rounded. That's skipped under reduced motion, which only dims.
+- **Toasts:** `ToastView` renders the UI store's toast above the tab bar.
+- **Save errors:** a failed save shows a `Banner` with `role="alert"` and Dismiss.
+- **Boot errors:** a boot error shows `ErrorScreen`: the message plus "Download raw data" (`dumpRaw`). Nothing is written. `ErrorBoundary` catches render errors with "Something broke" and Reload.
+- **No migration banner.**
+
+- [ ] **Step 1: Write the failing tests**
+  - **Data and download:**
+    - `boot.test.ts`: "dumpRaw includes overload.v2 as well as legacy keys".
+    - `download.test.ts`: keep the 2026-10-09 cases (blob URL created, clicked with the filename and revoked; the local date, not UTC, for a late-evening export). Add that `oldDataFilename` uses the local date.
+  - **Tabs:**
+    - tablist with exactly Log, Progress, History, and the gear once ready;
+    - switching tabs persists, and a reload restores the tab.
+  - **Settings sheet:**
+    - the gear opens a dialog named "Settings" and the page behind is `inert`;
+    - Done closes it, `inert` is removed, `--sheet-progress` is gone, and focus returns to the gear.
+  - **Theme:** a stored `"light"` sets `data-theme="light"`.
+  - **Save errors:** a failed save shows the alert, and Dismiss clears it.
+  - **Boot:**
+    - Boot on a device with only legacy keys: no banner, the Log placeholder, and only `overload.v2` added.
+    - Corrupt v2: the error screen, and "Download raw data" yields a file containing `overload.v2`.
+    - A StrictMode double mount boots once.
+  - **Toast:** a toast from the UI store renders with its action.
+  - **ErrorBoundary:** renders a recoverable screen with the error message.
+
+- [ ] **Step 2: Run and confirm failure.** Expected: FAIL, because the modules are missing.
+- [ ] **Step 3: Implement.** `App` wraps everything in `MotionRoot` and `StoreProvider`, hydrates the UI store, calls `init()` and applies the theme on every change.
+- [ ] **Step 4: Gate.** Expected: PASS.
+- [ ] **Step 5: Commit**: `git add -A && git commit -m "feat(app): add shell with translucent chrome, Log/Progress/History tabs, settings sheet host, toasts and error screens" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
 
 ---
 
-### Task 8: Exercise library (Manage exercises)
+### Task 8: Settings sheet
 
 **Files:**
-- Create: `src/features/exercises/ExercisesManager.tsx`, `src/features/exercises/ExercisesManager.module.css`, `tests/features/exercises.test.tsx`
-- Modify: `src/app/Shell.tsx` (render the manager as the sheet's "exercises" view, with Back to Settings), `tests/app/shell.test.tsx` (one test)
+- Create: `src/ui/ListRow.tsx`, `ListRow.module.css`, `src/features/settings/SettingsRoot.tsx`, `StyleRulesView.tsx`, `EquipmentStepsView.tsx`, `Settings.module.css`, `src/app/readFile.ts`, `tests/features/settings.test.tsx`
+- Modify: `src/app/Shell.tsx` (the sheet root becomes `SettingsRoot`), `src/features/placeholders.tsx` (drop the settings placeholder)
 
 **Interfaces:**
-- Consumes: `useApp` actions `addGroup`, `updateExercise`, `deleteExercise`; `allMuscleGroups`, `groupByMuscleFull`, `sessionsWithExercise`; `TypeBadge`, `Input`, `Select`, `Button`, `IconButton`, `Sheet`.
-- Produces: `ExercisesManager()`.
+- Consumes: the store actions from Task 6; `useSheetNav`; `Segmented`, `NumberField`, `Card`, `Button`, `Banner`; `downloadText`, `backupFilename`, `oldDataFilename`, `exportBackup`, `parseBackup`, `dumpLegacyRaw`; `phaseOf`, `convertUnits` (to count before confirming), `EQUIPMENT`, `equipmentLabel`.
+- Produces:
+  - `ListRow({ label: string; detail?: string; onPress?(): void; children?: ReactNode })`: an iOS grouped-list row (≥44px, chevron when `onPress`, pressed state on touch-down).
+  - `SettingsRoot()`, `StyleRulesView()`, `EquipmentStepsView()`.
+  - `readFileText(file: File): Promise<string>`.
 
-Behavior: add muscle group input (placeholder "Add a new muscle group (e.g. Forearms)") + "Add" button — messages "Enter a group name" (blank) and "That group already exists" (case-insensitive duplicate); "No exercises added yet." when there are none; every group listed (including empty ones, with "No exercises yet — it'll show up when you add one to this group."); exercise row view = name, type badge, Edit (`Edit {name}`), Delete (`Delete {name}`) which arms the row: it states the cost ("Deletes {name} and its {n} logged session(s)." or "Deletes {name}. It has no logged sessions."), shows a danger "Confirm delete" button and a "Cancel" button, and only Confirm cascades; edit row = name, group select, type select, "Save exercise" — a blank name is **not** saved and shows "Name can't be empty" (fix 4).
+Sections in `SettingsRoot`, as iOS grouped inset lists, in this order:
+1. **Training.**
+   - "Style": a `Segmented` with Strength/Hypertrophy calling `startPhase`.
+   - Below it, `"{Style} since {Mon D}"` and a "Started" date input (`max` = today) that calls `setPhaseStart`; an error shows inline.
+   - A "Style rules" row pushes `StyleRulesView`.
+2. **Exercises.** An "Exercise library" row with detail `"{n} exercises"` pushes the library (Task 9; a placeholder view until then).
+3. **Units.**
+   - A `Segmented` with lb/kg. If `convertUnits` reports 0 changed sets and there are no step overrides, it switches at once.
+   - Otherwise an inline confirmation appears in the section: `"Convert {n} logged set{s} to {unit}? Equipment steps reset to {unit} defaults."`, plus `" {k} custom step{s} will be cleared."` when k > 0. Buttons are **Convert** (primary) and **Cancel**. The Segmented shows the old unit until Convert succeeds.
+4. **Equipment steps.** A row with detail `"Per gym"` pushes `EquipmentStepsView`: one `NumberField` per equipment except band, labelled `"{Equipment label} ({unit})"`, min 0.1, decimals allowed.
+5. **Appearance.** A `Segmented` with System/Dark/Light.
+6. **Data & backup.**
+   - "Export backup" downloads `exportBackup(doc)`.
+   - "Import backup" opens a file picker, then `parseBackup`.
+     - If invalid, the error text shows inline (v1 shows "This backup is from the old app and can't be imported").
+     - If valid, an inline confirmation appears: `"Replace your data with this backup? It has {e} exercises and {s} sessions."` with **Replace** (danger) and **Cancel**. Replace calls `replaceDoc` and shows a toast "Backup imported".
+   - "Download old app data" appears only when `hasLegacy`. It downloads `JSON.stringify(await dumpLegacyRaw(kv), null, 2)` as `oldDataFilename()`. Caption: "Your workouts from the previous version, as a file."
 
-- [ ] **Step 1: Write the failing test `tests/features/exercises.test.tsx`**
+`StyleRulesView` shows the current style first, with a `Segmented` to view the other one.
+- **Compound** and **Isolation** sections each have Rep range low/high (whole numbers 1–50), Sets (1–20), Target RIR low/high (0–4), Rest in seconds (0–900) and Warm-up sets (0–10).
+- **Weekly volume** has low/high sets (0–60).
+- A pair where low > high shows "Low can't be above high" under the pair and isn't saved.
 
-```tsx
-// @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
-import { ExercisesManager } from "../../src/features/exercises/ExercisesManager";
-import { V2_KEY } from "../../src/data/store";
-import { syntheticBackup } from "../helpers/fixtures";
-import { renderWithStore } from "../helpers/renderWithStore";
+- [ ] **Step 1: Write the failing tests** (`tests/features/settings.test.tsx`, via `renderWithStore` with `SettingsRoot` inside a `SheetStack`):
+  - **Training style:**
+    - Choosing Strength stores a new phase dated today, and the caption reads "Strength since …".
+    - A future Started date shows "Start date can't be in the future" and writes nothing.
+  - **Style rules:**
+    - Push and Back works.
+    - Hypertrophy compound repLow 12 with repHigh 10 shows "Low can't be above high" and stores nothing.
+    - Sets 2.5 shows the whole-number message.
+    - A valid rest of 150 is stored.
+  - **Units:**
+    - Empty doc: choosing kg switches immediately (unit kg, kg steps).
+    - With 3 logged sets and 1 step override: the confirmation reads "Convert 3 logged sets to kg? Equipment steps reset to kg defaults. 1 custom step will be cleared."
+      - Cancel leaves everything unchanged.
+      - Convert stores the converted weights.
+  - **Equipment steps:** dumbbell 2.5 is stored; 0 shows the range message.
+  - **Appearance:** Dark is stored and applied.
+  - **Export:** produces a v2 file named with the local date.
+  - **Import:**
+    - A v1 file shows the old-app message and leaves data intact.
+    - Non-JSON shows "Backup file is not valid JSON".
+    - A valid file shows the counts. Cancel changes nothing; Replace replaces the data and shows the toast.
+  - **Old app data:** "Download old app data" is absent on a clean device. With legacy keys it is present and downloads exactly those keys.
 
-const stored = (kv: { dump(): Record<string, string> }) => JSON.parse(kv.dump()[V2_KEY]!);
-
-describe("listing", () => {
-  it("lists every group, including empty and custom ones, with exercises under their group", async () => {
-    await renderWithStore(<ExercisesManager />);
-    expect(screen.getByRole("heading", { name: "Chest" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Neck" })).toBeInTheDocument();
-    expect(screen.getByText("Ramp Squat")).toBeInTheDocument();
-    expect(screen.getAllByText(/No exercises yet — it'll show up when you add one to this group\./).length).toBeGreaterThan(0);
-  });
-
-  it("shows the empty message when there are no exercises", async () => {
-    const empty = { ...syntheticBackup(), exercises: [], sessions: [] };
-    await renderWithStore(<ExercisesManager />, { legacy: empty });
-    expect(screen.getByText("No exercises added yet.")).toBeInTheDocument();
-  });
-});
-
-describe("adding a muscle group", () => {
-  it("adds, clears the input and lists the new group", async () => {
-    const { user, kv } = await renderWithStore(<ExercisesManager />);
-    const input = screen.getByPlaceholderText("Add a new muscle group (e.g. Forearms)");
-    await user.type(input, "Forearms");
-    await user.click(screen.getByRole("button", { name: "Add" }));
-    expect(await screen.findByRole("heading", { name: "Forearms" })).toBeInTheDocument();
-    expect(input).toHaveValue("");
-    expect(stored(kv).customGroups).toContain("Forearms");
-  });
-
-  it("explains blank and duplicate names and writes nothing", async () => {
-    const { user, kv } = await renderWithStore(<ExercisesManager />);
-    const before = kv.dump()[V2_KEY];
-    const input = screen.getByPlaceholderText("Add a new muscle group (e.g. Forearms)");
-    await user.click(screen.getByRole("button", { name: "Add" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Enter a group name");
-    await user.type(input, "chest");
-    await user.click(screen.getByRole("button", { name: "Add" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("That group already exists");
-    expect(kv.dump()[V2_KEY]).toBe(before);
-  });
-});
-
-describe("editing an exercise", () => {
-  it("saves name, group and type", async () => {
-    const { user, kv } = await renderWithStore(<ExercisesManager />);
-    await user.click(screen.getByRole("button", { name: "Edit Curl" }));
-    const name = screen.getByRole("textbox", { name: "Exercise name" });
-    await user.clear(name);
-    await user.type(name, "Hammer Curl");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Muscle group" }), "Back");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Exercise type" }), "compound");
-    await user.click(screen.getByRole("button", { name: "Save exercise" }));
-    await waitFor(() =>
-      expect(stored(kv).exercises.find((e: { id: string }) => e.id === "ex-iso")).toMatchObject({
-        name: "Hammer Curl", muscleGroup: "Back", type: "compound",
-      }),
-    );
-    expect(screen.queryByRole("button", { name: "Save exercise" })).toBeNull();
-    expect(screen.getByText("Hammer Curl")).toBeInTheDocument();
-  });
-
-  it("does not save a blank name: shows a message and keeps editing", async () => {
-    const { user, kv } = await renderWithStore(<ExercisesManager />);
-    const before = kv.dump()[V2_KEY];
-    await user.click(screen.getByRole("button", { name: "Edit Curl" }));
-    await user.clear(screen.getByRole("textbox", { name: "Exercise name" }));
-    await user.click(screen.getByRole("button", { name: "Save exercise" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Name can't be empty");
-    expect(screen.getByRole("button", { name: "Save exercise" })).toBeInTheDocument();
-    expect(kv.dump()[V2_KEY]).toBe(before);
-  });
-});
-
-describe("deleting an exercise", () => {
-  it("needs a second click on Confirm delete, then cascades into sessions", async () => {
-    const legacy = syntheticBackup();
-    legacy.sessions.push({
-      id: "only-blow", date: "2026-04-01", name: "Solo",
-      blocks: [{ id: "bb", exerciseId: "ex-blow", sets: [{ weight: 50, reps: 8, warmup: false }] }],
-    });
-    const { user, kv } = await renderWithStore(<ExercisesManager />, { legacy });
-    await user.click(screen.getByRole("button", { name: "Delete Blowout Row" }));
-    expect(stored(kv).exercises.some((e: { id: string }) => e.id === "ex-blow")).toBe(true);
-    const n = legacy.sessions.filter((s) => s.blocks.some((b) => b.exerciseId === "ex-blow")).length;
-    expect(screen.getByText(`Deletes Blowout Row and its ${n} logged session${n === 1 ? "" : "s"}.`)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Confirm delete" }));
-    await waitFor(() => expect(stored(kv).exercises.some((e: { id: string }) => e.id === "ex-blow")).toBe(false));
-    const sessions = stored(kv).sessions as { id: string; blocks: { exerciseId: string }[] }[];
-    expect(sessions.some((s) => s.id === "only-blow")).toBe(false);
-    expect(sessions.flatMap((s) => s.blocks).some((b) => b.exerciseId === "ex-blow")).toBe(false);
-    expect(screen.queryByText("Blowout Row")).toBeNull();
-  });
-
-  it("arms only the clicked row", async () => {
-    const { user } = await renderWithStore(<ExercisesManager />);
-    await user.click(screen.getByRole("button", { name: "Delete Curl" }));
-    expect(screen.getAllByRole("button", { name: "Confirm delete" })).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Delete Ramp Squat" })).toBeInTheDocument();
-    const row = screen.getByText("Curl").closest("li")!;
-    expect(within(row).getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
-  });
-
-  it("Cancel disarms the row and deletes nothing", async () => {
-    const { user, kv } = await renderWithStore(<ExercisesManager />);
-    const before = kv.dump()[V2_KEY];
-    await user.click(screen.getByRole("button", { name: "Delete Curl" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("button", { name: "Confirm delete" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Delete Curl" })).toBeInTheDocument();
-    expect(kv.dump()[V2_KEY]).toBe(before);
-  });
-});
-```
-
-- [ ] **Step 2: Run and confirm failure**
-
-Run: `npx vitest run tests/features/exercises.test.tsx`
-Expected: FAIL — `ExercisesManager` not found.
-
-- [ ] **Step 3: Implement `ExercisesManager.tsx` and CSS**
-
-`src/features/exercises/ExercisesManager.tsx`:
-```tsx
-import { Check, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { allMuscleGroups, groupByMuscleFull, sessionsWithExercise } from "../../domain/exercises";
-import type { Exercise, ExerciseType } from "../../domain/types";
-import { useApp } from "../../state/context";
-import { Button } from "../../ui/Button";
-import { Input, Select } from "../../ui/Field";
-import { IconButton } from "../../ui/IconButton";
-import { TypeBadge } from "../../ui/TypeBadge";
-import styles from "./ExercisesManager.module.css";
-
-function deleteCost(name: string, n: number): string {
-  return n === 0 ? `Deletes ${name}. It has no logged sessions.` : `Deletes ${name} and its ${n} logged session${n === 1 ? "" : "s"}.`;
-}
-
-export function ExercisesManager() {
-  const doc = useApp((s) => s.doc);
-  const exercises = doc.exercises;
-  const customGroups = useApp((s) => s.doc.customGroups);
-  const addGroup = useApp((s) => s.addGroup);
-  const updateExercise = useApp((s) => s.updateExercise);
-  const deleteExercise = useApp((s) => s.deleteExercise);
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editGroup, setEditGroup] = useState("");
-  const [editType, setEditType] = useState<ExerciseType>("compound");
-  const [editError, setEditError] = useState<string | null>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [newGroup, setNewGroup] = useState("");
-  const [groupError, setGroupError] = useState<string | null>(null);
-
-  const groupOptions = allMuscleGroups(exercises, customGroups);
-  const grouped = groupByMuscleFull(groupOptions, exercises);
-  const nothingYet = !exercises.length && Object.values(grouped).every((g) => g.length === 0);
-
-  async function submitGroup() {
-    const result = await addGroup(newGroup);
-    if (result === "added") {
-      setNewGroup("");
-      setGroupError(null);
-    } else if (result === "empty") setGroupError("Enter a group name");
-    else if (result === "duplicate") setGroupError("That group already exists");
-  }
-
-  function startEdit(ex: Exercise) {
-    setEditingId(ex.id);
-    setEditName(ex.name);
-    setEditGroup(ex.muscleGroup || "Other");
-    setEditType(ex.type || "compound");
-    setEditError(null);
-  }
-
-  async function saveEdit(ex: Exercise) {
-    const name = editName.trim();
-    if (!name) {
-      setEditError("Name can't be empty");
-      return;
-    }
-    if (await updateExercise(ex.id, { name, muscleGroup: editGroup, type: editType })) setEditingId(null);
-  }
-
-  return (
-    <div className={styles.stack}>
-      <div className={styles.addRow}>
-        <Input
-          aria-label="New muscle group"
-          placeholder="Add a new muscle group (e.g. Forearms)"
-          value={newGroup}
-          onChange={(e) => {
-            setNewGroup(e.target.value);
-            setGroupError(null);
-          }}
-        />
-        <Button variant="primary" onClick={submitGroup}>
-          Add
-        </Button>
-      </div>
-      {groupError && (
-        <p role="alert" className={styles.error}>
-          {groupError}
-        </p>
-      )}
-
-      {nothingYet && <p className={styles.muted}>No exercises added yet.</p>}
-
-      {Object.entries(grouped).map(([group, exs]) => (
-        <section key={group}>
-          <h3 className={styles.groupTitle}>{group}</h3>
-          {exs.length === 0 ? (
-            <p className={styles.empty}>No exercises yet — it&apos;ll show up when you add one to this group.</p>
-          ) : (
-            <ul className={styles.list}>
-              {exs.map((ex) => (
-                <li key={ex.id} className={styles.row}>
-                  {editingId === ex.id ? (
-                    <>
-                      <Input aria-label="Exercise name" value={editName} onChange={(e) => { setEditName(e.target.value); setEditError(null); }} />
-                      <Select aria-label="Muscle group" value={editGroup} onChange={(e) => setEditGroup(e.target.value)}>
-                        {groupOptions.map((g) => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                      </Select>
-                      <Select aria-label="Exercise type" value={editType} onChange={(e) => setEditType(e.target.value as ExerciseType)}>
-                        <option value="compound">Compound</option>
-                        <option value="isolation">Isolation</option>
-                      </Select>
-                      <IconButton label="Save exercise" onClick={() => saveEdit(ex)}>
-                        <Check size={18} />
-                      </IconButton>
-                      {editError && <p role="alert" className={styles.error}>{editError}</p>}
-                    </>
-                  ) : (
-                    <>
-                      <span className={styles.name}>{ex.name}</span>
-                      <TypeBadge type={ex.type} />
-                      <IconButton label={`Edit ${ex.name}`} onClick={() => startEdit(ex)}>
-                        <Pencil size={16} />
-                      </IconButton>
-                      {confirmId === ex.id ? (
-                        <div className={styles.confirm}>
-                          <p className={styles.cost}>{deleteCost(ex.name, sessionsWithExercise(doc, ex.id))}</p>
-                          <Button
-                            variant="danger"
-                            onClick={async () => {
-                              await deleteExercise(ex.id);
-                              setConfirmId(null);
-                            }}
-                          >
-                            Confirm delete
-                          </Button>
-                          <Button onClick={() => setConfirmId(null)}>Cancel</Button>
-                        </div>
-                      ) : (
-                        <IconButton label={`Delete ${ex.name}`} onClick={() => setConfirmId(ex.id)}>
-                          <Trash2 size={16} />
-                        </IconButton>
-                      )}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
-    </div>
-  );
-}
-```
-
-`src/features/exercises/ExercisesManager.module.css`:
-```css
-.stack { display: flex; flex-direction: column; gap: 16px; }
-.addRow { display: flex; gap: 8px; }
-.groupTitle { font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 12px; }
-.name { flex: 1; font-size: var(--text-md); }
-.muted, .empty { font-size: var(--text-sm); color: var(--muted); }
-.empty { font-style: italic; }
-.error { width: 100%; font-size: var(--text-sm); color: var(--danger); }
-.confirm { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.cost { width: 100%; font-size: var(--text-sm); color: var(--danger); }
-```
-
-- [ ] **Step 4: Show the manager as the sheet's library view**
-
-In `src/app/Shell.tsx` add `import { ExercisesManager } from "../features/exercises/ExercisesManager";` and, after the Settings sheet, render:
-```tsx
-      {sheet === "exercises" && (
-        <Sheet title="Exercises" onClose={closeSheet} onBack={() => openSheet("settings")} backLabel="Settings">
-          <ExercisesManager />
-        </Sheet>
-      )}
-```
-Append to `describe("Shell", ...)` in `tests/app/shell.test.tsx`:
-```tsx
-  it("Settings → Manage exercises opens the library; Back returns to Settings", async () => {
-    const { user } = await renderWithStore(<Shell />);
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    await user.click(screen.getByRole("button", { name: "Manage exercises" }));
-    expect(screen.getByRole("dialog", { name: "Exercises" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-  });
-```
-(Plan B adds a second entry point from the Log screen's exercise picker.)
-
-- [ ] **Step 5: Run the gate**
-
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add -A && git commit -m "feat(exercises): add exercise library sheet with group, edit and costed cascade delete" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
+- [ ] **Step 2: Run and confirm failure.**
+- [ ] **Step 3: Implement.** Pairs validate in the view, so the store only ever receives a valid `Settings`.
+- [ ] **Step 4: Gate.** Expected: PASS.
+- [ ] **Step 5: Commit**: `git add -A && git commit -m "feat(settings): add settings sheet with training style, style rules, converting units, equipment steps and backups" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
 
 ---
 
-### Task 9: Real-data verification, screenshots and handoff
+### Task 9: Exercise library
+
+**Files:**
+- Create: `src/features/exercises/LibraryView.tsx`, `ExerciseDetailView.tsx`, `AddExerciseView.tsx`, `ChooseEquipmentView.tsx`, `CreateExerciseView.tsx`, `Exercises.module.css`, `tests/features/exercises.test.tsx`
+- Modify: `src/features/settings/SettingsRoot.tsx` (the "Exercise library" row pushes `LibraryView`)
+
+**Interfaces:**
+- Consumes: the store's `addFromLibrary`, `addCustom`, `updateExercise`, `setArchived`, `deleteExercise`; the UI store's `showToast`; `groupByRegion`, `libraryState`, `sessionsWithExercise`, `searchLibrary`, `groupByMovement`, `equipmentLabel`, `exerciseError`, `MUSCLE_LABEL`, `MUSCLES`, `EQUIPMENT`, `loadStep`; `useSheetNav`, `ListRow`, `ChipGroup`, `Pill`, `Segmented`, `NumberField`, `Input`, `Select`, `Button`, `EmptyState`.
+- Produces: the five views (each a `SheetView` factory, e.g. `libraryView(): SheetView`).
+
+**LibraryView ("Exercise library")**
+- The header action is a "+" `IconButton` labelled "Add exercise", which pushes `AddExerciseView`.
+- My exercises are listed by `groupByRegion`, one section per region. Each row shows the name, with detail `"{Equipment label} · {primary muscle labels joined by ", "}"`. Tapping a row pushes `ExerciseDetailView`.
+- An "Archived ({n})" row appears last when n > 0. It pushes a list of archived exercises, each with a **Restore** button.
+- When empty: `EmptyState` "No exercises yet. Add one from the library." plus an "Add exercise" button.
+
+**AddExerciseView ("Add exercise")**
+- A search `Input` (`type="search"`, focused on open, placeholder `"Search {LIBRARY.length} exercises"`) filters on every keystroke. Results are `groupByMovement(searchLibrary(q))`.
+- A movement with one entry is a single row:
+  - tapping it adds the exercise (`addFromLibrary`), pops to the root and shows the toast `"Added {name}"`;
+  - an already-added entry shows a "Added" `Pill` and is disabled;
+  - an archived one shows "Restore".
+- A movement with several entries is a row with detail `"{n} options"` that pushes `ChooseEquipmentView`, which lists its entries the same way.
+- The last row is "Can't find it? Create your own", which pushes `CreateExerciseView`.
+- No results: "No matches. Create your own instead." with the same row.
+
+**CreateExerciseView ("New exercise")**
+- **Fields:**
+  - Name;
+  - Equipment (`Select` with `equipmentLabel`);
+  - Muscles worked (primary `ChipGroup` over `MUSCLES` with `MUSCLE_LABEL`);
+  - Also works (secondary `ChipGroup`; a muscle chosen as primary is disabled here);
+  - Type (`Segmented` Compound/Isolation, starting unselected);
+  - Weight step (optional `NumberField`, placeholder `"Default ({step} {unit})"`).
+- **Save:**
+  - Validates with `exerciseError`, plus "Pick compound or isolation" when Type is unset.
+  - Errors show under their field.
+  - On success it calls `addCustom`, pops to the root and shows the toast `"Added {name}"`.
+
+**ExerciseDetailView ({exercise name})**
+- **Fields:**
+  - Name: commits on blur/Enter; blank shows "Name can't be empty" and isn't saved.
+  - Muscles worked / Also works chips: commit on change; removing the last primary is refused with "Pick at least one muscle worked".
+  - Weight step: optional, with a "Use default" button that stores `null`.
+- **Library vs custom:**
+  - A library exercise shows "From the library · {Equipment label}" as text: equipment and type are fixed.
+  - A custom exercise also edits Equipment and Type.
+- **Archive exercise:** archives, pops to the root and shows the toast `"Archived {name}"` with an **Undo** action (`setArchived(id, false)`). If the save fails, there's no toast (the shell's save-error alert shows instead).
+- **Delete permanently…** (smaller, danger text, at the bottom):
+  - It arms an inline confirmation: `"Deletes {name} and its {n} logged session{s}. This can't be undone."`, or `"Deletes {name}. It has no logged sessions."`.
+  - **Delete** (danger) and **Cancel**.
+  - Delete cascades, pops to the root and shows the toast `"Deleted {name}"` with no Undo.
+
+- [ ] **Step 1: Write the failing tests** (`tests/features/exercises.test.tsx`):
+  - **Library list:**
+    - Empty library shows the empty state.
+    - Two exercises in different regions list under their region headings, with the detail text "Dumbbell · Side delts".
+  - **Adding:**
+    - Typing "db bench" lists "Bench press (dumbbell)".
+    - Typing "lateral raise" shows one "Lateral raise" row with "3 options". Pushing it and choosing dumbbell adds it, returns to the root and shows the toast "Added Lateral raise (dumbbell)".
+    - Adding the same entry again shows it as "Added" and disabled (one exercise in the doc).
+    - An archived entry shows "Restore", and restoring it brings it back with its id.
+  - **Creating:**
+    - "Can't find it?" leads to New exercise.
+    - Saving with no name, no muscles and no type shows the three messages and writes nothing.
+    - A valid custom exercise is stored with `libraryId: null` and shown under its region.
+  - **Detail:**
+    - A blank name isn't saved.
+    - Removing the only primary muscle is refused with its message.
+    - Step 2.5 is stored, and "Use default" stores null.
+    - A library exercise shows "From the library · Dumbbell" and no equipment select.
+  - **Archive:**
+    - Archiving hides the exercise from the list, shows "Archived (1)" and the Undo toast; Undo restores it.
+    - With a failing KV: no toast, the exercise is still listed, and the save alert shows.
+  - **Delete:**
+    - The confirmation states the session count. Cancel deletes nothing.
+    - Delete cascades into sessions.
+
+- [ ] **Step 2: Run and confirm failure.**
+- [ ] **Step 3: Implement.** Toasts that follow a store action are shown only when the action resolves `true`/an id.
+- [ ] **Step 4: Gate.** Expected: PASS.
+- [ ] **Step 5: Commit**: `git add -A && git commit -m "feat(exercises): add exercise library with search, equipment choice, create-your-own, archive with undo and costed delete" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+
+---
+
+### Task 10: Device check, motion review and handoff
 
 **Files:**
 - Modify: `HANDOFF.md`
 
-**Interfaces:** none (verification and documentation).
+- [ ] **Step 1: Full gate and build**: `npm test && npm run typecheck && npm run lint && npm run build`. Expected: all pass, and `dist/next.html`, `dist/dev.html` and `dist/index.html` exist.
+- [ ] **Step 2: Old-device boot.** Run `npm run dev` and open `/next.html` at 390×844 (Playwright MCP).
+  - Seed the four legacy keys from `fixtures/real-backup.json` (read it; never modify `fixtures/`) and reload.
+  - Confirm:
+    - the Log tab shows (no banner);
+    - `localStorage` gained only `overload.v2`;
+    - each legacy key is byte-identical to the seeded value;
+    - Settings → Data & backup shows "Download old app data".
+- [ ] **Step 3: Walk the flows.**
+  1. Add three exercises from the library, one through Choose equipment, and create one custom.
+  2. Archive one and press Undo.
+  3. Switch to kg and confirm, then switch back.
+  4. Change the style to Strength.
+  5. Open Style rules and go Back.
+  6. Drag the sheet down halfway and release (it springs back), then flick it (it closes).
+  7. Edge-swipe back from a pushed view.
 
-- [ ] **Step 1: Run the full gate and build**
-
-Run: `npm test && npm run typecheck && npm run lint && npm run build && ls dist/next.html dist/index.html dist/dev.html`
-Expected: all tests pass, typecheck and lint clean, build succeeds, all three HTML files exist.
-
-- [ ] **Step 2: Start the dev server (it serves `fixtures/` at the project root)**
-
-Run in the background: `npx vite --port 5173 --strictPort`
-Expected: Vite reports `Local: http://localhost:5173/`.
-
-- [ ] **Step 3: Load the real data in a browser and verify the migration**
-
-Load the Playwright tools with ToolSearch (`select:mcp__plugin_playwright_playwright__browser_navigate,mcp__plugin_playwright_playwright__browser_evaluate,mcp__plugin_playwright_playwright__browser_take_screenshot,mcp__plugin_playwright_playwright__browser_emulate_media,mcp__plugin_playwright_playwright__browser_click,mcp__plugin_playwright_playwright__browser_snapshot,mcp__plugin_playwright_playwright__browser_close`). Then:
-1. Navigate to `http://localhost:5173/next.html`.
-2. Evaluate (seeds the real backup into the four legacy keys, as the old app would have stored them, then reloads):
-```js
-async () => {
-  const b = await (await fetch('/fixtures/real-backup.json')).json();
-  for (const k of ['exercises', 'sessions', 'customGroups', 'settings']) localStorage.setItem(k, JSON.stringify(b[k]));
-  window.__legacySnapshot = Object.fromEntries(['exercises','sessions','customGroups','settings'].map(k => [k, localStorage.getItem(k)]));
-  sessionStorage.setItem('legacy', JSON.stringify(window.__legacySnapshot));
-  location.reload();
-}
-```
-3. Evaluate and confirm: the banner text "Your data was copied" is present; `JSON.parse(localStorage.getItem('overload.v2'))` has `exercises.length === 41` and `sessions.length === 57`; and for each legacy key `localStorage.getItem(k) === JSON.parse(sessionStorage.getItem('legacy'))[k]` (legacy keys byte-identical).
-Expected: all three confirmations hold. If any fails, stop and debug (do not edit expectations).
-
-- [ ] **Step 4: Screenshot every screen in both themes**
-
-At a phone viewport (390×844) screenshot the Log tab, the Settings sheet (scroll through all cards) and the Exercises view, with `browser_emulate_media` set to `colorScheme: "dark"` and then `"light"`; also click the Appearance radios (Dark, Light, System) and confirm the page theme follows. Then emulate `reducedMotion: "reduce"` and confirm the sheet fades in without travelling. Save the images under the session scratchpad and view them. Check by eye: text is readable, nothing clipped, tap targets comfortable, the tab bar sits above the home indicator and content scrolls under it, the sheet's Done and Back are reachable, banner and cards aligned.
-
-- [ ] **Step 5: Stop the server and clean up**
-
-Run: `pkill -f "vite --port 5173"; rm -rf .playwright-mcp`
-
-- [ ] **Step 6: Update `HANDOFF.md` and show the State Update**
-
-Add under `## Next` (above the existing list):
-```
-State Update <date>: UI Foundation (Plan A) done on `rewrite`: tokens (type/motion/material/a11y) + contrast gate, primitives incl. Sheet, stores, shell with bottom tab bar, Settings sheet, Exercise library, served at /next.html (old app still at /). Real data verified: 41 exercises / 57 sessions, legacy keys untouched.
-Next: engine redesign spec (if not already written), then Plan B (Log tab built around the new engine: set editor, coaching card, warm-up ramp, rest timer docked above the tab bar, undo, UI-state persistence), then Plan C (Stats, History, e2e, cutover).
-```
-Commit:
-```bash
-git add HANDOFF.md && git commit -m "docs: update handoff after UI foundation" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-```
-
-- [ ] **Step 7: Hand off to the owner**
-
-Show the screenshots and the gate output. Ask the owner to review the look in both themes and say what to adjust before Plan B starts.
+  Expected: no console errors, and `overload.v2` matches what the UI shows.
+- [ ] **Step 4: Screenshots and motion review.**
+  - Capture every screen and view in light and dark at 390×844, with `prefers-reduced-motion: reduce` once (slides become fades).
+  - Record one sheet drag-and-flick and one push/pop at 0.25× speed (`page.clock` or a CSS animation-rate override) and check there are no jumps on interrupt.
+  - Save to the scratchpad. Dylan reviews them, and then the motion on his phone.
+- [ ] **Step 5: HANDOFF.md.** Add under `## Next`:
+  ```
+  State Update <date>: UI Foundation (Plan A) done on `rewrite`: tokens + contrast gate, primitives, spring motion layer (draggable sheet, sheet nav stack, sliding segmented, toasts), stores over the new model, shell (Log · Progress · History, translucent chrome), Settings (style/phases, style rules, converting units, equipment steps, backups, old-data download), Exercise library (search, create, archive + undo). Served at /next.html.
+  Next: Plan B (Log + coaching card on targetsFor + per-set RIR + rest timer + UI-state persistence).
+  ```
+- [ ] **Step 6: Commit**: `git add -A && git commit -m "docs: update handoff after UI foundation" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`

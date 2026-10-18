@@ -1,7 +1,38 @@
 # Overload rewrite — Sub-project 2: Design system, shell and full-parity UI
 
-Date: 2026-10-09 (revised 2026-10-17 after an Apple-design audit; target is now the iOS App Store) · Branch: `rewrite` · Status: approved, revised
+Date: 2026-10-09 (revised 2026-10-17 after an Apple-design audit; target is now the iOS App Store) · Branch: `rewrite` · Status: approved, revised (again 2026-10-17b, see first section)
 Depends on: `2026-10-09-foundation-design.md` (done: TS/Vitest, v2 store, migration, backups, ported engine).
+
+## Revision 2026-10-17b: training engine model and Apple-design interaction (supersedes conflicting text below)
+Owner direction: a **whole new UI**, not a reskin of the live app, built on Apple's design principles (the `apple-design` skill: response, direct manipulation, interruptible springs, spatial consistency, materials, typography, the eight principles). The engine spec (`2026-10-17-training-engine-design.md`) replaces the data model. Where this section and the text below disagree, this section wins.
+
+**Data model (from the engine spec).**
+- The app starts empty. There is no migration banner.
+- Legacy keys are never touched. Settings → Data & backup offers "Download old app data" when they exist.
+- Backups import v2 only; a v1 file shows "This backup is from the old app and can't be imported".
+- Exercises come from the built-in library, or are user-created with equipment, muscles and compound/isolation. There are no muscle groups, no custom groups and no type badge.
+- Settings are Units (switching **converts** logged weights after a confirmation that shows the count), Training style (current style, its start date, editable style rules), Equipment steps, Appearance, Exercise library and Data & backup. Increment, the compound/isolation rule cards and the rest-timer default are gone: rest now comes from the style.
+- The parity appendix rows for groups, increment, unit relabel, type badges and the old suggestion wording are retired. Coaching UI is specified in Plan B against `targetsFor`.
+
+**Interaction (moves into Plan A; no longer deferred to "sub-project 3").**
+- Motion and visuals are designed together. Anything that moves in response to touch uses springs from the `motion` library (pinned `motion@13.5.1`, MIT, owner-approved 2026-10-17): critically damped by default, a little bounce only after a flick.
+- Animations start from the current on-screen value, inherit release velocity and never block input.
+- Sheets slide up and dismiss down the same path. They follow the finger when dragged down (rubber-band when dragged up) and decide close vs. stay by projected momentum (Apple's projection, deceleration 0.998). The page behind scales back and dims in step with the drag.
+- Inside a sheet, views push in from the right and pop back to the right; an edge swipe goes back.
+- The segmented control's thumb slides between options.
+- Chrome (header, tab bar) is a translucent material shown only where content scrolls under it, with a soft edge instead of a hairline.
+- Pressed states appear on touch-down.
+- Reduced motion turns slides into cross-fades. Reduced transparency makes chrome solid. More contrast strengthens edges.
+
+**Agency (owner-approved 2026-10-17).**
+- Removing an exercise means **Archive**: it is hidden from pickers, keeps its history, shows an Undo toast and can be restored.
+- Permanent delete sits one level deeper, behind a confirmation that states how many sessions it removes.
+- Confirmations are reserved for irreversible actions: permanent delete, import replace and unit conversion. Everything else is undoable, and validation is inline.
+
+**Wayfinding.**
+- Tabs are **Log · Progress · History** (owner-approved; "Progress" names its contents: charts, records, weekly volume).
+- Settings is a sheet opened from the header's gear, with Done.
+- The Exercise library is a view inside that sheet, with Back.
 
 ## Intent
 Replace the 2,150-line `src/App.jsx` with a TypeScript UI built on the foundation: a premium, minimal, readable visual identity and **every existing feature, unchanged in function**. The owner's rule: *design must never compromise functionality.* The active-workout redesign, gestures/animation, programs, PRs, RPE and the engine redesign are separate later sub-projects.

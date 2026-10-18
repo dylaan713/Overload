@@ -1,7 +1,7 @@
 /* Entry row */
 .entry { display: flex; flex-direction: column; gap: 12px; }
 .inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.number { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: max(16px, var(--text-lg)); }
+.number { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-lg); }
 .toggle {
   align-self: flex-start;
   min-height: 44px;

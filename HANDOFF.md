@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-17 (Plan A wave 1): Tasks 1–3 done on `rewrite` (toolchain + /next.html, tokens + contrast/typography gates, static primitives); fresh review found 7 Important (all fixed with tests), 9 minors deferred in `.superpowers/sdd/2026-10-09-ui-foundation/progress.md`. 209 tests green.
+Next: wave 2 = Task 4 (spring motion layer), 5 (domain helpers), 6 (stores), then a fresh review.
+
 State Update 2026-10-17 (Plan A revised): Plan A rewritten for the new engine model and a whole-new Apple-design UI (motion@13.5.1 springs, draggable sheets + in-sheet nav stack, sliding segmented, undo toasts, Log · Progress · History, archive + undo). Design spec has a 2026-10-17b revision section. 10 tasks, no UI code yet.
 Next: Dylan reviews `docs/superpowers/plans/2026-10-09-ui-foundation.md` and picks the execution method; then execute in waves (1–3, 4–6, 7–10).
 

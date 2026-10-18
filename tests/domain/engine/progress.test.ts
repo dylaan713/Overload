@@ -3,7 +3,7 @@ import { targetsFor } from "../../../src/domain/engine/targets";
 import type { Exercise, Phase, Session, Style } from "../../../src/domain/types";
 import { day, doc, ex, sets } from "../../helpers/build";
 
-const TODAY = "2026-10-20";
+const TODAY = "2026-10-03"; // within 14 days of the 10-01 sessions, so time off (rule 7) stays out of it
 const bar = ex("a");
 const db = ex("a", { equipment: "dumbbell", class: "isolation" });
 const run = (e: Exercise, sessions: Session[], o: { style?: Style; phases?: Phase[]; today?: string } = {}) =>

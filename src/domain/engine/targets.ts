@@ -4,7 +4,10 @@ import type { StoreDoc } from "../types";
 import { warmupRamp } from "../warmup";
 import { liftHistory } from "./history";
 import { buildReps, phaseStartTargets, progressTargets, type Pick, type Rule } from "./progress";
+import { fatigueActive } from "./fatigue";
+import { RETURN_DAYS, returnTargets } from "./returns";
 import { isBad, stallFireIndex } from "./setbacks";
+import { testTargets } from "./testday";
 
 export type { Rule } from "./progress";
 
@@ -25,9 +28,11 @@ export interface LiftTargets {
   restSeconds: number;
 }
 
-/** Today's suggestion for one lift. Pure: reads the doc, never writes. */
+/**
+ * Today's suggestion for one lift. Pure: reads the doc, never writes. First match wins:
+ * test day → first time → fatigue week → return → phase start → drop → stall → repeat → earn/extend → build.
+ */
 export function targetsFor(exerciseId: string, doc: StoreDoc, today: string, opts: { test?: boolean } = {}): LiftTargets {
-  void opts; // test day arrives with rule 9
   const found = doc.exercises.find((e) => e.id === exerciseId);
   if (!found) throw new Error(`Unknown exercise ${exerciseId}`);
   const ex = found;
@@ -37,13 +42,31 @@ export function targetsFor(exerciseId: string, doc: StoreDoc, today: string, opt
   const unit = settings.unit;
   const h = liftHistory(doc, exerciseId, today);
   const phaseId = phaseOf(settings, today).id;
+  const band = ex.equipment === "band";
+  const n = rules.sets;
+
+  // Test day is opt-in from the caller and only makes sense with an external load.
+  if (opts.test && ex.loadKind === "external" && !band) {
+    const t = testTargets(ex, doc, today, step);
+    return {
+      exerciseId, ...t,
+      warmups: t.ladder?.length ? warmupRamp(t.ladder[0]!, rules.warmupSets, step) : [],
+      restSeconds: rules.restSeconds,
+    };
+  }
 
   let pick: Pick;
+  let returning: ReturnType<typeof returnTargets> = null;
   if (h.length === 0) {
     pick = {
       rule: "first-time", weight: null, reps: Array.from({ length: rules.sets }, () => rules.repLow),
       reason: `First time: pick a weight you can lift for ${rules.repLow}–${rules.repHigh} reps with ${rules.rirLow}–${rules.rirHigh} left.`,
     };
+  } else if (fatigueActive(doc, today)) {
+    const weight = band ? null : lighter(ex, h[0]!.W, step, ex.loadKind === "external" ? { pct: 0.9 } : { steps: 1 });
+    pick = { rule: "fatigue-week", weight, reps: Array(Math.ceil(n / 2)).fill(rules.repLow), reason: "Lighter week: 90% and half the sets." };
+  } else if ((returning = returnTargets(ex, h, today, step, unit))) {
+    pick = { rule: "return", weight: returning.weight, reps: Array(n).fill(rules.repLow), reason: returning.reason };
   } else if (!h.some((s) => s.phaseId === phaseId)) {
     pick = phaseStartTargets(ex, h[0]!, rules, step, unit);
   } else {
@@ -53,8 +76,6 @@ export function targetsFor(exerciseId: string, doc: StoreDoc, today: string, opt
   // Rules 4, 5 and 3, in that order. Null when none applies.
   function setbackTargets(): Pick | null {
     const last = h[0]!;
-    const n = rules.sets;
-    const band = ex.equipment === "band";
     // "Lighter" means easier: 90% / one step on external lifts, one step of load or assistance otherwise.
     const easier = (pct: number) => (band ? null : lighter(ex, last.W, step, ex.loadKind === "external" ? { pct } : { steps: 1 }));
 
@@ -64,7 +85,10 @@ export function targetsFor(exerciseId: string, doc: StoreDoc, today: string, opt
       return { rule: "drop", weight, reps: Array(n).fill(rules.repLow), reason: `Two off sessions in a row, so drop to ${at} and rebuild.` };
     }
 
+    // A layoff resets the stall window like a phase start: the ramp back can't beat pre-layoff bests by design.
     const hPhase = h.filter((s) => s.phaseId === phaseId);
+    const layoff = hPhase.findIndex((s, i) => hPhase[i + 1] && daysBetween(hPhase[i + 1]!.date, s.date) >= RETURN_DAYS);
+    if (layoff !== -1) hPhase.length = layoff + 1;
     const k = stallFireIndex(hPhase);
     const stallReason = `No progress on ${ex.name} in 3 sessions.`;
     if (k === 0 && rules.style === "strength") {

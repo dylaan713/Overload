@@ -83,7 +83,10 @@ export function lighter(ex: Exercise, w: number, step: number, opts: { pct?: num
 const LB_TO_KG = 0.4536;
 const KG_TO_LB = 2.2046;
 
-/** Converts every logged weight (rounded to 0.1), resets equipment steps and clears per-exercise overrides. */
+/**
+ * Converts every logged weight (rounded to 0.1), resets equipment steps and clears per-exercise overrides.
+ * Each converted set remembers its logged weight, so any number of switches back and forth is lossless.
+ */
 export function convertUnits(doc: StoreDoc, to: Unit): { doc: StoreDoc; changedSets: number } {
   if (doc.settings.unit === to) return { doc, changedSets: 0 };
   const factor = to === "kg" ? LB_TO_KG : KG_TO_LB;
@@ -95,7 +98,12 @@ export function convertUnits(doc: StoreDoc, to: Unit): { doc: StoreDoc; changedS
       sets: b.sets.map((set) => {
         if (set.weight === 0) return set;
         changedSets++;
-        return { ...set, weight: Math.round(set.weight * factor * 10) / 10 };
+        // Back to the unit it was logged in: restore the exact logged weight instead of converting a rounded one.
+        if (set.orig?.unit === to) {
+          const { orig, ...rest } = set;
+          return { ...rest, weight: orig.weight };
+        }
+        return { ...set, weight: Math.round(set.weight * factor * 10) / 10, orig: set.orig ?? { weight: set.weight, unit: doc.settings.unit } };
       }),
     })),
   }));

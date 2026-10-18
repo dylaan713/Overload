@@ -210,7 +210,7 @@ Per-set targets come from the sets at W last session. A target set with no count
 
 **Implementation notes (2026-10-17).** Assisted lifts default to the bodyweight step, as in the step table. A layoff of 14+ days resets the stall window, as a phase start does, so the ramp back can't read as a stall.
 
-**Units.** Switching lb ↔ kg converts **all logged weights** (×0.4536 or ×2.2046, rounded to 0.1) after a confirmation that shows how many sets will change. Equipment steps reset to the new unit's defaults, and per-exercise step overrides are cleared, with the confirmation saying so (**my call**). The old app's "relabel only" behavior is dropped because the app now targets other lifters, and a relabel silently corrupts every suggestion. Rounding to a step happens only on new suggestions, never on converted history.
+**Units.** Switching lb ↔ kg converts **all logged weights** (×0.4536 or ×2.2046, rounded to 0.1) after a confirmation that shows how many sets will change. Equipment steps reset to the new unit's defaults, and per-exercise step overrides are cleared, with the confirmation saying so (**my call**). The old app's "relabel only" behavior is dropped because the app now targets other lifters, and a relabel silently corrupts every suggestion. Rounding to a step happens only on new suggestions, never on converted history. **Lossless round trips (2026-10-17):** every converted set keeps `orig: { weight, unit }` (its weight as logged), so switching back restores the exact numbers (225 lb → 102.1 kg → 225 lb), however many times the user switches. Editing a set's weight clears `orig` (Plan B set editor).
 
 ## Weekly volume tracker
 - Week = Sunday 00:00 to Saturday 23:59, local time.

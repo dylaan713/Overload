@@ -1373,7 +1373,7 @@ Sections in `SettingsRoot`, as iOS grouped inset lists, in this order:
 2. **Exercises.** An "Exercise library" row with detail `"{n} exercises"` pushes the library (Task 9; a placeholder view until then).
 3. **Units.**
    - A `Segmented` with lb/kg. If `convertUnits` reports 0 changed sets and there are no step overrides, it switches at once.
-   - Otherwise an inline confirmation appears in the section: `"Convert {n} logged set{s} to {unit}? Equipment steps reset to {unit} defaults."`, plus `" {k} custom step{s} will be cleared."` when k > 0. Buttons are **Convert** (primary) and **Cancel**. The Segmented shows the old unit until Convert succeeds.
+   - Otherwise an inline confirmation appears in the section: `"Convert {n} logged set{s} to {unit}? Switching back restores the exact numbers. Equipment steps reset to {unit} defaults."`, plus `" {k} custom step{s} will be cleared."` when k > 0. Buttons are **Convert** (primary) and **Cancel**. The Segmented shows the old unit until Convert succeeds.
 4. **Equipment steps.** A row with detail `"Per gym"` pushes `EquipmentStepsView`: one `NumberField` per equipment except band, labelled `"{Equipment label} ({unit})"`, min 0.1, decimals allowed.
 5. **Appearance.** A `Segmented` with System/Dark/Light.
 6. **Data & backup.**
@@ -1399,7 +1399,7 @@ Sections in `SettingsRoot`, as iOS grouped inset lists, in this order:
     - A valid rest of 150 is stored.
   - **Units:**
     - Empty doc: choosing kg switches immediately (unit kg, kg steps).
-    - With 3 logged sets and 1 step override: the confirmation reads "Convert 3 logged sets to kg? Equipment steps reset to kg defaults. 1 custom step will be cleared."
+    - With 3 logged sets and 1 step override: the confirmation reads "Convert 3 logged sets to kg? Switching back restores the exact numbers. Equipment steps reset to kg defaults. 1 custom step will be cleared."
       - Cancel leaves everything unchanged.
       - Convert stores the converted weights.
   - **Equipment steps:** dumbbell 2.5 is stored; 0 shows the range message.

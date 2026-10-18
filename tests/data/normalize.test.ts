@@ -125,3 +125,16 @@ describe("validateDoc: values the engine depends on", () => {
     expect(warnings.length).toBe(3);
   });
 });
+
+describe("validateDoc: converted sets", () => {
+  it("keeps a valid original weight and drops a malformed one with a warning", () => {
+    const { result, warnings } = run(mutate((d) => {
+      d.sessions[0].blocks[0].sets[1].orig = { weight: 405, unit: "lb" };
+      d.sessions[0].blocks[0].sets[2].orig = { weight: "x", unit: "st" };
+    }));
+    expect(result.sessions[0]!.blocks[0]!.sets[1]!.orig).toEqual({ weight: 405, unit: "lb" });
+    expect(result.sessions[0]!.blocks[0]!.sets[2]!.orig).toBeUndefined();
+    expect(warnings).toHaveLength(1);
+  });
+});
+

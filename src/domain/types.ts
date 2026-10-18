@@ -36,6 +36,8 @@ export interface SetEntry {
   reps: number;
   warmup: boolean;
   rir: Rir | null; // null = not rated
+  /** Set by a unit switch: the weight as logged, so switching back restores it exactly. Editing the weight clears it. */
+  orig?: { weight: number; unit: Unit };
 }
 
 export interface Block {

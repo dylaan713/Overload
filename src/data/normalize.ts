@@ -58,7 +58,16 @@ function normalizeSet(raw: unknown, where: string, warn: Warn): SetEntry {
     }
     rir = raw.rir as SetEntry["rir"];
   }
-  return { ...raw, weight, reps, warmup: Boolean(raw.warmup), rir } as SetEntry;
+  const { orig: rawOrig, ...rest } = raw;
+  const out = { ...rest, weight, reps, warmup: Boolean(raw.warmup), rir } as SetEntry;
+  if (rawOrig !== undefined) {
+    if (isObj(rawOrig) && typeof rawOrig.weight === "number" && Number.isFinite(rawOrig.weight) && (rawOrig.unit === "lb" || rawOrig.unit === "kg")) {
+      out.orig = { weight: rawOrig.weight, unit: rawOrig.unit };
+    } else {
+      warn(`${where}.orig is not valid; dropped (the converted weight is kept)`);
+    }
+  }
+  return out;
 }
 
 function normalizeBlock(raw: unknown, where: string, warn: Warn): Block {

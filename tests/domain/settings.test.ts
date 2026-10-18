@@ -101,8 +101,27 @@ describe("convertUnits", () => {
     expect(r.doc.settings.equipmentSteps.dumbbell).toBe(2);
     expect(r.doc.exercises[0]!.step).toBeNull();
     expect(d.sessions[0]!.blocks[0]!.sets[0]!.weight).toBe(225); // input untouched
-    expect(convertUnits(r.doc, "lb").doc.sessions[0]!.blocks[0]!.sets[0]!.weight).toBe(225.1); // 102.1 × 2.2046 = 225.09…, documented drift
+    expect(r.doc.sessions[0]!.blocks[0]!.sets[0]!.orig).toEqual({ weight: 225, unit: "lb" });
+    // Switching back restores the logged numbers exactly (no 225.1 drift) and drops the record.
+    const back = convertUnits(r.doc, "lb").doc.sessions[0]!.blocks[0]!.sets;
+    expect(back.map((x) => x.weight)).toEqual([225, 0]);
+    expect(back[0]!.orig).toBeUndefined();
   });
+  it("round-trips any number of switches exactly, whichever unit a set was logged in", () => {
+    const mixed = doc({
+      exercises: [ex("a")],
+      sessions: [day("2026-09-02", [["a", sets(225, [5])]]), day("2026-09-03", [["a", sets(137.5, [5])]])],
+    });
+    // Log the second day "in kg": convert, then log a new kg set, then switch back and forth.
+    let d2 = convertUnits(mixed, "kg").doc;
+    d2 = { ...d2, sessions: [...d2.sessions, day("2026-09-04", [["a", sets(62.5, [5])]])] };
+    for (let i = 0; i < 3; i++) d2 = convertUnits(convertUnits(d2, "lb").doc, "kg").doc;
+    expect(d2.sessions.map((s) => s.blocks[0]!.sets[0]!.weight)).toEqual([102.1, 62.4, 62.5]);
+    const lb = convertUnits(d2, "lb").doc;
+    expect(lb.sessions.map((s) => s.blocks[0]!.sets[0]!.weight)).toEqual([225, 137.5, 137.8]);
+    expect(lb.sessions[2]!.blocks[0]!.sets[0]!.orig).toEqual({ weight: 62.5, unit: "kg" });
+  });
+
   it("is a no-op for the current unit", () => {
     expect(convertUnits(d, "lb")).toEqual({ doc: d, changedSets: 0 });
   });

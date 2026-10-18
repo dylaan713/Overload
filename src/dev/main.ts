@@ -1,6 +1,7 @@
 import { exportBackup } from "../data/backup";
-import { bootStore, dumpLegacyRaw } from "../data/boot";
+import { bootStore, dumpLegacyRaw, hasLegacyData } from "../data/boot";
 import { createLocalStorageKV } from "../data/kv";
+import { todayYmd } from "../domain/dates";
 
 const out = document.getElementById("out")!;
 
@@ -33,15 +34,17 @@ async function main() {
   out.textContent = "";
   const kv = createLocalStorageKV();
   try {
-    // Dry run: nothing is written. The real migration happens in the new UI.
+    // Dry run: nothing is written. The new app starts empty; old data is only offered as a raw download.
     const { kind, doc, warnings } = await bootStore(kv, { persist: false });
     line(`Result: ${kind}`);
-    line(`${doc.exercises.length} exercises · ${doc.sessions.length} sessions · ${doc.customGroups.length} custom groups`);
-    const dates = doc.sessions.map((s) => s.date).sort();
-    if (dates.length) line(`History: ${dates[0]} → ${dates[dates.length - 1]}`);
-    line(`Settings: ${doc.settings.unit}, increment ${doc.settings.increment}`);
+    line(`${doc.exercises.length} exercises · ${doc.sessions.length} sessions`);
+    const phase = [...doc.settings.phases].sort((a, b) => a.startDate.localeCompare(b.startDate)).at(-1);
+    line(`Settings: ${doc.settings.unit}, style ${phase?.style ?? "none"}`);
+    const legacy = await hasLegacyData(kv);
+    line(`Old app data on this device: ${legacy ? "yes" : "no"}`);
     line(warnings.length ? `Warnings:\n${warnings.join("\n")}` : "No warnings.");
-    button("Download v2 backup", () => download(`overload-v2-${new Date().toISOString().slice(0, 10)}.json`, exportBackup(doc)));
+    button("Download v2 backup", () => download(`overload-v2-${todayYmd()}.json`, exportBackup(doc)));
+    if (legacy) button("Download old app data", async () => download("overload-old-app-data.json", JSON.stringify(await dumpLegacyRaw(kv), null, 2)));
   } catch (e) {
     line(`Could not read your data: ${e instanceof Error ? e.message : String(e)}`, "err");
     line("Nothing was changed. You can still save exactly what is stored:");

@@ -1,38 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { getWarmupSets } from "../../src/domain/warmup";
-import { DEFAULT_SETTINGS } from "../../src/domain/settings";
-import type { Settings } from "../../src/domain/types";
-import * as ref from "../reference/legacyEngine.js";
+import { warmupRamp } from "../../src/domain/warmup";
 
-describe("getWarmupSets", () => {
-  it("ramps toward the working weight (lb, 2 sets)", () => {
-    expect(getWarmupSets("compound", 200, DEFAULT_SETTINGS)).toEqual([
-      { weight: 90, reps: 8 },
-      { weight: 180, reps: 3 },
-    ]);
+describe("warmupRamp", () => {
+  it("ramps toward the target, rounded to the step", () => {
+    expect(warmupRamp(230, 2, 5)).toEqual([{ weight: 105, reps: 8 }, { weight: 205, reps: 3 }]);
+    expect(warmupRamp(200, 1, 5)).toEqual([{ weight: 120, reps: 6 }]); // single set sits at t = 0.33 (~60%)
   });
-  it("returns nothing for no target or zero warm-up sets", () => {
-    expect(getWarmupSets("compound", null, DEFAULT_SETTINGS)).toEqual([]);
-    expect(getWarmupSets("compound", 0, DEFAULT_SETTINGS)).toEqual([]);
-    const none: Settings = { ...DEFAULT_SETTINGS, compound: { ...DEFAULT_SETTINGS.compound, warmupSets: 0 } };
-    expect(getWarmupSets("compound", 200, none)).toEqual([]);
+  it("returns nothing for a missing target, zero count or zero step", () => {
+    expect(warmupRamp(null, 2, 5)).toEqual([]);
+    expect(warmupRamp(200, 0, 5)).toEqual([]);
+    expect(warmupRamp(200, 2, 0)).toEqual([]);
   });
-  it("drops sets that round to nothing or reach the working weight", () => {
-    expect(getWarmupSets("compound", 5, DEFAULT_SETTINGS)).toEqual([]);
-  });
-  it("matches the legacy engine across types, units, counts and weights", () => {
-    const targets = [null, undefined, 0, -5, 2.5, 5, 10, 45, 95, 135, 185, 225, 315, 405];
-    for (const unit of ["lb", "kg"] as const) {
-      for (const count of [0, 1, 2, 3, 4]) {
-        const settings: Settings = {
-          ...DEFAULT_SETTINGS, unit, increment: unit === "kg" ? 2.5 : 5,
-          compound: { ...DEFAULT_SETTINGS.compound, warmupSets: count },
-          isolation: { ...DEFAULT_SETTINGS.isolation, warmupSets: count },
-        };
-        for (const type of ["compound", "isolation"] as const) {
-          for (const t of targets) expect(getWarmupSets(type, t, settings)).toEqual(ref.getWarmupSets(type, t, settings));
-        }
-      }
-    }
+  it("drops sets that round to 0 or reach the target", () => {
+    expect(warmupRamp(10, 2, 5)).toEqual([{ weight: 5, reps: 8 }]);
   });
 });

@@ -1,18 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { bootStore, dumpLegacyRaw } from "../../src/data/boot";
+import { bootStore, dumpLegacyRaw, hasLegacyData } from "../../src/data/boot";
 import { createMemoryKV, type KeyValueStore } from "../../src/data/kv";
-import { LEGACY_KEYS } from "../../src/data/migrate";
+import { LEGACY_KEYS } from "../../src/data/legacy";
 import { DataError } from "../../src/data/normalize";
-import { V2_KEY } from "../../src/data/store";
-import { mergeSettings } from "../../src/domain/settings";
-import { loadBackups, type BackupV1 } from "../helpers/fixtures";
+import { V2_KEY, emptyDoc, saveDoc } from "../../src/data/store";
+import { todayYmd } from "../../src/domain/dates";
 
-const seed = (b: BackupV1) =>
+const legacy = () =>
   createMemoryKV({
-    exercises: JSON.stringify(b.exercises),
-    sessions: JSON.stringify(b.sessions),
-    customGroups: JSON.stringify(b.customGroups),
-    settings: JSON.stringify(b.settings),
+    exercises: JSON.stringify([{ id: "e", name: "Bench", type: "compound", muscleGroup: "Chest" }]),
+    sessions: JSON.stringify([{ id: "s", date: "2026-07-18", name: "Push", blocks: [] }]),
+    customGroups: "[]",
+    settings: JSON.stringify({ unit: "lb", increment: 5 }),
   });
 
 // Fails loudly if anything tries to write a legacy key.
@@ -26,74 +25,64 @@ function guarded(inner: KeyValueStore): KeyValueStore {
   };
 }
 
-describe.each(loadBackups())("migration: $name", ({ backup }) => {
-  it("migrates losslessly, writes only overload.v2, and leaves legacy keys byte-identical", async () => {
-    const kv = seed(backup);
+describe("bootStore", () => {
+  it("fresh install writes an empty v2 doc with one hypertrophy phase dated today", async () => {
+    const kv = createMemoryKV();
+    const r = await bootStore(kv);
+    expect(r.kind).toBe("fresh");
+    expect(r.doc.exercises).toEqual([]);
+    expect(r.doc.sessions).toEqual([]);
+    expect(r.doc.settings.phases).toEqual([{ id: `phase-${todayYmd()}`, style: "hypertrophy", startDate: todayYmd() }]);
+    expect(JSON.parse(kv.dump()[V2_KEY]!)).toEqual(r.doc);
+  });
+
+  it("legacy keys present: starts empty, leaves legacy byte-identical, adds only overload.v2", async () => {
+    const kv = legacy();
     const before = kv.dump();
-    const result = await bootStore(guarded(kv));
-    expect(result.kind).toBe("migrated");
-    expect(result.doc.exercises).toEqual(backup.exercises);
-    expect(result.doc.sessions).toEqual(backup.sessions);
-    expect(result.doc.customGroups).toEqual(backup.customGroups);
-    expect(result.doc.settings).toEqual(mergeSettings(backup.settings));
+    const r = await bootStore(guarded(kv));
+    expect(r.kind).toBe("fresh");
+    expect(r.doc.exercises).toEqual([]);
+    expect(r.doc.sessions).toEqual([]);
     const after = kv.dump();
     for (const key of LEGACY_KEYS) expect(after[key]).toBe(before[key]);
     expect(Object.keys(after).sort()).toEqual([...LEGACY_KEYS, V2_KEY].sort());
   });
 
-  it("is idempotent: the second boot reads v2 and changes nothing", async () => {
-    const kv = seed(backup);
-    const first = await bootStore(kv);
+  it("persist:false writes nothing", async () => {
+    const kv = legacy();
+    const before = kv.dump();
+    const r = await bootStore(kv, { persist: false });
+    expect(r.kind).toBe("fresh");
+    expect(kv.dump()).toEqual(before);
+  });
+
+  it("returns an existing valid v2 as kind v2 and writes nothing", async () => {
+    const kv = createMemoryKV();
+    const doc = emptyDoc("2026-09-01");
+    await saveDoc(kv, doc);
     const snapshot = kv.dump();
-    const second = await bootStore(kv);
-    expect(second.kind).toBe("v2");
-    expect(second.doc).toEqual(first.doc);
+    const r = await bootStore(kv);
+    expect(r.kind).toBe("v2");
+    expect(r.doc).toEqual(doc);
     expect(kv.dump()).toEqual(snapshot);
   });
 
-  it("dry run (persist:false) reports a migration but writes nothing", async () => {
-    const kv = seed(backup);
-    const before = kv.dump();
-    const result = await bootStore(kv, { persist: false });
-    expect(result.kind).toBe("migrated");
-    expect(result.doc.sessions).toEqual(backup.sessions);
-    expect(kv.dump()).toEqual(before);
-  });
-});
-
-describe("boot edge cases", () => {
-  it("fresh install: writes an empty v2 doc", async () => {
-    const kv = createMemoryKV();
-    const r = await bootStore(kv);
-    expect(r.kind).toBe("fresh");
-    expect(r.doc.exercises).toEqual([]);
-    expect(kv.dump()[V2_KEY]).toBeDefined();
-  });
-
-  it("partial legacy data (only exercises) gets defaults for the rest", async () => {
-    const kv = createMemoryKV({ exercises: JSON.stringify([{ id: "e", name: "E", type: "compound", muscleGroup: "Chest" }]) });
-    const r = await bootStore(kv);
-    expect(r.doc.exercises).toHaveLength(1);
-    expect(r.doc.sessions).toEqual([]);
-    expect(r.doc.settings.unit).toBe("lb");
-  });
-
-  it("a corrupt overload.v2 throws and does NOT fall back to re-migrating legacy", async () => {
-    const b = loadBackups()[0]!.backup;
-    const kv = seed(b);
+  it("a corrupt overload.v2 throws and is never overwritten", async () => {
+    const kv = legacy();
     await kv.set(V2_KEY, "{corrupt");
     await expect(bootStore(kv)).rejects.toBeInstanceOf(DataError);
     expect(kv.dump()[V2_KEY]).toBe("{corrupt");
   });
+});
 
-  it("corrupt legacy JSON throws naming the key and writes nothing", async () => {
-    const kv = createMemoryKV({ exercises: "[]", sessions: "{nope" });
-    await expect(bootStore(kv)).rejects.toThrow(/sessions/);
-    expect(kv.dump()[V2_KEY]).toBeUndefined();
+describe("legacy data helpers", () => {
+  it("dumpLegacyRaw returns only legacy keys", async () => {
+    const kv = createMemoryKV({ exercises: "[1]", unrelated: "x", [V2_KEY]: "{}" });
+    expect(await dumpLegacyRaw(kv)).toEqual({ exercises: "[1]" });
   });
 
-  it("dumpLegacyRaw returns the raw legacy strings for the error-screen export", async () => {
-    const kv = createMemoryKV({ exercises: "[1]", unrelated: "x" });
-    expect(await dumpLegacyRaw(kv)).toEqual({ exercises: "[1]" });
+  it("hasLegacyData is true with any legacy key and false without", async () => {
+    expect(await hasLegacyData(createMemoryKV({ settings: "{}" }))).toBe(true);
+    expect(await hasLegacyData(createMemoryKV({ unrelated: "x", [V2_KEY]: "{}" }))).toBe(false);
   });
 });

@@ -1,6 +1,5 @@
 import type { StoreDoc } from "../domain/types";
 import type { KeyValueStore } from "./kv";
-import { legacyToDoc } from "./migrate";
 import { DataError, validateDoc, type Warn } from "./normalize";
 import { saveDoc } from "./store";
 
@@ -8,7 +7,7 @@ export function exportBackup(doc: StoreDoc, now: Date = new Date()): string {
   return JSON.stringify({ app: "overload", version: 2, exportedAt: now.toISOString(), ...doc }, null, 2);
 }
 
-/** Accepts v1 (legacy shape) and v2 files. Pure: validates, never writes. */
+/** Accepts v2 files only; the new app starts empty, so old-app (v1) files are refused. Pure: never writes. */
 export function parseBackup(text: string, warn: Warn): StoreDoc {
   let raw: unknown;
   try {
@@ -20,7 +19,7 @@ export function parseBackup(text: string, warn: Warn): StoreDoc {
     throw new DataError("Not an Overload backup file");
   }
   const file = raw as Record<string, unknown>;
-  if (file.version === 1) return legacyToDoc(file, warn);
+  if (file.version === 1) throw new DataError("This backup is from the old app and can't be imported");
   if (file.version === 2) return validateDoc(file, warn);
   throw new DataError(`Unsupported backup version: ${String(file.version)}`);
 }

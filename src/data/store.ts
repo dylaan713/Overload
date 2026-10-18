@@ -1,12 +1,13 @@
-import { DEFAULT_SETTINGS } from "../domain/settings";
+import { todayYmd } from "../domain/dates";
+import { defaultSettings } from "../domain/settings";
 import type { StoreDoc } from "../domain/types";
 import type { KeyValueStore } from "./kv";
 import { DataError, validateDoc, type Warn } from "./normalize";
 
 export const V2_KEY = "overload.v2";
 
-export function emptyDoc(): StoreDoc {
-  return { schemaVersion: 2, exercises: [], sessions: [], customGroups: [], settings: structuredClone(DEFAULT_SETTINGS), programs: [] };
+export function emptyDoc(today: string = todayYmd()): StoreDoc {
+  return { schemaVersion: 2, exercises: [], sessions: [], settings: defaultSettings(today), programs: [], coaching: { fatigueWeeks: [] } };
 }
 
 export async function loadDoc(kv: KeyValueStore, warn: Warn): Promise<StoreDoc | null> {

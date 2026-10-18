@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createLocalStorageKV, createMemoryKV } from "../../src/data/kv";
 import { V2_KEY, emptyDoc, loadDoc, saveDoc } from "../../src/data/store";
 import { DataError } from "../../src/data/normalize";
-import { syntheticBackup } from "../helpers/fixtures";
+import { day, doc, ex, sets } from "../helpers/build";
 
 const warn = () => {};
 
@@ -10,11 +10,10 @@ describe("store", () => {
   it("round-trips a document under overload.v2", async () => {
     const kv = createMemoryKV();
     expect(await loadDoc(kv, warn)).toBeNull();
-    const b = syntheticBackup();
-    const doc = { ...emptyDoc(), exercises: b.exercises, sessions: b.sessions, customGroups: b.customGroups, settings: b.settings };
-    await saveDoc(kv, doc);
+    const d = doc({ exercises: [ex("bench")], sessions: [day("2026-09-02", [["bench", sets(185, [8, 8], [2, null])]])] });
+    await saveDoc(kv, d);
     expect(Object.keys(kv.dump())).toEqual([V2_KEY]);
-    expect(await loadDoc(kv, warn)).toEqual(doc);
+    expect(await loadDoc(kv, warn)).toEqual(d);
   });
 
   it("throws a DataError for a corrupt v2 document", async () => {
@@ -23,10 +22,10 @@ describe("store", () => {
 
   it("saveDoc rejects when storage fails (quota) and leaves the previous doc intact", async () => {
     const inner = createMemoryKV();
-    await saveDoc(inner, emptyDoc());
+    await saveDoc(inner, emptyDoc("2026-09-01"));
     const before = inner.dump()[V2_KEY];
     const failing = { get: inner.get, set: async () => { throw new Error("QuotaExceededError"); } };
-    await expect(saveDoc(failing, emptyDoc())).rejects.toThrow("QuotaExceededError");
+    await expect(saveDoc(failing, emptyDoc("2026-09-01"))).rejects.toThrow("QuotaExceededError");
     expect(inner.dump()[V2_KEY]).toBe(before);
   });
 });

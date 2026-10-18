@@ -1,76 +1,96 @@
 import { describe, it, expect } from "vitest";
 import { DataError, validateDoc } from "../../src/data/normalize";
-import { DEFAULT_SETTINGS } from "../../src/domain/settings";
+import { day, doc, ex, sets, warm } from "../helpers/build";
 
-const ex = { id: "e1", name: "Bench", type: "compound", muscleGroup: "Chest" };
-const doc = (over: Record<string, unknown> = {}) => ({
-  schemaVersion: 2, exercises: [ex], sessions: [], customGroups: [], settings: DEFAULT_SETTINGS, ...over,
-});
-const session = (sets: unknown[], over: Record<string, unknown> = {}) => ({
-  id: "s1", date: "2026-07-18", name: "Push",
-  blocks: [{ id: "b1", exerciseId: "e1", sets }], ...over,
-});
 const run = (raw: unknown) => {
   const warnings: string[] = [];
   const result = validateDoc(raw, (m) => warnings.push(m));
   return { result, warnings };
 };
+const valid = () =>
+  doc({
+    exercises: [ex("bench"), ex("raise", { equipment: "dumbbell", primary: ["side-delts"], class: "isolation", step: 2.5 })],
+    sessions: [day("2026-09-02", [["bench", [warm(95, 8), ...sets(185, [8, 7], [2, 1])]], ["raise", sets(15, [12], [null]), true]])],
+  });
+// Deep-copied raw doc with one path mutated (raw JSON, so loosely typed on purpose).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mutate = (fn: (d: Record<string, any>) => void) => {
+  const d = JSON.parse(JSON.stringify(valid()));
+  fn(d);
+  return d;
+};
+const throwsAt = (raw: unknown, path: string) => {
+  expect(() => run(raw)).toThrow(DataError);
+  expect(() => run(raw)).toThrow(path);
+};
 
 describe("validateDoc", () => {
-  it("accepts a clean document unchanged", () => {
-    const raw = doc({ sessions: [session([{ weight: 135, reps: 8, warmup: false }])] });
-    const { result, warnings } = run(raw);
-    expect(result).toMatchObject({ schemaVersion: 2, exercises: [ex], programs: [] });
-    expect(result.sessions).toEqual(raw.sessions);
+  it("accepts a valid doc unchanged and round-trips it", () => {
+    const d = valid();
+    const { result, warnings } = run(JSON.parse(JSON.stringify(d)));
+    expect(result).toEqual(d);
+    expect(warnings).toEqual([]);
+    expect(run(JSON.parse(JSON.stringify(result))).result).toEqual(d);
+  });
+
+  it("rejects bad library fields, naming the path", () => {
+    throwsAt(mutate((d) => (d.exercises[1].equipment = "rope")), "exercises[1].equipment");
+    throwsAt(mutate((d) => (d.exercises[0].primary = ["pecs"])), "exercises[0].primary[0]");
+    throwsAt(mutate((d) => (d.exercises[0].primary = [])), "exercises[0].primary");
+    throwsAt(mutate((d) => (d.exercises[0].step = 0)), "exercises[0].step");
+  });
+
+  it("rejects rir outside 0–4 integers", () => {
+    throwsAt(mutate((d) => (d.sessions[0].blocks[0].sets[1].rir = 5)), "sessions[0].blocks[0].sets[1].rir");
+    throwsAt(mutate((d) => (d.sessions[0].blocks[0].sets[1].rir = 1.5)), "sessions[0].blocks[0].sets[1].rir");
+  });
+
+  it("fills defaults for rir, test and archived", () => {
+    const { result } = run(
+      mutate((d) => {
+        delete d.sessions[0].blocks[0].sets[1].rir;
+        delete d.sessions[0].blocks[0].test;
+        delete d.exercises[0].archived;
+      }),
+    );
+    expect(result.sessions[0]!.blocks[0]!.sets[1]!.rir).toBeNull();
+    expect(result.sessions[0]!.blocks[0]!.test).toBe(false);
+    expect(result.exercises[0]!.archived).toBe(false);
+  });
+
+  it("maps an unknown theme to system without a warning", () => {
+    const { result, warnings } = run(mutate((d) => (d.settings.theme = "ember")));
+    expect(result.settings.theme).toBe("system");
     expect(warnings).toEqual([]);
   });
 
-  it("coerces numeric strings, defaults missing warmup to false, keeps unknown fields", () => {
-    const { result } = run(doc({ sessions: [session([{ weight: "135", reps: "8", note: "pause" }])] }));
-    expect(result.sessions[0]!.blocks[0]!.sets[0]).toEqual({ weight: 135, reps: 8, warmup: false, note: "pause" });
+  it("replaces empty phases with one hypertrophy phase at the earliest session date, with a warning", () => {
+    const { result, warnings } = run(mutate((d) => (d.settings.phases = [])));
+    expect(result.settings.phases).toEqual([{ id: "phase-2026-09-02", style: "hypertrophy", startDate: "2026-09-02" }]);
+    expect(warnings.length).toBe(1);
   });
 
-  it("rejects NaN, non-numeric and missing weights/reps", () => {
-    for (const bad of [{ weight: NaN, reps: 5 }, { weight: "abc", reps: 5 }, { weight: null, reps: 5 }, { weight: 5 }, { weight: 5, reps: Infinity }]) {
-      expect(() => run(doc({ sessions: [session([bad])] }))).toThrow(DataError);
-    }
+  it("defaults a non-numeric style field with a warning", () => {
+    const { result, warnings } = run(mutate((d) => (d.settings.styles.strength.compound.repLow = "x")));
+    expect(result.settings.styles.strength.compound.repLow).toBe(3);
+    expect(warnings.length).toBe(1);
   });
 
-  it("keeps negative weights (assisted movements) with a warning instead of locking the user out", () => {
-    const { result, warnings } = run(doc({ sessions: [session([{ weight: -40, reps: 8, warmup: false }])] }));
-    expect(result.sessions[0]!.blocks[0]!.sets[0]).toEqual({ weight: -40, reps: 8, warmup: false });
-    expect(warnings.length).toBeGreaterThan(0);
-  });
-
-  it("rejects malformed dates", () => {
-    expect(() => run(doc({ sessions: [session([], { date: "07/18/2026" })] }))).toThrow(DataError);
-  });
-
-  it("keeps orphan blocks (deleted exercise) and warns", () => {
-    const orphan = session([{ weight: 1, reps: 1, warmup: false }], { blocks: [{ id: "b9", exerciseId: "gone", sets: [] }] });
-    const { result, warnings } = run(doc({ sessions: [orphan] }));
-    expect(result.sessions[0]!.blocks).toHaveLength(1);
+  it("keeps orphan blocks and warns", () => {
+    const { result, warnings } = run(mutate((d) => (d.sessions[0].blocks[0].exerciseId = "gone")));
+    expect(result.sessions[0]!.blocks).toHaveLength(2);
     expect(warnings.some((w) => w.includes("gone"))).toBe(true);
   });
 
-  it("falls back for an invalid exercise type and warns", () => {
-    const { result, warnings } = run(doc({ exercises: [{ ...ex, type: "Compound" }] }));
-    expect(result.exercises[0]!.type).toBe("compound");
-    expect(warnings).toHaveLength(1);
-  });
-
-  it("merges partial settings and repairs garbage numerics", () => {
-    const { result, warnings } = run(doc({ settings: { unit: "kg", increment: "x", compound: { sets: 3 } } }));
-    expect(result.settings.unit).toBe("kg");
-    expect(result.settings.increment).toBe(DEFAULT_SETTINGS.increment);
-    expect(result.settings.compound.sets).toBe(3);
-    expect(result.settings.compound.repTop).toBe(8);
-    expect(warnings.length).toBeGreaterThan(0);
-  });
-
-  it("requires schemaVersion 2 and arrays", () => {
-    expect(() => run(doc({ schemaVersion: 1 }))).toThrow(DataError);
-    expect(() => run(doc({ exercises: "nope" }))).toThrow(DataError);
+  it("defaults coaching and requires schemaVersion 2 and arrays", () => {
+    expect(run(mutate((d) => delete d.coaching)).result.coaching).toEqual({ fatigueWeeks: [] });
+    expect(() => run(mutate((d) => (d.schemaVersion = 1)))).toThrow(DataError);
+    expect(() => run(mutate((d) => (d.exercises = "nope")))).toThrow(DataError);
     expect(() => run(null)).toThrow(DataError);
+  });
+
+  it("rejects non-numeric weights and malformed dates", () => {
+    expect(() => run(mutate((d) => (d.sessions[0].blocks[0].sets[0].weight = "abc")))).toThrow(DataError);
+    expect(() => run(mutate((d) => (d.sessions[0].date = "09/02/2026")))).toThrow(DataError);
   });
 });

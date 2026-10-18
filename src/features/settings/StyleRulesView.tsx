@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { capitalize } from "../../app/format";
+import { DIFFICULTIES, DIFFICULTY_LABEL, difficultyOf, rirFor, type Difficulty } from "../../domain/difficulty";
 import { phaseOf } from "../../domain/settings";
 import type { ClassRules, Style, StyleRules } from "../../domain/types";
 import { useApp } from "../../state/context";
+import { Field, Select } from "../../ui/Field";
 import { ListGroup, ListItem } from "../../ui/ListRow";
 import { NumberField } from "../../ui/NumberField";
 import { Segmented } from "../../ui/Segmented";
@@ -45,21 +47,24 @@ function usePairDraft<T extends object>(rules: T, pairs: [keyof T, keyof T][], o
   const pending = (from: T, onto: T) => ({ ...onto, ...Object.fromEntries(pairKeys.map((k) => [k, from[k]])) }) as T;
   // Adopt stored changes (a rollback, an import); keep a pending pair until it's fixed.
   useEffect(() => setDraft((d) => (pairsValid(d, pairs) ? rules : pending(d, rules))), [rules]); // eslint-disable-line react-hooks/exhaustive-deps
-  const valid = pairsValid(draft, pairs);
   function set(key: keyof T, v: T[keyof T]) {
     const next = { ...draft, [key]: v };
     setDraft(next);
     const toSave = pairsValid(next, pairs) ? next : pending(rules, next);
     if ((Object.keys(toSave) as (keyof T)[]).some((k) => toSave[k] !== rules[k])) onSave(toSave);
   }
-  return { draft, set, error: valid ? null : "Low can't be above high" };
+  /** The message for pair i when the draft breaks it. */
+  const errorAt = (i: number, message = "Low can't be above high") => (pairsValid(draft, [pairs[i]!]) ? null : message);
+  return { draft, set, errorAt };
 }
 
 function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRules; onSave: (r: ClassRules) => void }) {
-  const { draft, set, error } = usePairDraft(rules, PAIRS, onSave);
+  const { draft, set, errorAt } = usePairDraft(rules, PAIRS, onSave);
   const field = (key: keyof ClassRules, label: string, min: number, max: number) => (
     <NumberField label={label} value={draft[key]} min={min} max={max} integer onChange={(v) => set(key, v!)} />
   );
+  const repError = errorAt(0);
+  const aimError = errorAt(1, "Hardest can't be easier than easiest");
   return (
     <ListGroup title={title}>
       <ListItem>
@@ -67,11 +72,12 @@ function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRul
           {field("repLow", "Reps low", 1, 50)}
           {field("repHigh", "Reps high", 1, 50)}
         </div>
+        {repError && <p role="alert" className={styles.error}>{repError}</p>}
         <div className={styles.pair}>
-          {field("rirLow", "Target RIR low", 0, 4)}
-          {field("rirHigh", "Target RIR high", 0, 4)}
+          <AimSelect label="Aim for (easiest)" rir={draft.rirHigh} onChange={(d) => set("rirHigh", rirFor(d))} />
+          <AimSelect label="Aim for (hardest)" rir={draft.rirLow} onChange={(d) => set("rirLow", rirFor(d))} />
         </div>
-        {error && <p role="alert" className={styles.error}>{error}</p>}
+        {aimError && <p role="alert" className={styles.error}>{aimError}</p>}
         <div className={styles.pair}>
           {field("sets", "Sets", 1, 20)}
           {field("warmupSets", "Warm-up sets", 0, 10)}
@@ -82,11 +88,26 @@ function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRul
   );
 }
 
+/** One end of the effort aim, in difficulty words (stored as RIR). */
+function AimSelect({ label, rir, onChange }: { label: string; rir: number; onChange: (d: Difficulty) => void }) {
+  const id = useId();
+  return (
+    <Field label={label} htmlFor={id}>
+      <Select id={id} value={difficultyOf(rir)} onChange={(e) => onChange(e.target.value as Difficulty)}>
+        {DIFFICULTIES.map((d) => (
+          <option key={d} value={d}>{DIFFICULTY_LABEL[d]}</option>
+        ))}
+      </Select>
+    </Field>
+  );
+}
+
 type Volume = StyleRules["volume"];
 const VOLUME_PAIRS: [keyof Volume, keyof Volume][] = [["low", "high"]];
 
 function VolumeSection({ volume, onSave }: { volume: Volume; onSave: (v: Volume) => void }) {
-  const { draft, set, error } = usePairDraft(volume, VOLUME_PAIRS, onSave);
+  const { draft, set, errorAt } = usePairDraft(volume, VOLUME_PAIRS, onSave);
+  const error = errorAt(0);
   return (
     <ListGroup title="Weekly volume" footer="Working sets per muscle each week (Sunday to Saturday).">
       <ListItem>

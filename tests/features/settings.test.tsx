@@ -91,6 +91,34 @@ describe("style rules", () => {
     expect(within(compound).queryByText("Low can't be above high")).not.toBeInTheDocument();
   });
 
+  it("aims with difficulty words, never RIR numbers", async () => {
+    const { user, kv } = await open({ doc: doc({ style: "hypertrophy" }) });
+    await user.click(screen.getByRole("button", { name: /Style rules/ }));
+    const compound = section("Compound");
+    const easiest = within(compound).getByLabelText("Aim for (easiest)");
+    const hardest = within(compound).getByLabelText("Aim for (hardest)");
+    expect(easiest).toHaveDisplayValue("Moderate");
+    expect(hardest).toHaveDisplayValue("All out");
+    expect(screen.getByRole("dialog", { name: "Style rules" })).not.toHaveTextContent(/RIR/);
+    await user.selectOptions(easiest, "Easy");
+    await waitFor(() => expect(stored(kv).settings.styles.hypertrophy.compound.rirHigh).toBe(4));
+  });
+
+  it("refuses a hardest aim easier than the easiest, keeps it pending, and saves the pair once valid", async () => {
+    const { user, kv } = await open({ doc: doc({ style: "hypertrophy" }) });
+    await user.click(screen.getByRole("button", { name: /Style rules/ }));
+    const compound = section("Compound");
+    const easiest = within(compound).getByLabelText("Aim for (easiest)");
+    const hardest = within(compound).getByLabelText("Aim for (hardest)");
+    await user.selectOptions(hardest, "Easy");
+    expect(within(compound).getByText("Hardest can't be easier than easiest")).toBeInTheDocument();
+    expect(stored(kv).settings.styles.hypertrophy.compound).toMatchObject({ rirLow: 0, rirHigh: 2 });
+    expect(hardest).toHaveDisplayValue("Easy");
+    await user.selectOptions(easiest, "Easy");
+    await waitFor(() => expect(stored(kv).settings.styles.hypertrophy.compound).toMatchObject({ rirLow: 4, rirHigh: 4 }));
+    expect(within(compound).queryByText("Hardest can't be easier than easiest")).not.toBeInTheDocument();
+  });
+
   it("weekly volume keeps a refused value pending and saves the pair once valid", async () => {
     const { user, kv } = await open({ doc: doc({ style: "hypertrophy" }) });
     await user.click(screen.getByRole("button", { name: /Style rules/ }));

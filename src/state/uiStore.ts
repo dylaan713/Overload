@@ -49,7 +49,7 @@ export interface UiState {
   /** Starts fixing a set, keeping the next set's half-typed fields aside. */
   startEdit(day: string, editing: SetRef, fields: Pick<LogDraft, "weight" | "reps" | "difficulty" | "warmup">): void;
   /** Stops fixing a set and brings back what was being typed for the next one. */
-  endEdit(fallbackWarmup: boolean): void;
+  endEdit(): void;
   markLogged(day: string, at: number): void;
   /** Writes any pending change now. */
   flush(): Promise<void>;
@@ -63,7 +63,7 @@ const TOAST_MS = 6000;
 export const DRAFT_DEBOUNCE_MS = 250;
 const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null };
 
-const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: "", reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false });
+const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: "", reps: "", difficulty: null, warmup: false, editing: null, pending: null, test: false });
 
 /** Transient UI state: never in backups, and its storage errors never block the app. */
 export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = {}): UiStore {
@@ -140,12 +140,12 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         const pending = base.editing ? base.pending : { weight: base.weight, reps: base.reps, difficulty: base.difficulty, warmup: base.warmup };
         setLog({ ...log, draft: { ...base, ...fields, editing, pending } });
       },
-      endEdit(fallbackWarmup) {
+      endEdit() {
         const { log } = get();
         const d = log.draft;
         if (!d?.editing) return;
         touched.draft = true;
-        const back = d.pending ?? { weight: "", reps: "", difficulty: null, warmup: fallbackWarmup };
+        const back = d.pending ?? { weight: "", reps: "", difficulty: null, warmup: false };
         setLog({ ...log, draft: { ...d, ...back, editing: null, pending: null } });
       },
       markLogged(day, at) {

@@ -105,13 +105,12 @@ export function LogScreen() {
   const m = setCount(targets);
   const next = targets.sets[Math.min(working, Math.max(0, targets.sets.length - 1))];
   const firstTime = targets.rule === "first-time";
-  const warmupDefault = !hasWorking(block);
-  const warmup = draft?.exerciseId === currentId ? draft.warmup : warmupDefault;
+  const warmup = draft?.exerciseId === currentId ? draft.warmup : false;
   const editing = draft?.exerciseId === currentId && draft.editing && block && draft.editing.blockId === block.id ? draft.editing : null;
   const editedSet = editing ? block?.sets[editing.index] : undefined;
   const labels = setLabels(block);
   // Leaving an edit brings back what was being typed for the next set.
-  const backToNew = () => endEdit(!hasWorking(blockFor(appStore.getState().doc, day, currentId!)));
+  const backToNew = () => endEdit();
 
   // Re-picking the exercise already in hand keeps what's typed.
   const pick = (exerciseId: string) => {
@@ -160,7 +159,7 @@ export function LogScreen() {
     // Positions shift on remove and on Undo, so an edit in progress ends either way rather than land on another set.
     const endEditIn = () => {
       const d = ui.getState().log.draft;
-      if (d?.editing?.blockId === removed.block.id) ui.getState().endEdit(!hasWorking(blockFor(appStore.getState().doc, removed.day, removed.block.exerciseId)));
+      if (d?.editing?.blockId === removed.block.id) ui.getState().endEdit();
     };
     endEditIn();
     showToast({
@@ -233,7 +232,6 @@ export function LogScreen() {
         key={`${currentId}:${editing ? editing.index : "new"}`}
         day={day}
         exerciseId={currentId!}
-        warmupDefault={warmupDefault}
         unit={doc.settings.unit}
         placeholder={editedSet ? { weight: editedSet.weight, reps: editedSet.reps } : prefill(targets, block, warmup)}
         mode={editing ? "edit" : "new"}

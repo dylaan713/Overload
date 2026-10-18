@@ -17,11 +17,9 @@ const show = (n: number | null) => (n == null ? "" : String(n));
  * Weight, reps, warm-up and difficulty for one set. What's typed lives in the Log draft (saved on every
  * keystroke); an untouched field logs the target shown in it.
  */
-export function EntryRow({ day, exerciseId, warmupDefault = false, unit, placeholder, mode, onSubmit, onCancel, onDelete }: {
+export function EntryRow({ day, exerciseId, unit, placeholder, mode, onSubmit, onCancel, onDelete }: {
   day: string;
   exerciseId: string;
-  /** Warm-up state until the draft says otherwise (on for an exercise with no working sets yet). */
-  warmupDefault?: boolean;
   unit: Unit;
   placeholder: { weight: number | null; reps: number | null };
   mode: "new" | "edit";
@@ -41,7 +39,7 @@ export function EntryRow({ day, exerciseId, warmupDefault = false, unit, placeho
 
   const weightText = draft?.weight ?? "";
   const repsText = draft?.reps ?? "";
-  const warmup = draft?.warmup ?? warmupDefault;
+  const warmup = draft?.warmup ?? false;
   const difficulty = draft?.difficulty ?? null;
   const update = (patch: Omit<Partial<LogDraft>, "day">) =>
     setDraft(draft ? { day, ...patch } : { day, exerciseId, warmup, weight: "", reps: "", difficulty: null, editing: null, pending: null, test: false, ...patch });

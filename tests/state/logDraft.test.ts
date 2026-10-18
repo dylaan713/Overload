@@ -29,10 +29,10 @@ describe("log draft", () => {
     });
   });
 
-  it("starts a draft with warm-up on and nothing typed", () => {
+  it("starts a draft with warm-up off and nothing typed", () => {
     const ui = createUiStore(createMemoryKV());
     ui.getState().setDraft({ day: DAY, exerciseId: "row" });
-    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: true, editing: null, pending: null, test: false });
+    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: false, editing: null, pending: null, test: false });
   });
 
   it("a keystroke right before the page is hidden is not lost", async () => {

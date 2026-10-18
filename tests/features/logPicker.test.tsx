@@ -60,6 +60,13 @@ describe("next-exercise picker", () => {
     expect(screen.getByRole("heading", { name: "Curl" })).toBeInTheDocument();
   });
 
+  it("a newly picked exercise starts with warm-up off", async () => {
+    const { user } = await openPicker(doc({ exercises: [row, curl] }));
+    await user.click(screen.getByRole("button", { name: /^Curl/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("button", { name: "Warm-up" })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("picking an exercise already done today adds no second block", async () => {
     const d = doc({ exercises: [row, curl], sessions: [day(TODAY, [["row", sets(130, [10])]])] });
     const { user, kv } = await openPicker(d);

@@ -85,6 +85,14 @@
 }
 /* Room so the last set can scroll clear of the dock */
 .screen:has(.dock) { padding-bottom: 72px; }
+/* Short screens have no room to spare over the entry row: the button follows the sets instead */
+@media (max-height: 700px) {
+  .dock { position: static; max-width: none; margin: 0; padding: 4px 0 0; background: none; }
+  .screen:has(.dock) { padding-bottom: 0; }
+}
+
+.why { font-size: var(--text-sm); color: var(--muted); text-align: center; margin-top: -4px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Next-exercise picker */
 .picker { display: flex; flex-direction: column; gap: 16px; }

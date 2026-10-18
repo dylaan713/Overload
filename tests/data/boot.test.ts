@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bootStore, dumpLegacyRaw, hasLegacyData } from "../../src/data/boot";
+import { bootStore, dumpLegacyRaw, dumpRaw, hasLegacyData } from "../../src/data/boot";
 import { createMemoryKV, type KeyValueStore } from "../../src/data/kv";
 import { LEGACY_KEYS } from "../../src/data/legacy";
 import { DataError } from "../../src/data/normalize";
@@ -86,3 +86,11 @@ describe("legacy data helpers", () => {
     expect(await hasLegacyData(createMemoryKV({ unrelated: "x", [V2_KEY]: "{}" }))).toBe(false);
   });
 });
+
+describe("dumpRaw", () => {
+  it("includes overload.v2 as well as legacy keys", async () => {
+    const kv = createMemoryKV({ exercises: "[1]", unrelated: "x", [V2_KEY]: "{corrupt" });
+    expect(await dumpRaw(kv)).toEqual({ exercises: "[1]", [V2_KEY]: "{corrupt" });
+  });
+});
+

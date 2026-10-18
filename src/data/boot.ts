@@ -1,7 +1,7 @@
 import type { StoreDoc } from "../domain/types";
 import type { KeyValueStore } from "./kv";
 import { LEGACY_KEYS } from "./legacy";
-import { emptyDoc, loadDoc, saveDoc } from "./store";
+import { V2_KEY, emptyDoc, loadDoc, saveDoc } from "./store";
 
 export interface BootResult {
   kind: "v2" | "fresh";
@@ -39,4 +39,12 @@ export async function dumpLegacyRaw(kv: KeyValueStore): Promise<Record<string, s
 
 export async function hasLegacyData(kv: KeyValueStore): Promise<boolean> {
   return Object.keys(await dumpLegacyRaw(kv)).length > 0;
+}
+
+/** Everything stored, raw: legacy keys plus overload.v2. The boot-error escape hatch; never writes. */
+export async function dumpRaw(kv: KeyValueStore): Promise<Record<string, string>> {
+  const out = await dumpLegacyRaw(kv);
+  const v2 = await kv.get(V2_KEY);
+  if (v2 !== null) out[V2_KEY] = v2;
+  return out;
 }

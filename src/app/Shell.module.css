@@ -1,0 +1,42 @@
+/* The page is a fixed, viewport-sized card so it can scale back under a sheet without losing its scroll. */
+.page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  transform-origin: 50% 0;
+}
+.page[data-sheet] {
+  transform: translateY(calc(10px * (1 - var(--sheet-progress, 1)))) scale(calc(0.94 + 0.06 * var(--sheet-progress, 1)));
+  border-radius: calc(var(--radius) * (1 - var(--sheet-progress, 1)));
+}
+:global(body):has(.page[data-sheet]) { background: #000; }
+@media (prefers-reduced-motion: reduce) {
+  /* No travel or scaling: the sheet's scrim dims the page instead. */
+  .page[data-sheet] { transform: none; border-radius: 0; }
+}
+.content {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: calc(52px + env(safe-area-inset-top)) 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px);
+  max-width: 720px;
+  margin: 0 auto;
+}
+.largeTitle {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  margin: 4px 0 16px;
+}
+.alerts {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 16px;
+  right: 16px;
+  z-index: 60;
+  max-width: 688px;
+  margin: 0 auto;
+}

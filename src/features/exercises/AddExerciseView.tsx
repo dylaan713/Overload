@@ -20,7 +20,7 @@ export function AddExerciseView() {
         placeholder={`Search ${LIBRARY.length} exercises`}
         className={styles.search}
         value={query}
-        autoFocus
+        data-autofocus
         onChange={(e) => setQuery(e.target.value)}
       />
       {groups.length === 0 ? (

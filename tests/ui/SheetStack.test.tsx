@@ -69,6 +69,16 @@ describe("SheetStack focus (wave 2 review)", () => {
   });
 });
 
+describe("SheetStack initial focus (wave 3 review)", () => {
+  it("a pushed view can name the element that takes focus", async () => {
+    const withField: SheetView = { id: "f", title: "Find", render: () => <input aria-label="Find" data-autofocus /> };
+    const start: SheetView = { id: "root", title: "Settings", render: (nav) => <button type="button" onClick={() => nav.push(withField)}>Open find</button> };
+    render(<SheetStack root={start} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Open find" }));
+    expect(screen.getByRole("textbox", { name: "Find" })).toHaveFocus();
+  });
+});
+
 describe("reduced motion (wave 2 review)", () => {
   it("drags still follow the finger", async () => {
     render(

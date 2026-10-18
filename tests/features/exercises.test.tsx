@@ -42,6 +42,12 @@ describe("adding from the library", () => {
     expect(uiStore.getState().toast?.text).toBe("Added Bench press (dumbbell)");
   });
 
+  it("opens with the search field focused", async () => {
+    const { user } = await open();
+    await user.click(addButton());
+    expect(screen.getByRole("searchbox", { name: "Search exercises" })).toHaveFocus();
+  });
+
   it("chooses equipment when a movement has several", async () => {
     const { user, kv } = await open();
     await user.click(addButton());

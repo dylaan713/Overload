@@ -70,7 +70,9 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
       else sections.current[top]?.focus();
       return;
     }
-    sections.current[top]?.focus(); // the new view takes focus; its parent is now inert
+    // The new view takes focus (its parent is now inert): the element it marks data-autofocus, else the view.
+    const section = sections.current[top];
+    (section?.querySelector<HTMLElement>("[data-autofocus]") ?? section)?.focus();
     anim.current?.stop();
     if (reduced) {
       fade.set(0);

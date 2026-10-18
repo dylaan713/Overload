@@ -64,7 +64,7 @@ describe("log screen", () => {
     expect(screen.getByText(/last set 0:00 ago/)).toBeInTheDocument();
     expect(screen.queryByText(/^Warm-up: /)).toBeNull();
     expect(screen.getByRole("button", { name: "Warm-up" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByLabelText("Reps")).toHaveAttribute("placeholder", String(t.sets[1]!.reps));
+    expect(screen.getByLabelText("Reps")).toHaveValue(String(t.sets[1]!.reps));
     expect(target().textContent).toBe(before);
     expect(screen.getByRole("button", { name: "Seated cable row" })).toHaveAttribute("aria-pressed", "true");
   });

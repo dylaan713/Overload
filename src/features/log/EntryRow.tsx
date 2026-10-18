@@ -15,13 +15,13 @@ const show = (n: number | null) => (n == null ? "" : String(n));
 
 /**
  * Weight, reps, warm-up and difficulty for one set. What's typed lives in the Log draft (saved on every
- * keystroke); an untouched field logs the target shown in it.
+ * keystroke). An untouched field shows the target as real text and logs it; focusing selects it, so typing replaces it.
  */
-export function EntryRow({ day, exerciseId, unit, placeholder, mode, onSubmit, onCancel, onDelete }: {
+export function EntryRow({ day, exerciseId, unit, prefill, mode, onSubmit, onCancel, onDelete }: {
   day: string;
   exerciseId: string;
   unit: Unit;
-  placeholder: { weight: number | null; reps: number | null };
+  prefill: { weight: number | null; reps: number | null };
   mode: "new" | "edit";
   onSubmit: (set: SetEntry) => void;
   onCancel?: () => void;
@@ -37,16 +37,17 @@ export function EntryRow({ day, exerciseId, unit, placeholder, mode, onSubmit, o
   const repsRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<{ weight?: string; reps?: string }>({});
 
-  const weightText = draft?.weight ?? "";
-  const repsText = draft?.reps ?? "";
+  // Untouched follows the target as it moves (e.g. the next warm-up); a field cleared on purpose stays empty.
+  const weightText = draft?.weight ?? show(prefill.weight);
+  const repsText = draft?.reps ?? show(prefill.reps);
   const warmup = draft?.warmup ?? false;
   const difficulty = draft?.difficulty ?? null;
   const update = (patch: Omit<Partial<LogDraft>, "day">) =>
-    setDraft(draft ? { day, ...patch } : { day, exerciseId, warmup, weight: "", reps: "", difficulty: null, editing: null, pending: null, test: false, ...patch });
+    setDraft(draft ? { day, ...patch } : { day, exerciseId, warmup, weight: null, reps: null, difficulty: null, editing: null, pending: null, test: false, ...patch });
 
   function submit() {
-    const weight = weightText.trim() ? parseNumber(weightText.trim()) : placeholder.weight;
-    const reps = repsText.trim() ? parseNumber(repsText.trim()) : placeholder.reps;
+    const weight = weightText.trim() ? parseNumber(weightText.trim()) : null;
+    const reps = repsText.trim() ? parseNumber(repsText.trim()) : null;
     const next = {
       weight: weight == null || weight < 0 ? WEIGHT_ERROR : undefined,
       reps: reps == null || reps < 1 || !Number.isInteger(reps) ? REPS_ERROR : undefined,
@@ -76,7 +77,7 @@ export function EntryRow({ day, exerciseId, unit, placeholder, mode, onSubmit, o
             inputMode="decimal"
             autoComplete="off"
             value={weightText}
-            placeholder={show(placeholder.weight)}
+            onFocus={(e) => e.currentTarget.select()}
             aria-invalid={errors.weight ? "true" : undefined}
             aria-describedby={errors.weight ? fieldErrorId(weightId) : undefined}
             onChange={(e) => {
@@ -93,7 +94,7 @@ export function EntryRow({ day, exerciseId, unit, placeholder, mode, onSubmit, o
             inputMode="numeric"
             autoComplete="off"
             value={repsText}
-            placeholder={show(placeholder.reps)}
+            onFocus={(e) => e.currentTarget.select()}
             aria-invalid={errors.reps ? "true" : undefined}
             aria-describedby={errors.reps ? fieldErrorId(repsId) : undefined}
             onChange={(e) => {

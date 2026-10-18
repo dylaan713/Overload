@@ -16,8 +16,9 @@ export interface Toast {
 export interface LogDraft {
   day: string;
   exerciseId: string | null;
-  weight: string;
-  reps: string;
+  /** What's typed; null = untouched, so the field shows (and logs) the target. "" = cleared on purpose. */
+  weight: string | null;
+  reps: string | null;
   difficulty: Difficulty | null;
   warmup: boolean;
   editing: SetRef | null;
@@ -63,7 +64,7 @@ const TOAST_MS = 6000;
 export const DRAFT_DEBOUNCE_MS = 250;
 const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null };
 
-const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: "", reps: "", difficulty: null, warmup: false, editing: null, pending: null, test: false });
+const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: null, reps: null, difficulty: null, warmup: false, editing: null, pending: null, test: false });
 
 /** Transient UI state: never in backups, and its storage errors never block the app. */
 export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = {}): UiStore {
@@ -85,7 +86,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       saveTimer = null;
       if (!hydrated) return Promise.resolve();
       const { tab, log } = get();
-      return kv.set(UI_KEY, JSON.stringify({ version: 2, tab, log })).catch(() => {});
+      return kv.set(UI_KEY, JSON.stringify({ version: 3, tab, log })).catch(() => {});
     };
     const schedule = () => {
       if (saveTimer) clearTimeout(saveTimer);
@@ -130,7 +131,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       clearDraftFields() {
         const { log } = get();
         touched.draft = true;
-        if (log.draft) setLog({ ...log, draft: { ...log.draft, weight: "", reps: "", difficulty: null, editing: null, pending: null } });
+        if (log.draft) setLog({ ...log, draft: { ...log.draft, weight: null, reps: null, difficulty: null, editing: null, pending: null } });
       },
       startEdit(day, editing, fields) {
         touched.draft = true;
@@ -145,7 +146,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         const d = log.draft;
         if (!d?.editing) return;
         touched.draft = true;
-        const back = d.pending ?? { weight: "", reps: "", difficulty: null, warmup: false };
+        const back = d.pending ?? { weight: null, reps: null, difficulty: null, warmup: false };
         setLog({ ...log, draft: { ...d, ...back, editing: null, pending: null } });
       },
       markLogged(day, at) {
@@ -159,9 +160,9 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         try {
           const raw = await kv.get(UI_KEY);
           const saved = raw ? (JSON.parse(raw) as { version?: number; tab?: unknown; log?: unknown }) : null;
-          if (!touched.tab && (saved?.version === 1 || saved?.version === 2) && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
-          if (saved?.version === 2) {
-            const stored = readLog(saved.log);
+          if (!touched.tab && (saved?.version === 1 || saved?.version === 2 || saved?.version === 3) && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
+          if (saved?.version === 2 || saved?.version === 3) {
+            const stored = readLog(saved.log, saved.version);
             const mine = get().log;
             const newer = (mine.last?.at ?? -Infinity) > (stored.last?.at ?? -Infinity) ? mine : stored;
             set({ log: { draft: touched.draft ? mine.draft : stored.draft, startedAt: newer.startedAt, last: newer.last } });
@@ -180,23 +181,28 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const str = (v: unknown) => typeof v === "string";
 const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+const field = (v: unknown) => v === null || str(v);
+/** Version 2 had no "cleared" state: an empty field logged the target, which untouched (null) does now. */
+const upgrade = <T extends { weight: string | null; reps: string | null }>(f: T): T => ({ ...f, weight: f.weight || null, reps: f.reps || null });
 
-function readDraft(v: unknown): LogDraft | null {
-  if (!isObj(v) || !str(v.day) || !str(v.weight) || !str(v.reps) || typeof v.warmup !== "boolean" || typeof v.test !== "boolean") return null;
+function readDraft(v: unknown, version: number): LogDraft | null {
+  if (!isObj(v) || !str(v.day) || !field(v.weight) || !field(v.reps) || typeof v.warmup !== "boolean" || typeof v.test !== "boolean") return null;
   if (v.exerciseId !== null && !str(v.exerciseId)) return null;
   if (v.difficulty !== null && !DIFFICULTIES.includes(v.difficulty as Difficulty)) return null;
   const e = v.editing;
   if (e !== null && !(isObj(e) && str(e.day) && str(e.blockId) && num(e.index))) return null;
   const p = v.pending;
-  const pendingOk = isObj(p) && str(p.weight) && str(p.reps) && typeof p.warmup === "boolean" && (p.difficulty === null || DIFFICULTIES.includes(p.difficulty as Difficulty));
-  return { ...(v as unknown as LogDraft), pending: pendingOk ? (p as unknown as LogDraft["pending"]) : null };
+  const pendingOk = isObj(p) && field(p.weight) && field(p.reps) && typeof p.warmup === "boolean" && (p.difficulty === null || DIFFICULTIES.includes(p.difficulty as Difficulty));
+  const draft = { ...(v as unknown as LogDraft), pending: pendingOk ? (p as unknown as NonNullable<LogDraft["pending"]>) : null };
+  if (version >= 3) return draft;
+  return { ...upgrade(draft), pending: draft.pending && upgrade(draft.pending) };
 }
 
 /** Stored UI state is untrusted: any malformed field falls back to empty instead of crashing the Log. */
-function readLog(v: unknown): LogUi {
+function readLog(v: unknown, version: number): LogUi {
   if (!isObj(v)) return EMPTY_LOG;
   const last = isObj(v.last) && str(v.last.day) && num(v.last.at) ? { day: v.last.day as string, at: v.last.at as number } : null;
-  return { draft: readDraft(v.draft), startedAt: num(v.startedAt) ? (v.startedAt as number) : null, last };
+  return { draft: readDraft(v.draft, version), startedAt: num(v.startedAt) ? (v.startedAt as number) : null, last };
 }
 
 /** Writes pending UI state the moment the page is hidden or unloaded (iOS may kill it right after). */

@@ -32,7 +32,7 @@ describe("log draft", () => {
   it("starts a draft with warm-up off and nothing typed", () => {
     const ui = createUiStore(createMemoryKV());
     ui.getState().setDraft({ day: DAY, exerciseId: "row" });
-    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: false, editing: null, pending: null, test: false });
+    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: null, reps: null, difficulty: null, warmup: false, editing: null, pending: null, test: false });
   });
 
   it("a keystroke right before the page is hidden is not lost", async () => {
@@ -82,7 +82,7 @@ describe("log draft", () => {
     const ui = createUiStore(createMemoryKV());
     ui.getState().setDraft({ day: DAY, exerciseId: "row", weight: "140", reps: "8", difficulty: "hard", warmup: false, test: true, editing: { day: DAY, blockId: "b", index: 0 } });
     ui.getState().clearDraftFields();
-    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: "", reps: "", difficulty: null, warmup: false, editing: null, pending: null, test: true });
+    expect(ui.getState().log.draft).toEqual({ day: DAY, exerciseId: "row", weight: null, reps: null, difficulty: null, warmup: false, editing: null, pending: null, test: true });
   });
 
   it("markLogged starts the workout clock on a new day only", () => {
@@ -99,6 +99,29 @@ describe("log draft", () => {
     await ui.getState().hydrate();
     expect(ui.getState().tab).toBe("history");
     expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null });
+  });
+
+  it("a version-2 draft's empty fields become untouched (they logged the target then too)", async () => {
+    const kv = createMemoryKV({
+      [UI_KEY]: JSON.stringify({
+        version: 2, tab: "log",
+        log: {
+          draft: { day: DAY, exerciseId: "row", weight: "", reps: "8", difficulty: null, warmup: false, editing: { day: DAY, blockId: "b", index: 0 }, pending: { weight: "150", reps: "", difficulty: "hard", warmup: false }, test: false },
+          startedAt: 5, last: { day: DAY, at: 9 },
+        },
+      }),
+    });
+    expect((await reloaded(kv)).log.draft).toMatchObject({ weight: null, reps: "8", pending: { weight: "150", reps: null } });
+  });
+
+  it("untouched and cleared fields stay apart through a reload", async () => {
+    const kv = createMemoryKV();
+    const ui = createUiStore(kv);
+    await ui.getState().hydrate();
+    ui.getState().setDraft({ day: DAY, exerciseId: "row", reps: "" });
+    await ui.getState().flush();
+    expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 3 });
+    expect((await reloaded(kv)).log.draft).toMatchObject({ weight: null, reps: "" });
   });
 
   const storedDraft = (weight: string) =>

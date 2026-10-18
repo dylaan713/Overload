@@ -45,13 +45,14 @@ describe("fixing a set", () => {
 
   it("Cancel changes nothing", async () => {
     const d = doc({ exercises: [row], sessions: [day(TODAY, [["row", sets(130, [10], [2])]])] });
-    const { user, kv } = await open(d);
+    const { user, kv, uiStore } = await open(d);
     const before = kv.dump()[V2_KEY];
     await user.click(screen.getByRole("button", { name: /130 × 10/ }));
     await user.type(screen.getByLabelText("Reps"), "5");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(kv.dump()[V2_KEY]).toBe(before);
-    expect(screen.getByLabelText("Reps")).toHaveValue("");
+    expect(uiStore.getState().log.draft).toMatchObject({ editing: null, reps: null });
+    expect(screen.getByLabelText("Reps")).not.toHaveValue("105");
   });
 });
 

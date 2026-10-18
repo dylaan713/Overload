@@ -11,7 +11,7 @@ describe("ui store", () => {
     await ui.getState().hydrate();
     expect(ui.getState().tab).toBe("log");
     ui.getState().setTab("progress");
-    await vi.waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 2, tab: "progress" }));
+    await vi.waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 3, tab: "progress" }));
     const again = createUiStore(kv);
     await again.getState().hydrate();
     expect(again.getState().tab).toBe("progress");

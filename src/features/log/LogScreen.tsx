@@ -129,7 +129,7 @@ export function LogScreen() {
       if (!(await logSet({ day, exerciseId: currentId!, set, test }))) return; // a failed save keeps what was typed
       loggedAt.current = performance.now();
       markLogged(day, nowFn());
-      setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: set.warmup, test });
+      setDraft({ day, exerciseId: currentId!, weight: null, reps: null, difficulty: null, editing: null, warmup: set.warmup, test });
     } finally {
       saving.current = false;
     }
@@ -233,7 +233,7 @@ export function LogScreen() {
         day={day}
         exerciseId={currentId!}
         unit={doc.settings.unit}
-        placeholder={editedSet ? { weight: editedSet.weight, reps: editedSet.reps } : prefill(targets, block, warmup)}
+        prefill={editedSet ? { weight: editedSet.weight, reps: editedSet.reps } : prefill(targets, block, warmup)}
         mode={editing ? "edit" : "new"}
         onSubmit={(set) => void submit(set)}
         onCancel={backToNew}

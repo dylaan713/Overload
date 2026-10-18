@@ -9,7 +9,7 @@ const DAY = "2026-10-18";
 async function open(opts: { warmup?: boolean; placeholder?: { weight: number | null; reps: number | null }; mode?: "new" | "edit" } = {}) {
   const onSubmit = vi.fn();
   const r = await renderWithStore(
-    <EntryRow day={DAY} exerciseId="row" unit="lb" placeholder={opts.placeholder ?? { weight: null, reps: null }} mode={opts.mode ?? "new"} onSubmit={onSubmit} onCancel={() => {}} onDelete={() => {}} />,
+    <EntryRow day={DAY} exerciseId="row" unit="lb" prefill={opts.placeholder ?? { weight: null, reps: null }} mode={opts.mode ?? "new"} onSubmit={onSubmit} onCancel={() => {}} onDelete={() => {}} />,
   );
   act(() => r.uiStore.getState().setDraft({ day: DAY, exerciseId: "row", warmup: opts.warmup ?? false }));
   return { ...r, onSubmit };
@@ -33,12 +33,35 @@ describe("entry row", () => {
     expect(screen.getByRole("button", { name: "Log set" })).toBeEnabled();
   });
 
-  it("an untouched field logs the target shown in it", async () => {
+  it("an untouched field shows the target as real text and logs it", async () => {
     const { user, onSubmit } = await open({ placeholder: { weight: 140, reps: 10 } });
-    expect(screen.getByLabelText("lb")).toHaveAttribute("placeholder", "140");
+    expect(screen.getByLabelText("lb")).toHaveValue("140");
+    expect(screen.getByLabelText("Reps")).toHaveValue("10");
     await user.click(screen.getByRole("radio", { name: "Easy" }));
     await user.click(screen.getByRole("button", { name: "Log set" }));
     expect(onSubmit).toHaveBeenCalledWith({ weight: 140, reps: 10, warmup: false, rir: 4 });
+  });
+
+  it("typing into a prefilled field replaces the target instead of adding to it", async () => {
+    const { user, onSubmit } = await open({ placeholder: { weight: 140, reps: 10 } });
+    await user.click(screen.getByLabelText("lb"));
+    await user.keyboard("135");
+    expect(screen.getByLabelText("lb")).toHaveValue("135");
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Log set" }));
+    expect(onSubmit).toHaveBeenCalledWith({ weight: 135, reps: 10, warmup: false, rir: 1 });
+  });
+
+  it("a field cleared on purpose stays empty and must be filled", async () => {
+    const { user, onSubmit, uiStore } = await open({ placeholder: { weight: 140, reps: 10 } });
+    await user.clear(screen.getByLabelText("Reps"));
+    expect(screen.getByLabelText("Reps")).toHaveValue("");
+    expect(uiStore.getState().log.draft).toMatchObject({ weight: null, reps: "" });
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Log set" }));
+    expect(screen.getByText("Enter a whole number 1 or higher")).toBeInTheDocument();
+    expect(screen.getByLabelText("Reps")).toHaveFocus();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("a warm-up takes no difficulty", async () => {

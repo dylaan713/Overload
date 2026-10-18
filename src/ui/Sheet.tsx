@@ -124,7 +124,7 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
               {onBack && (
                 <button type="button" className={styles.back} onClick={onBack}>
                   <ChevronLeft aria-hidden="true" size={22} />
-                  {backLabel}
+                  <span className={styles.backLabel}>{backLabel}</span>
                 </button>
               )}
             </div>

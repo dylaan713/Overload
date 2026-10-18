@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Equipment, LiftClass, Muscle } from "../../domain/types";
 import { useApp, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
@@ -26,6 +26,7 @@ export function CreateExerciseView() {
   const [cls, setCls] = useState<LiftClass | null>(null);
   const [step, setStep] = useState<number | null>(null);
   const [errors, setErrors] = useState<Errors>({});
+  const root = useRef<HTMLDivElement>(null);
 
   async function save() {
     const next: Errors = {};
@@ -34,7 +35,12 @@ export function CreateExerciseView() {
     if (primary.length === 0) next.primary = "Pick at least one muscle worked";
     if (!cls) next.class = "Pick compound or isolation";
     setErrors(next);
-    if (Object.keys(next).length || !equipment || !cls) return;
+    if (Object.keys(next).length || !equipment || !cls) {
+      // Take the user to the first problem (focus also scrolls it into view).
+      const first = next.name ? "#new-name" : next.equipment ? "#equipment" : next.class ? '[role="radiogroup"] [role="radio"]' : '[role="group"] button';
+      root.current?.querySelector<HTMLElement>(first)?.focus();
+      return;
+    }
     const r = await addCustom({ name, equipment, primary, secondary, class: cls, step });
     if ("id" in r) {
       nav.popTo(LIBRARY_VIEW_ID);
@@ -45,7 +51,7 @@ export function CreateExerciseView() {
   // Custom exercises are never "assisted", so the default step is the equipment's own.
   const defaultStep = equipment ? settings.equipmentSteps[equipment] : null;
   return (
-    <div className={styles.view}>
+    <div ref={root} className={styles.view}>
       <ListGroup title="Exercise">
         <ListItem>
           <Field label="Name" htmlFor="new-name" error={errors.name}>

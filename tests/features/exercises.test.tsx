@@ -81,6 +81,7 @@ describe("create your own", () => {
     expect(screen.getByText("Name can't be empty")).toBeInTheDocument();
     expect(screen.getByText("Pick at least one muscle worked")).toBeInTheDocument();
     expect(screen.getByText("Pick compound or isolation")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveFocus(); // takes you to the first problem
     expect(kv.dump()[V2_KEY]).toBe(before);
     await user.type(screen.getByLabelText("Name"), "Landmine press");
     await user.selectOptions(screen.getByLabelText("Equipment"), "barbell");

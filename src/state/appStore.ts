@@ -19,6 +19,8 @@ export interface AppState {
   warnings: string[];
   doc: StoreDoc;
   saveError: string | null;
+  /** Local "today" as the store sees it (injectable for tests); views use it for dates and limits. */
+  today(): string;
   init(): Promise<void>;
   updateSettings(fn: (s: Settings) => Settings): Promise<boolean>;
   setUnit(unit: Unit): Promise<boolean>;
@@ -91,6 +93,7 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
       warnings: [],
       doc: emptyDoc(today()),
       saveError: null,
+      today,
 
       init() {
         booting ??= (async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { themePreference } from "../domain/theme";
-import { HistoryPlaceholder, LogPlaceholder, ProgressPlaceholder, settingsPlaceholderView } from "../features/placeholders";
+import { HistoryPlaceholder, LogPlaceholder, ProgressPlaceholder } from "../features/placeholders";
+import { settingsView } from "../features/settings/SettingsRoot";
 import { useApp, useUi } from "../state/context";
 import type { Tab } from "../state/uiStore";
 import { Button } from "../ui/Button";
@@ -16,7 +17,7 @@ const TITLES: Record<Tab, string> = { log: "Log", progress: "Progress", history:
 const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogPlaceholder, progress: ProgressPlaceholder, history: HistoryPlaceholder };
 
 /** The app frame: scrolling content under floating chrome, the Settings sheet, toasts and save errors. */
-export function Shell({ settingsRoot = settingsPlaceholderView }: { settingsRoot?: () => SheetView }) {
+export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => SheetView }) {
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
   const sheet = useUi((s) => s.sheet);

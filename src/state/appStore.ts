@@ -4,7 +4,7 @@ import type { KeyValueStore } from "../data/kv";
 import { emptyDoc, saveDoc } from "../data/store";
 import { todayYmd } from "../domain/dates";
 import { deleteExerciseCascade, libraryState } from "../domain/exercises";
-import { customExercise, exerciseFromLibrary, type LibraryExercise } from "../domain/library";
+import { customExercise, customLoadKind, exerciseFromLibrary, type LibraryExercise } from "../domain/library";
 import { convertUnits, setPhaseStart as setPhaseStartIn, startPhase as startPhaseIn } from "../domain/settings";
 import type { Exercise, Settings, StoreDoc, Style, Unit } from "../domain/types";
 
@@ -144,7 +144,11 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
         return (await commit((d) => ({ ...d, exercises: [...d.exercises, ex] }))) ? { id: ex.id } : { error: get().saveError ?? "Couldn't save" };
       },
 
-      updateExercise: (id, patch) => mapExercise(id, (e) => ({ ...e, ...patch })),
+      updateExercise: (id, patch) =>
+        mapExercise(id, (e) => {
+          const next = { ...e, ...patch };
+          return patch.equipment && e.libraryId === null ? { ...next, loadKind: customLoadKind(patch.equipment) } : next;
+        }),
       setArchived: (id, archived) => mapExercise(id, (e) => ({ ...e, archived })),
       deleteExercise: (id) => commit((d) => deleteExerciseCascade(d, id)),
       replaceDoc: (doc) => commit(() => doc),

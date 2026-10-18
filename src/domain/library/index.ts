@@ -1,4 +1,4 @@
-import type { Equipment, Exercise, LiftClass, Muscle } from "../types";
+import type { Equipment, Exercise, LiftClass, LoadKind, Muscle } from "../types";
 import { EQUIPMENT_LABEL, LIBRARY, type LibraryExercise } from "./catalog";
 
 export { LIBRARY, type LibraryExercise } from "./catalog";
@@ -38,6 +38,9 @@ export function exerciseError(input: { name: string; primary: Muscle[]; step?: n
   return null;
 }
 
+/** How a custom exercise is loaded follows its equipment. */
+export const customLoadKind = (equipment: Equipment): LoadKind => (equipment === "bodyweight" ? "bodyweight" : "external");
+
 export function customExercise(
   input: { name: string; equipment: Equipment; primary: Muscle[]; secondary?: Muscle[]; class: LiftClass; step?: number | null },
   id: string,
@@ -49,6 +52,6 @@ export function customExercise(
   return {
     id, libraryId: null, name, equipment: input.equipment, primary: [...input.primary],
     secondary: (input.secondary ?? []).filter((m) => !input.primary.includes(m)),
-    class: input.class, loadKind: input.equipment === "bodyweight" ? "bodyweight" : "external", step, archived: false,
+    class: input.class, loadKind: customLoadKind(input.equipment), step, archived: false,
   };
 }

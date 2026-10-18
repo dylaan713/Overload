@@ -133,6 +133,18 @@ describe("library", () => {
     expect(stored(kv).exercises[0]).toMatchObject({ name: "Landmine press", libraryId: null });
   });
 
+  it("changing a custom exercise's equipment updates how it's loaded", async () => {
+    const kv = seedDoc(doc({}));
+    const app = await ready(kv);
+    const r = await app.getState().addCustom({ name: "Dips", equipment: "bodyweight", primary: ["triceps"], class: "compound" });
+    if (!("id" in r)) throw new Error("not added");
+    expect(stored(kv).exercises[0]!.loadKind).toBe("bodyweight");
+    expect(await app.getState().updateExercise(r.id, { equipment: "dumbbell" })).toBe(true);
+    expect(stored(kv).exercises[0]).toMatchObject({ equipment: "dumbbell", loadKind: "external" });
+    expect(await app.getState().updateExercise(r.id, { equipment: "bodyweight" })).toBe(true);
+    expect(stored(kv).exercises[0]).toMatchObject({ equipment: "bodyweight", loadKind: "bodyweight" });
+  });
+
   it("updateExercise persists; deleteExercise cascades", async () => {
     const kv = seedDoc(doc({ exercises: [ex("a"), ex("b")], sessions: [day("2026-10-01", [["a", sets(100, [5])]])] }));
     const app = await ready(kv);

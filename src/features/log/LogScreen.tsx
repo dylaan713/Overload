@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { aimLabel, difficultyOf } from "../../domain/difficulty";
-import { blockFor, coachFor, logDayFor, prefill, sessionOn, setCount } from "../../domain/log";
+import { fatigueSuggestion } from "../../domain/engine/fatigue";
+import { blockFor, canTest, coachFor, logDayFor, prefill, sessionOn, setCount, withoutDay } from "../../domain/log";
 import type { Block, SetEntry } from "../../domain/types";
 import { useApp, useAppStore, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/EmptyState";
 import { freshDraft } from "./draft";
 import { EntryRow } from "./EntryRow";
+import { FatigueCard } from "./FatigueCard";
+import { TestDayMenu } from "./TestDayMenu";
 import { SetList, setLabels } from "./SetList";
 import styles from "./Log.module.css";
 
@@ -41,6 +44,8 @@ export function LogScreen() {
   const removeSet = useApp((s) => s.removeSet);
   const restoreSet = useApp((s) => s.restoreSet);
   const showToast = useUi((s) => s.showToast);
+  const setBlockTest = useApp((s) => s.setBlockTest);
+  const decideFatigue = useApp((s) => s.decideFatigue);
   const log = useUi((s) => s.log);
   const nowFn = useUi((s) => s.now);
   const setDraft = useUi((s) => s.setDraft);
@@ -60,6 +65,16 @@ export function LogScreen() {
   // Fixed for the day: coachFor never sees the day's own sets, so logging doesn't move the targets.
   const coach = useMemo(() => (currentId ? coachFor(doc, currentId, day, test) : null), [doc, currentId, day, test]);
 
+  // Judged on finished days only: a half-done workout today can't make this pop up mid-session.
+  const fatigue = useMemo(() => fatigueSuggestion(withoutDay(doc, day), day), [doc, day]);
+  const fatigueCard = fatigue && (
+    <FatigueCard
+      reason={fatigue.reason}
+      onAccept={() => void decideFatigue(fatigue.weekStart, "accepted")}
+      onDismiss={() => void decideFatigue(fatigue.weekStart, "dismissed")}
+    />
+  );
+
   const chips = session?.blocks.filter((b) => exists(b.exerciseId)) ?? [];
   const header = (
     <p className={styles.dayLine}>
@@ -72,6 +87,7 @@ export function LogScreen() {
     return (
       <div className={styles.screen}>
         {header}
+        {fatigueCard}
         <EmptyState text="Start with any exercise" />
         <Button variant="primary" block onClick={() => openSheet("next-exercise")}>＋ Next exercise</Button>
       </div>
@@ -103,6 +119,11 @@ export function LogScreen() {
     setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: set.warmup, test });
   }
 
+  async function toggleTest(on: boolean) {
+    if (block && (await setBlockTest(day, currentId!, on))) return; // refused or not saved: leave it as it was
+    setDraft(draft?.exerciseId === currentId ? { day, test: on } : { ...freshDraft(doc, day, currentId!), test: on });
+  }
+
   function edit(index: number) {
     const set = block!.sets[index]!;
     setDraft({
@@ -122,6 +143,7 @@ export function LogScreen() {
   return (
     <div className={styles.screen}>
       {header}
+      {fatigueCard}
       {chips.length > 0 && (
         <div role="group" aria-label="Today's exercises" className={styles.chips}>
           {chips.map((b) => (
@@ -132,7 +154,10 @@ export function LogScreen() {
         </div>
       )}
 
-      <h2 className={styles.name}>{exercise.name}</h2>
+      <div className={styles.titleRow}>
+        <h2 className={styles.name}>{exercise.name}</h2>
+        {canTest(exercise) && <TestDayMenu on={test} locked={hasWorking(block)} onChange={(on) => void toggleTest(on)} />}
+      </div>
       <p className={styles.meta}>
         {`Set ${working + 1} of ${m}`}
         {log.last?.day === day && ` · last set ${minSec(now - log.last.at)} ago`}

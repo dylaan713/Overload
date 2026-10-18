@@ -21,23 +21,22 @@ const subtitle = (e: Exercise) => `${capitalize(equipmentLabel(e.equipment))} ·
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 
 /** Muscles still under this week's range, then my exercises to pick from. No suggestions: Dylan picks. */
-export function NextExerciseView({ onPick }: { onPick: (exerciseId: string) => void }) {
+export function NextExerciseView({ onPick, search = false }: { onPick: (exerciseId: string) => void; search?: boolean }) {
   const doc = useApp((s) => s.doc);
   const day = useLogDay();
   const nav = useSheetNav();
   const [query, setQuery] = useState("");
 
-  const short = useMemo(
-    () => weeklyVolume(doc, day).filter((r) => r.status === "under").sort((a, b) => b.low - b.sets - (a.low - a.sets)),
-    [doc, day],
-  );
+  const volume = useMemo(() => weeklyVolume(doc, day), [doc, day]);
+  const short = volume.filter((r) => r.status === "under").sort((a, b) => b.low - b.sets - (a.low - a.sets));
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
   const mine = doc.exercises.filter((e) => !e.archived && tokens.every((t) => e.name.toLowerCase().includes(t)));
   const groups = groupByRegion(mine);
 
   return (
     <div className={styles.picker}>
-      <ListGroup title="Still short this week">
+      {/* Nothing trained lately: no muscles to be short or on track. */}
+      {volume.length > 0 && <ListGroup title="Still short this week">
         {short.length === 0 ? (
           <ListItem>
             <p className={styles.note}>Every muscle you train is on track this week</p>
@@ -58,13 +57,14 @@ export function NextExerciseView({ onPick }: { onPick: (exerciseId: string) => v
             </ul>
           </ListItem>
         )}
-      </ListGroup>
+      </ListGroup>}
 
       <Input
         type="search"
         aria-label="Search your exercises"
         placeholder="Search your exercises"
         value={query}
+        data-autofocus={search || undefined}
         onChange={(e) => setQuery(e.target.value)}
       />
       {groups.map((g) => (
@@ -81,14 +81,14 @@ export function NextExerciseView({ onPick }: { onPick: (exerciseId: string) => v
   );
 }
 
-export const nextExerciseView = (onPick: (exerciseId: string) => void): SheetView => ({
+export const nextExerciseView = (onPick: (exerciseId: string) => void, search = false): SheetView => ({
   id: NEXT_EXERCISE_VIEW_ID,
   title: "Next exercise",
-  render: () => <NextExerciseView onPick={onPick} />,
+  render: () => <NextExerciseView onPick={onPick} search={search} />,
 });
 
 /** The sheet: picking (or adding one from the library) makes it the Log's current exercise and closes. */
-export function NextExerciseSheet({ onClose }: { onClose: () => void }) {
+export function NextExerciseSheet({ search = false, onClose }: { search?: boolean; onClose: () => void }) {
   const app = useAppStore();
   const ui = useUiStore();
   const [close] = useState(() => ({ current: null as (() => void) | null }));
@@ -102,7 +102,8 @@ export function NextExerciseSheet({ onClose }: { onClose: () => void }) {
     focusEntryAfterSheet();
     close.current?.();
   });
-  const [root] = useState(() => nextExerciseView(pick));
+  // With no exercises of my own yet there's nothing to pick from: start in the library search.
+  const [root] = useState(() => (app.getState().doc.exercises.some((e) => !e.archived) ? nextExerciseView(pick, search) : addExerciseView()));
   return (
     <LibraryFlow.Provider value={{ returnTo: NEXT_EXERCISE_VIEW_ID, onAdded: pick }}>
       <SheetStack root={root} onClose={onClose} closeRef={close} />

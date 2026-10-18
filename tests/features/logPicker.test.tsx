@@ -41,18 +41,44 @@ describe("next-exercise picker", () => {
   });
 
   it("says so when every trained muscle is on track", async () => {
-    await openPicker(doc({ exercises: [row] }));
+    const solo = ex("solo", { name: "Seated cable row", equipment: "cable", primary: ["upper-back"] });
+    const d = doc({ exercises: [solo], sessions: [day(TODAY, [["solo", sets(100, Array(20).fill(10))]])] });
+    expect(weeklyVolume(d, TODAY).length).toBeGreaterThan(0);
+    expect(weeklyVolume(d, TODAY).filter((r) => r.status === "under")).toEqual([]);
+    await openPicker(d);
     expect(screen.getByText("Every muscle you train is on track this week")).toBeInTheDocument();
   });
 
+  it("with no recent training there's no volume list to show", async () => {
+    await openPicker(doc({ exercises: [row] }));
+    expect(screen.queryByRole("region", { name: "Still short this week" })).toBeNull();
+    expect(screen.queryByText(/on track this week/)).toBeNull();
+  });
+
+  it("from an empty Log the picker opens with its search focused", async () => {
+    await openPicker(doc({ exercises: [row, curl] }));
+    await waitFor(() => expect(screen.getByRole("searchbox", { name: "Search your exercises" })).toHaveFocus());
+  });
+
+  it("with no exercises yet, Next exercise opens straight into the library search", async () => {
+    const { user } = await open(doc());
+    await user.click(screen.getByRole("button", { name: "＋ Next exercise" }));
+    const search = await screen.findByRole("searchbox", { name: "Search exercises" });
+    await waitFor(() => expect(search).toHaveFocus());
+    await user.type(search, "db bench");
+    await user.click(screen.getByRole("button", { name: /^Bench press \(dumbbell\)/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("heading", { name: "Bench press (dumbbell)" })).toBeInTheDocument();
+  });
+
   it("search filters my exercises on every keystroke; archived ones aren't offered", async () => {
-    const { user } = await openPicker(doc({ exercises: [row, curl, { ...face, archived: true }] }));
-    // Not focused on open: the keyboard would cover "Still short this week".
+    const { user } = await openPicker(doc({ exercises: [row, curl, { ...face, archived: true }], sessions: [day(TODAY, [["row", sets(130, [10])]])] }));
+    // Mid-workout it isn't focused on open: the keyboard would cover "Still short this week".
     expect(screen.getByRole("searchbox", { name: "Search your exercises" })).not.toHaveFocus();
     expect(screen.queryByRole("button", { name: /Face pull/ })).toBeNull();
     await user.type(screen.getByRole("searchbox"), "cu");
     expect(screen.getByRole("button", { name: /^Curl/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Seated cable row/ })).toBeNull();
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: /Seated cable row/ })).toBeNull();
   });
 
   it("picking closes the sheet and makes the exercise current", async () => {

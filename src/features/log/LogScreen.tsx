@@ -107,7 +107,7 @@ export function LogScreen() {
         {header}
         {fatigueCard}
         <EmptyState text="Start with any exercise" />
-        <Button variant="primary" block onClick={() => openSheet("next-exercise")}>＋ Next exercise</Button>
+        <Button variant="primary" block onClick={() => openSheet("next-exercise", { search: true })}>＋ Next exercise</Button>
       </div>
     );
   }

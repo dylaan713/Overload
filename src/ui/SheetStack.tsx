@@ -1,4 +1,4 @@
-import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { animate, motion, useMotionValue, useReducedMotionConfig, useTransform, type AnimationPlaybackControlsWithThen } from "motion/react";
 import { FLICK, commitOnRelease } from "./gesture";
 import { FADE, SPRING } from "./motion";
@@ -64,6 +64,11 @@ export function SheetStack({ root, onClose, closeRef: outerClose }: {
   const width = () => box.current?.offsetWidth || window.innerWidth;
   const parentX = useTransform(() => -PARALLAX * (width() - x.get()));
   const dim = useTransform(() => 0.18 * (1 - Math.min(1, x.get() / width())));
+
+  // The root view can ask for focus too (after the Sheet has focused itself on open).
+  useEffect(() => {
+    sections.current[0]?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+  }, []);
 
   // A push renders the new view off to the right first, then springs it in (before paint: no flash).
   useLayoutEffect(() => {

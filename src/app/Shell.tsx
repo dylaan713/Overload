@@ -24,6 +24,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
   const sheet = useUi((s) => s.sheet);
+  const sheetSearch = useUi((s) => s.sheetSearch);
   const openSheet = useUi((s) => s.openSheet);
   const closeSheet = useUi((s) => s.closeSheet);
   const toast = useUi((s) => s.toast);
@@ -96,7 +97,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
         <TabBar tab={tab} onChange={setTab} scrolled={underBottom} />
       </div>
       {sheet === "settings" && <SheetStack root={settingsRoot()} onClose={closeSheet} />}
-      {sheet === "next-exercise" && <NextExerciseSheet onClose={closeSheet} />}
+      {sheet === "next-exercise" && <NextExerciseSheet search={sheetSearch} onClose={closeSheet} />}
       {saveError && (
         <div className={styles.alerts}>
           <Banner tone="error" role="alert">

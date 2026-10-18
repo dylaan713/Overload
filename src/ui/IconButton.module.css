@@ -1,0 +1,17 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon { transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.icon:active:not(:disabled) { transform: scale(0.92); background: var(--surface2); }
+@media (hover: hover) {
+  .icon:hover { color: var(--text); }
+}

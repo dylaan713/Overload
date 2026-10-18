@@ -1,0 +1,22 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn { transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-press) var(--ease-out); }
+/* Pressed state on touch-down, not on release. */
+.btn:active:not(:disabled) { transform: scale(0.97); opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.block { width: 100%; }
+.primary { background: var(--accent); color: var(--on-accent); }
+.secondary { background: transparent; color: var(--text); border-color: var(--line); }
+.ghost { background: transparent; color: var(--accent); padding: 0 10px; }
+.danger { background: var(--danger); color: var(--on-danger); }

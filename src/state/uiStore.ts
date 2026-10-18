@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { KeyValueStore } from "../data/kv";
-import type { Difficulty } from "../domain/difficulty";
+import { DIFFICULTIES, type Difficulty } from "../domain/difficulty";
 import type { SetRef } from "../domain/log";
 
 export const UI_KEY = "overload.v2.ui";
@@ -64,6 +64,10 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
   let timer: ReturnType<typeof setTimeout> | null = null;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let toastSeq = 0;
+  // Nothing is written until the stored state has been read, so an early change can't overwrite it;
+  // what the user changed before then wins over what was stored.
+  let hydrated = false;
+  const touched = { tab: false, draft: false };
   const clear = () => {
     if (timer) clearTimeout(timer);
     timer = null;
@@ -73,6 +77,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
     const write = () => {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = null;
+      if (!hydrated) return Promise.resolve();
       const { tab, log } = get();
       return kv.set(UI_KEY, JSON.stringify({ version: 2, tab, log })).catch(() => {});
     };
@@ -93,6 +98,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       now: opts.now ?? (() => Date.now()),
 
       setTab(tab) {
+        touched.tab = true;
         set({ tab });
         void write();
       },
@@ -110,12 +116,14 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       },
 
       setDraft(patch) {
+        touched.draft = true;
         const { log } = get();
         const base = log.draft && log.draft.day === patch.day ? log.draft : newDraft(patch.day);
         setLog({ ...log, draft: { ...base, ...patch } });
       },
       clearDraftFields() {
         const { log } = get();
+        touched.draft = true;
         if (log.draft) setLog({ ...log, draft: { ...log.draft, weight: "", reps: "", difficulty: null, editing: null } });
       },
       markLogged(day, at) {
@@ -125,20 +133,46 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       flush: () => write(),
 
       async hydrate() {
+        if (hydrated) return;
         try {
           const raw = await kv.get(UI_KEY);
-          const saved = raw ? (JSON.parse(raw) as { version?: number; tab?: string; log?: LogUi }) : null;
-          if ((saved?.version === 1 || saved?.version === 2) && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
-          // Anything typed before hydrate finished wins over the stored draft.
-          if (saved?.version === 2 && saved.log && typeof saved.log === "object" && get().log.draft === null) {
-            set({ log: { draft: saved.log.draft ?? null, startedAt: saved.log.startedAt ?? null, last: saved.log.last ?? null } });
+          const saved = raw ? (JSON.parse(raw) as { version?: number; tab?: unknown; log?: unknown }) : null;
+          if (!touched.tab && (saved?.version === 1 || saved?.version === 2) && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
+          if (saved?.version === 2) {
+            const stored = readLog(saved.log);
+            const mine = get().log;
+            const newer = (mine.last?.at ?? -Infinity) > (stored.last?.at ?? -Infinity) ? mine : stored;
+            set({ log: { draft: touched.draft ? mine.draft : stored.draft, startedAt: newer.startedAt, last: newer.last } });
           }
         } catch {
           // Transient state only: start on the defaults.
+        } finally {
+          hydrated = true;
+          if (touched.tab || touched.draft || get().log.last) void write();
         }
       },
     };
   });
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const str = (v: unknown) => typeof v === "string";
+const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+
+function readDraft(v: unknown): LogDraft | null {
+  if (!isObj(v) || !str(v.day) || !str(v.weight) || !str(v.reps) || typeof v.warmup !== "boolean" || typeof v.test !== "boolean") return null;
+  if (v.exerciseId !== null && !str(v.exerciseId)) return null;
+  if (v.difficulty !== null && !DIFFICULTIES.includes(v.difficulty as Difficulty)) return null;
+  const e = v.editing;
+  if (e !== null && !(isObj(e) && str(e.day) && str(e.blockId) && num(e.index))) return null;
+  return v as unknown as LogDraft;
+}
+
+/** Stored UI state is untrusted: any malformed field falls back to empty instead of crashing the Log. */
+function readLog(v: unknown): LogUi {
+  if (!isObj(v)) return EMPTY_LOG;
+  const last = isObj(v.last) && str(v.last.day) && num(v.last.at) ? { day: v.last.day as string, at: v.last.at as number } : null;
+  return { draft: readDraft(v.draft), startedAt: num(v.startedAt) ? (v.startedAt as number) : null, last };
 }
 
 /** Writes pending UI state the moment the page is hidden or unloaded (iOS may kill it right after). */

@@ -96,7 +96,8 @@ export function restoreSet(doc: StoreDoc, r: RemovedSet): StoreDoc {
     const emptied = r.session ?? { id: `${r.block.id}-session`, date: r.day, name: "", blocks: [] };
     d = { ...d, sessions: insertAt(d.sessions, Math.min(r.sessionIndex, d.sessions.length), { ...emptied, blocks: [] }) };
   }
-  const existing = sessionOn(d, r.day)!.blocks.find((b) => b.id === r.block.id);
+  // Its own block, or the exercise's block if one was started since: never two blocks for one exercise.
+  const existing = sessionOn(d, r.day)!.blocks.find((b) => b.id === r.block.id) ?? blockFor(d, r.day, r.block.exerciseId);
   if (existing) return mapBlock(d, r.day, existing.id, (b) => ({ ...b, sets: insertAt(b.sets, Math.min(r.index, b.sets.length), r.set) }));
   return mapSession(d, r.day, (s) => ({
     ...s,

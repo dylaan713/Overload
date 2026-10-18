@@ -105,6 +105,17 @@ describe("removeSet and restoreSet", () => {
     expect(sets17).toEqual([8, 8, 7, 6, 5]);
   });
 
+  it("Undo after the day was emptied and the same exercise logged again merges into that block (wave 1 review)", () => {
+    let d = doc({ exercises: [ex("a")] });
+    d = appendSet(d, { day: "2026-10-18", exerciseId: "a", set: work(100, 8), test: false }, newId);
+    const r = removeSet(d, { day: "2026-10-18", blockId: d.sessions[0]!.blocks[0]!.id, index: 0 })!;
+    const again = appendSet(r.doc, { day: "2026-10-18", exerciseId: "a", set: work(100, 6), test: false }, newId);
+    const restored = restoreSet(again, r.removed);
+    expect(restored.sessions).toHaveLength(1);
+    expect(restored.sessions[0]!.blocks).toHaveLength(1);
+    expect(restored.sessions[0]!.blocks[0]!.sets.map((s) => s.reps)).toEqual([8, 6]);
+  });
+
   it("returns null for a set that isn't there", () => {
     expect(removeSet(base(), { day: "2026-10-17", blockId: "nope", index: 0 })).toBeNull();
   });

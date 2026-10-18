@@ -18,6 +18,7 @@ describe("log draft", () => {
   it("every field round-trips through a reload", async () => {
     const kv = createMemoryKV();
     const ui = createUiStore(kv, { now: () => 1000 });
+    await ui.getState().hydrate();
     ui.getState().setDraft({ day: DAY, exerciseId: "row", weight: "140", reps: "1", difficulty: "hard", warmup: false, test: true });
     ui.getState().setDraft({ day: DAY, editing: { day: DAY, blockId: "b", index: 2 } });
     ui.getState().markLogged(DAY, 1000);
@@ -38,6 +39,7 @@ describe("log draft", () => {
     vi.useFakeTimers();
     const kv = createMemoryKV();
     const ui = createUiStore(kv);
+    await ui.getState().hydrate();
     const stop = watchHidden(ui);
     ui.getState().setDraft({ day: DAY, weight: "14" });
     ui.getState().setDraft({ day: DAY, weight: "145" });
@@ -52,6 +54,7 @@ describe("log draft", () => {
     vi.useFakeTimers();
     const kv = createMemoryKV();
     const ui = createUiStore(kv);
+    await ui.getState().hydrate();
     const stop = watchHidden(ui);
     ui.getState().setDraft({ day: DAY, reps: "9" });
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -68,6 +71,8 @@ describe("log draft", () => {
     let writes = 0;
     const kv: KeyValueStore = { get: inner.get, set: (k, v) => { writes++; return inner.set(k, v); } };
     const ui = createUiStore(kv);
+    await ui.getState().hydrate();
+    writes = 0;
     for (const w of ["1", "14", "145", "145.", "145.5"]) ui.getState().setDraft({ day: DAY, weight: w });
     await vi.advanceTimersByTimeAsync(DRAFT_DEBOUNCE_MS);
     expect(writes).toBe(1);
@@ -96,8 +101,43 @@ describe("log draft", () => {
     expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null });
   });
 
+  const storedDraft = (weight: string) =>
+    createMemoryKV({
+      [UI_KEY]: JSON.stringify({
+        version: 2, tab: "log",
+        log: { draft: { day: DAY, exerciseId: "row", weight, reps: "", difficulty: null, warmup: true, editing: null, test: false }, startedAt: 5, last: { day: DAY, at: 9 } },
+      }),
+    });
+
+  it("a change before hydrate finishes never throws away or overwrites the saved draft (wave 1 review)", async () => {
+    const kv = storedDraft("145");
+    const ui = createUiStore(kv);
+    ui.getState().setTab("history");
+    await ui.getState().flush();
+    await ui.getState().hydrate();
+    expect(ui.getState().log).toMatchObject({ draft: { weight: "145" }, startedAt: 5, last: { at: 9 } });
+    expect(ui.getState().tab).toBe("history");
+    await ui.getState().flush();
+    expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ tab: "history", log: { draft: { weight: "145" } } });
+  });
+
+  it("typing before hydrate finishes wins for the draft; the stored workout clock is kept", async () => {
+    const kv = storedDraft("145");
+    const ui = createUiStore(kv);
+    ui.getState().setDraft({ day: DAY, weight: "150" });
+    await ui.getState().hydrate();
+    expect(ui.getState().log).toMatchObject({ draft: { weight: "150" }, startedAt: 5, last: { at: 9 } });
+  });
+
+  it("a malformed stored log is ignored, not crashed on (wave 1 review)", async () => {
+    const ui = createUiStore(createMemoryKV({ [UI_KEY]: JSON.stringify({ version: 2, tab: "log", log: { draft: 5, startedAt: "x", last: { day: 1 } } }) }));
+    await ui.getState().hydrate();
+    expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null });
+  });
+
   it("storage errors never throw", async () => {
     const ui = createUiStore(failing(createMemoryKV()));
+    await ui.getState().hydrate();
     ui.getState().setDraft({ day: DAY, weight: "1" });
     await expect(ui.getState().flush()).resolves.toBeUndefined();
   });

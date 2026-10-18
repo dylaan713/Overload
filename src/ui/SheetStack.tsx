@@ -138,15 +138,16 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
 
   const top = views.length - 1;
   const current = views[top]!;
+  // The provider wraps the whole sheet so header actions (e.g. "Add exercise") can navigate too.
   return (
-    <Sheet
-      title={current.title}
-      onClose={onClose}
-      onBack={top > 0 ? nav.pop : undefined}
-      backLabel={top > 0 ? views[top - 1]!.title : undefined}
-      headerAction={current.headerAction}
-    >
-      <NavContext.Provider value={nav}>
+    <NavContext.Provider value={nav}>
+      <Sheet
+        title={current.title}
+        onClose={onClose}
+        onBack={top > 0 ? nav.pop : undefined}
+        backLabel={top > 0 ? views[top - 1]!.title : undefined}
+        headerAction={current.headerAction}
+      >
         <div ref={box} className={styles.stack} {...swipe}>
           {views.map((v, i) => {
             const isTop = i === top;
@@ -171,7 +172,7 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
             );
           })}
         </div>
-      </NavContext.Provider>
-    </Sheet>
+      </Sheet>
+    </NavContext.Provider>
   );
 }

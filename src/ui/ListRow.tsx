@@ -14,20 +14,37 @@ export function ListGroup({ title, footer, children }: { title: string; footer?:
   );
 }
 
-/** A row: navigates (chevron) when it has onPress, otherwise holds its children (controls, text). */
-export function ListRow({ label, detail, onPress, children }: { label: string; detail?: string; onPress?: () => void; children?: ReactNode }) {
-  if (onPress) {
+/**
+ * A row. With onPress it's a button (chevron unless `trailing` replaces it); otherwise it holds its children.
+ * `subtitle` stacks under the label (iOS subtitle style); `detail` sits on the right (value style).
+ */
+export function ListRow({ label, detail, subtitle, onPress, disabled, trailing, children }: {
+  label: string;
+  detail?: string;
+  subtitle?: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  trailing?: ReactNode;
+  children?: ReactNode;
+}) {
+  const text = (
+    <span className={styles.text}>
+      <span className={styles.label}>{label}</span>
+      {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
+    </span>
+  );
+  if (onPress || disabled) {
     return (
-      <button type="button" className={[styles.row, styles.pressable].join(" ")} onClick={onPress}>
-        <span className={styles.label}>{label}</span>
+      <button type="button" className={[styles.row, styles.pressable].join(" ")} onClick={onPress} disabled={disabled}>
+        {text}
         {detail && <span className={styles.detail}>{detail}</span>}
-        <ChevronRight aria-hidden="true" size={18} className={styles.chevron} />
+        {trailing ?? <ChevronRight aria-hidden="true" size={18} className={styles.chevron} />}
       </button>
     );
   }
   return (
     <div className={styles.row}>
-      {label && <span className={styles.label}>{label}</span>}
+      {label && text}
       {children}
     </div>
   );

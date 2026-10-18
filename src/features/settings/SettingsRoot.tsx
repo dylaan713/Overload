@@ -9,21 +9,14 @@ import { convertUnits, phaseOf } from "../../domain/settings";
 import type { StoreDoc, Style, ThemePref, Unit } from "../../domain/types";
 import { useApp, useKv, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
-import { EmptyState } from "../../ui/EmptyState";
 import { Field, Input, fieldErrorId } from "../../ui/Field";
 import { ListGroup, ListItem, ListRow } from "../../ui/ListRow";
 import { Segmented } from "../../ui/Segmented";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
+import { libraryView } from "../exercises/LibraryView";
 import { equipmentStepsView } from "./EquipmentStepsView";
 import { styleRulesView } from "./StyleRulesView";
 import styles from "./Settings.module.css";
-
-// Placeholder until the Exercise library view lands (Task 9).
-const libraryView = (): SheetView => ({
-  id: "library",
-  title: "Exercise library",
-  render: () => <EmptyState text="The exercise library is on its way." />,
-});
 
 export function SettingsRoot() {
   return (

@@ -29,3 +29,12 @@ describe("IconButton", () => {
     expect(btn).toHaveAttribute("title", "Settings");
   });
 });
+
+describe("tap targets", () => {
+  it("every button is at least 44px wide as well as tall", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync("src/ui/Button.module.css", "utf8");
+    expect(css).toMatch(/\.btn \{[^}]*min-width: 44px/);
+  });
+});
+

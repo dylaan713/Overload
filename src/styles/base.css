@@ -3,9 +3,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* iOS: root size follows the user's text-size setting. Elsewhere the 100% fallback keeps 16px. */
+/* iOS: root size follows the user's text-size setting (17px at the default size). Elsewhere, Mac Safari
+   included, the 100% fallback keeps 16px; -webkit-touch-callout exists only on iOS. */
 html { font-size: 100%; }
-@supports (font: -apple-system-body) {
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html { font: -apple-system-body; }
 }
 

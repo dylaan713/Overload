@@ -98,3 +98,75 @@ describe("accessibility overrides (a11y.css)", () => {
     }
   });
 });
+
+// ---- Review fixes (wave 1) ----
+
+// Every custom property, raw text, per block: catches rgba tokens the hex parser skips.
+function rawVars(block: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of block.matchAll(/--([\w-]+):\s*([^;]+);/g)) out[m[1]!] = m[2]!.trim();
+  return out;
+}
+
+function rgba(v: string): [number, number, number, number] {
+  const m = v.match(/rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)/);
+  if (!m) throw new Error(`not rgba: ${v}`);
+  return [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+}
+const hex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
+function over(tint: string, base: string): string {
+  const [r, g, b, a] = rgba(tint);
+  const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(base.slice(i, i + 2), 16));
+  return `#${hex(r * a + br! * (1 - a))}${hex(g * a + bg! * (1 - a))}${hex(b * a + bb! * (1 - a))}`;
+}
+
+describe("light blocks stay identical, rgba tokens included", () => {
+  it("the media block repeats every explicit light token", () => {
+    expect(rawVars(css.slice(mediaStart))).toEqual(rawVars(css.slice(lightStart, mediaStart)));
+  });
+});
+
+describe.each([
+  ["dark", css.slice(css.indexOf(":root {"), lightStart), dark],
+  ["light", css.slice(lightStart, mediaStart), light],
+] as const)("%s tinted pairs", (_n, block, t) => {
+  const raw = rawVars(block);
+  const darkRaw = rawVars(css.slice(css.indexOf(":root {"), lightStart));
+  for (const [fg, soft] of [["accent", "accent-soft"], ["warn", "warn-soft"], ["danger", "danger-soft"]] as const) {
+    for (const bgKey of BACKGROUNDS) {
+      it(`${fg} on ${soft} over ${bgKey} is at least 4.5:1`, () => {
+        const tint = raw[soft] ?? darkRaw[soft]!;
+        expect(contrast(t[fg]!, over(tint, t[bgKey]!))).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});
+
+describe("type sizes in CSS Modules", () => {
+  it("only use --text-* tokens (or the 16px input floor)", () => {
+    const bad = cssFiles("src")
+      .filter((f) => f.endsWith(".module.css"))
+      .flatMap((f) =>
+        [...readFileSync(f, "utf8").matchAll(/(?:^|[;{\s])(font-size|font)\s*:\s*([^;]+);/g)]
+          .filter((m) => !/^(var\(--text-[\w-]+\)|max\(16px, var\(--text-base\)\)|inherit)$/.test(m[2]!.trim()))
+          .map((m) => `${f}: ${m[1]}: ${m[2]}`),
+      );
+    expect(bad).toEqual([]);
+  });
+});
+
+describe("platform overrides", () => {
+  const a11y = readFileSync("src/styles/a11y.css", "utf8");
+  const base = readFileSync("src/styles/base.css", "utf8");
+
+  it("reduced transparency also overrides both light-theme selectors", () => {
+    const block = a11y.slice(a11y.indexOf("prefers-reduced-transparency"), a11y.indexOf("prefers-contrast"));
+    expect(block).toContain(':root[data-theme="light"]');
+    expect(block).toContain(':root:not([data-theme="dark"])');
+    expect(block).toContain("--material: var(--surface)");
+  });
+
+  it("the Dynamic Type root applies on iOS only, not Mac Safari", () => {
+    expect(base).toMatch(/@supports \(font: -apple-system-body\) and \(-webkit-touch-callout: none\)/);
+  });
+});

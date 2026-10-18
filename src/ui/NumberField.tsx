@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Field, Input } from "./Field";
+import { Field, Input, fieldErrorId } from "./Field";
 import styles from "./Field.module.css";
 
 export function rangeMessage(min?: number, max?: number, integer = false): string {
@@ -24,6 +24,13 @@ export interface NumberFieldProps {
 
 const show = (v: number | null) => (v == null ? "" : String(v));
 
+// Plain decimals only (no hex, exponents or Infinity). One comma is a decimal point: the iOS decimal
+// keypad types "," in comma locales.
+function parse(text: string): number | null {
+  const t = /^[^.,]*,[^.,]*$/.test(text) ? text.replace(",", ".") : text;
+  return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(t) ? Number(t) : null;
+}
+
 // Lets the user type freely; commits a valid number on blur or Enter. Anything invalid
 // (empty, non-numeric, out of range, a fraction where a whole number is needed) explains itself and reverts.
 export function NumberField({ label, value, min, max, integer = false, optional = false, suffix, placeholder, onChange }: NumberFieldProps) {
@@ -47,10 +54,11 @@ export function NumberField({ label, value, min, max, integer = false, optional 
       }
       return;
     }
-    const n = Number(trimmed);
-    const valid = Number.isFinite(n) && (min == null || n >= min) && (max == null || n <= max) && (!integer || Number.isInteger(n));
+    const n = parse(trimmed);
+    const valid = n !== null && (min == null || n >= min) && (max == null || n <= max) && (!integer || Number.isInteger(n));
     if (valid) {
       setError(null);
+      setText(show(n)); // "05.0" reads back as "5"
       if (n !== value) onChange(n);
     } else {
       setError(rangeMessage(min, max, integer));
@@ -66,6 +74,7 @@ export function NumberField({ label, value, min, max, integer = false, optional 
       value={text}
       placeholder={placeholder}
       aria-invalid={error ? "true" : undefined}
+      aria-describedby={error ? fieldErrorId(id) : undefined}
       onChange={(e) => {
         setText(e.target.value);
         setError(null);

@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Card } from "../../src/ui/Card";
 import { EmptyState } from "../../src/ui/EmptyState";
-import { Field, Input } from "../../src/ui/Field";
+import { Field, Input, fieldErrorId } from "../../src/ui/Field";
 import { Pill } from "../../src/ui/Pill";
 
 describe("primitives", () => {
@@ -15,10 +15,10 @@ describe("primitives", () => {
   it("Field associates its label with the control and shows an error", () => {
     render(
       <Field label="Name" htmlFor="n" error="Required">
-        <Input id="n" defaultValue="" />
+        <Input id="n" defaultValue="" aria-describedby={fieldErrorId("n")} />
       </Field>,
     );
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveAccessibleDescription("Required");
     expect(screen.getByRole("alert")).toHaveTextContent("Required");
   });
   it("Pill renders its label", () => {

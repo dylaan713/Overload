@@ -5,7 +5,8 @@
 
 /* Reduced transparency: solid chrome, no blur. */
 @media (prefers-reduced-transparency: reduce) {
-  :root { --material: var(--surface); --material-blur: none; }
+  /* Same selectors as the light blocks in tokens.css, or their translucent --material would win. */
+  :root, :root[data-theme="light"], :root:not([data-theme="dark"]) { --material: var(--surface); --material-blur: none; }
 }
 
 /* More contrast: stronger hairlines and secondary text. */

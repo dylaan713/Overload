@@ -127,3 +127,39 @@ describe("rangeMessage for whole numbers", () => {
     expect(rangeMessage(0, undefined, true)).toBe("Enter a whole number 0 or higher");
   });
 });
+
+describe("NumberField input rules (review fixes)", () => {
+  const typeAndBlur = async (label: string, text: string) => {
+    const input = screen.getByLabelText(label);
+    await userEvent.clear(input);
+    if (text) await userEvent.type(input, text);
+    await userEvent.tab();
+    return input;
+  };
+
+  it("accepts a comma decimal (iOS decimal keypad in comma locales)", async () => {
+    const onChange = vi.fn();
+    render(<NumberField label="Step" value={5} min={0} onChange={onChange} />);
+    await typeAndBlur("Step", "2,5");
+    expect(onChange).toHaveBeenCalledWith(2.5);
+  });
+
+  it("normalises the text to the committed number", async () => {
+    render(<NumberField label="Step" value={5} min={0} onChange={() => {}} />);
+    expect(await typeAndBlur("Step", "05.0")).toHaveValue("5");
+  });
+
+  it("rejects hex, exponent and other non-decimal forms", async () => {
+    const onChange = vi.fn();
+    render(<NumberField label="Step" value={5} onChange={onChange} />);
+    for (const t of ["0x10", "1e3", "Infinity", "2,5,0"]) await typeAndBlur("Step", t);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("describes the control with its error message", async () => {
+    render(<NumberField label="Sets" value={2} min={1} max={7} onChange={() => {}} />);
+    const input = await typeAndBlur("Sets", "9");
+    expect(input).toHaveAccessibleDescription("Enter a number from 1 to 7");
+  });
+});
+

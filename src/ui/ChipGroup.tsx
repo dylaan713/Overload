@@ -23,7 +23,7 @@ export function ChipGroup<T extends string>({ label, options, value, onChange, e
   return (
     <div className={styles.wrap}>
       <span id={id} className={styles.label}>{label}</span>
-      <div role="group" aria-labelledby={id} className={styles.chips}>
+      <div role="group" aria-labelledby={id} aria-describedby={error ? `${id}-error` : undefined} className={styles.chips}>
         {options.map((o) => (
           <button
             key={o.value}
@@ -37,7 +37,7 @@ export function ChipGroup<T extends string>({ label, options, value, onChange, e
           </button>
         ))}
       </div>
-      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {error && <p id={`${id}-error`} role="alert" className={styles.error}>{error}</p>}
     </div>
   );
 }

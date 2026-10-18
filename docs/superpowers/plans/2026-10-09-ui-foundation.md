@@ -1103,6 +1103,7 @@ This is where the UI stops being static. Every later screen uses these pieces, s
   - Enter and exit: it enters with `y: "100%" → 0` and exits back down (`AnimatePresence`, `SPRING.default`).
   - Drag: the grabber and header are a drag handle (`drag="y"`). Down follows the finger 1:1 from the grab point; up goes through `rubberband`. On release it decides with `commitOnRelease(offsetY, velocityY, height)`.
   - Release: on commit it animates to `height` with the release velocity (`SPRING.momentum` if `|v| > FLICK`), then calls `onClose` once. Otherwise it springs back to 0.
+  - Before closing (Done, Escape, or a committed drag), blur `document.activeElement` if it is inside the sheet, so a NumberField commits what was typed before it unmounts. Test: "a value typed in a field commits when Done is pressed" (wave 1 review).
   - Scrim and push-back: the scrim's opacity follows the sheet's y. The sheet writes `--sheet-progress` (0 = fully open, 1 = gone) on `document.documentElement` on every frame and removes it on unmount, so the page behind can scale and dim in step. A Done press during a drag closes once.
 - `SheetStack({ root: SheetView, onClose })` with `SheetView = { id: string; title: string; render(nav: SheetNav): ReactNode; headerAction?: ReactNode }` and `SheetNav = { push(v: SheetView): void; pop(): void; popToRoot(): void; depth: number }`. Also `useSheetNav(): SheetNav`.
   - Layout: it renders one `Sheet` whose title and Back follow the top view. Back is labelled with the previous view's title and pops.

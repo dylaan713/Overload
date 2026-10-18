@@ -39,5 +39,6 @@ describe("ChipGroup", () => {
   it("shows an error as an alert", () => {
     render(<ChipGroup label="M" options={[...options]} value={[]} onChange={() => {}} error="Pick at least one muscle worked" />);
     expect(screen.getByRole("alert")).toHaveTextContent("Pick at least one muscle worked");
+    expect(screen.getByRole("group", { name: "M" })).toHaveAccessibleDescription("Pick at least one muscle worked");
   });
 });

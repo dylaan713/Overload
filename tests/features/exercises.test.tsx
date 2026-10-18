@@ -4,6 +4,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryKV } from "../../src/data/kv";
 import { V2_KEY } from "../../src/data/store";
 import { libraryView } from "../../src/features/exercises/LibraryView";
+import { settingsView } from "../../src/features/settings/SettingsRoot";
 import { SheetStack } from "../../src/ui/SheetStack";
 import { day, doc, ex, sets } from "../helpers/build";
 import { renderWithStore } from "../helpers/renderWithStore";
@@ -163,3 +164,19 @@ describe("exercise detail", () => {
     expect(stored(kv).sessions.map((s) => s.date)).toEqual(["2026-10-03"]);
   });
 });
+
+describe("inside Settings (the real path)", () => {
+  it("adding, creating and archiving return to the library, not to Settings", async () => {
+    const { user, kv } = await renderWithStore(<SheetStack root={settingsView()} onClose={() => {}} />, { today: "2026-10-17" });
+    await user.click(screen.getByRole("button", { name: /Exercise library/ }));
+    await user.click(addButton());
+    await user.type(screen.getByRole("searchbox"), "db bench");
+    await user.click(screen.getByRole("button", { name: /^Bench press \(dumbbell\)/ }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Exercise library" })).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Bench press \(dumbbell\)/ }));
+    await user.click(screen.getByRole("button", { name: "Archive exercise" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Exercise library" })).toBeInTheDocument());
+    expect(stored(kv).exercises[0]!.archived).toBe(true);
+  });
+});
+

@@ -8,6 +8,7 @@ import { NumberField } from "../../ui/NumberField";
 import { Segmented } from "../../ui/Segmented";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
 import { EquipmentSelect, MuscleFields } from "./fields";
+import { LIBRARY_VIEW_ID } from "./ids";
 import styles from "./Exercises.module.css";
 
 type Errors = Partial<Record<"name" | "equipment" | "primary" | "class", string>>;
@@ -36,7 +37,7 @@ export function CreateExerciseView() {
     if (Object.keys(next).length || !equipment || !cls) return;
     const r = await addCustom({ name, equipment, primary, secondary, class: cls, step });
     if ("id" in r) {
-      nav.popToRoot();
+      nav.popTo(LIBRARY_VIEW_ID);
       showToast({ text: `Added ${name.trim()}` });
     }
   }

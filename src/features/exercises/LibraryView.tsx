@@ -12,6 +12,7 @@ import { ListGroup, ListRow } from "../../ui/ListRow";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
 import { addExerciseView } from "./AddExerciseView";
 import { exerciseDetailView } from "./ExerciseDetailView";
+import { LIBRARY_VIEW_ID } from "./ids";
 import styles from "./Exercises.module.css";
 
 const subtitle = (e: Exercise) => `${capitalize(equipmentLabel(e.equipment))} · ${e.primary.map((m) => MUSCLE_LABEL[m]).join(", ")}`;
@@ -78,4 +79,4 @@ function ArchivedView() {
 
 const archivedView = (): SheetView => ({ id: "archived", title: "Archived", render: () => <ArchivedView /> });
 
-export const libraryView = (): SheetView => ({ id: "library", title: "Exercise library", headerAction: <AddAction />, render: () => <LibraryView /> });
+export const libraryView = (): SheetView => ({ id: LIBRARY_VIEW_ID, title: "Exercise library", headerAction: <AddAction />, render: () => <LibraryView /> });

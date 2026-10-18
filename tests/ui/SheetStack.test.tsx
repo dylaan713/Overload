@@ -92,3 +92,21 @@ describe("reduced motion (wave 2 review)", () => {
   });
 });
 
+describe("popTo", () => {
+  it("pops back to a named view, keeping the views below it", async () => {
+    const back: SheetView = {
+      id: "v3",
+      title: "View 3",
+      render: (nav) => <button type="button" onClick={() => nav.popTo("v2")}>Back to 2</button>,
+    };
+    const two: SheetView = { id: "v2", title: "View 2", render: (nav) => <button type="button" onClick={() => nav.push(back)}>Open 3</button> };
+    const r: SheetView = { id: "root", title: "Settings", render: (nav) => <button type="button" onClick={() => nav.push(two)}>Open 2</button> };
+    render(<SheetStack root={r} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Open 2" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open 3" }));
+    await userEvent.click(screen.getByRole("button", { name: "Back to 2" }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "View 2" })).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument(); // Back still leads to the root
+  });
+});
+

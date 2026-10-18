@@ -28,3 +28,6 @@ dist-ssr
 
 # SDD execution workspace
 .superpowers/
+
+# Playwright MCP session output (snapshots, console logs, screenshots)
+.playwright-mcp/

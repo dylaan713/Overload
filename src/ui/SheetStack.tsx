@@ -10,6 +10,8 @@ export interface SheetNav {
   push(view: SheetView): void;
   pop(): void;
   popToRoot(): void;
+  /** Pop back to the view with this id (no-op if it isn't in the stack or is already on top). */
+  popTo(id: string): void;
   depth: number;
 }
 
@@ -106,10 +108,14 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
       popToRoot() {
         if (views.length > 1) leave(1);
       },
+      popTo(id) {
+        const i = views.findIndex((v) => v.id === id);
+        if (i !== -1 && i < views.length - 1) leave(i + 1);
+      },
     };
-    // `leave` reads the latest views via the setter; depth is what changes.
+    // `leave` reads the latest views via the setter; popTo needs the current ids.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [views.length, reduced]);
+  }, [views, reduced]);
 
   const swipe = useAxisDrag({
     axis: "x",

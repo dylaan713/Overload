@@ -5,6 +5,7 @@ import { Button } from "../../ui/Button";
 import { ListGroup, ListRow } from "../../ui/ListRow";
 import { Pill } from "../../ui/Pill";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
+import { LIBRARY_VIEW_ID } from "./ids";
 import styles from "./Exercises.module.css";
 
 /** One library entry: tap to add; already added shows "Added"; archived offers Restore. */
@@ -17,7 +18,7 @@ export function EntryRow({ entry }: { entry: LibraryExercise }) {
   const nav = useSheetNav();
   async function add(verb: "Added" | "Restored") {
     if (await addFromLibrary(entry)) {
-      nav.popToRoot();
+      nav.popTo(LIBRARY_VIEW_ID);
       showToast({ text: `${verb} ${entry.name}` });
     }
   }

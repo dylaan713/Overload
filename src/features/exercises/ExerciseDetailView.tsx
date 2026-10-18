@@ -13,6 +13,7 @@ import { NumberField } from "../../ui/NumberField";
 import { Segmented } from "../../ui/Segmented";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
 import { EquipmentSelect, MuscleFields } from "./fields";
+import { LIBRARY_VIEW_ID } from "./ids";
 import styles from "./Exercises.module.css";
 
 export function ExerciseDetailView({ id }: { id: string }) {
@@ -46,14 +47,14 @@ export function ExerciseDetailView({ id }: { id: string }) {
   async function archive() {
     const label = ex!.name;
     if (!(await setArchived(id, true))) return; // the shell shows the save error
-    nav.popToRoot();
+    nav.popTo(LIBRARY_VIEW_ID);
     showToast({ text: `Archived ${label}`, action: { label: "Undo", onAction: () => void setArchived(id, false) } });
   }
 
   async function remove() {
     const label = ex!.name;
     if (!(await deleteExercise(id))) return;
-    nav.popToRoot();
+    nav.popTo(LIBRARY_VIEW_ID);
     showToast({ text: `Deleted ${label}` });
   }
 

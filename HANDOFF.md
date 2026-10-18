@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-18 (wave 3 review, fixes A): fresh review found 0 Critical / 4 Important / 12 Minor; Wave A fixed I1 (style-rule pair draft), I2 (custom loadKind follows equipment), I3 (library search focused on open) with tests, 330 green; ledger updated.
+Next: Wave B = I4 (toast/alert inside the aria-modal sheet for VoiceOver) + blur on swipe-back, crash-screen data download, confirm unit switch that resets steps; then screenshots + production preview, then Dylan on the phone.
+
 State Update 2026-10-18 (Plan A wave 3): Tasks 7–9 done (shell, Settings, Exercise library); Task 10 browser walk passed and found 3 bugs, all fixed with tests. 325 tests green. Try it: `npm run dev`, open /next.html.
 Next: wave 3 fresh review (diff c874878..HEAD), then light/reduced-motion screenshots + production-preview check, then Dylan tries it on the phone; then Plan B.
 

@@ -83,9 +83,16 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
     }
   }, [views, reduced, x, fade]);
 
+  // Commit whatever is being typed before a view unmounts (React fires no onBlur for an unmounted field).
+  function commitTyping() {
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && box.current?.contains(el)) el.blur();
+  }
+
   const nav = useMemo<SheetNav>(() => {
     // Animate the top view out to the right, then drop views down to `keep`.
     function leave(keep: number, velocity = 0) {
+      commitTyping();
       const token = (pending.current = ++tokens.current);
       anim.current?.stop();
       anim.current = reduced
@@ -130,6 +137,7 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
     map: (raw) => Math.max(0, raw),
     onRelease(raw, velocity) {
       if (commitOnRelease(raw, velocity, width())) {
+        commitTyping();
         const token = (pending.current = ++tokens.current);
         // Reduced motion: the view tracked the finger; it fades out from there instead of being thrown.
         anim.current = reduced

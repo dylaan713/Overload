@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MotionConfig } from "motion/react";
+import { NumberField } from "../../src/ui/NumberField";
 import { SheetStack, type SheetView } from "../../src/ui/SheetStack";
 
 const leaf = (n: number): SheetView => ({
@@ -76,6 +77,24 @@ describe("SheetStack initial focus (wave 3 review)", () => {
     render(<SheetStack root={start} onClose={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Open find" }));
     expect(screen.getByRole("textbox", { name: "Find" })).toHaveFocus();
+  });
+});
+
+describe("leaving a view commits what's being typed (wave 3 review)", () => {
+  it("Back blurs the focused field before the view goes, so its edit is saved", async () => {
+    const onChange = vi.fn();
+    const form: SheetView = { id: "form", title: "Form", render: () => <NumberField label="Rest" value={90} onChange={onChange} /> };
+    const start: SheetView = { id: "root", title: "Settings", render: (nav) => <button type="button" onClick={() => nav.push(form)}>Open form</button> };
+    render(<SheetStack root={start} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Open form" }));
+    const field = screen.getByLabelText("Rest");
+    await userEvent.clear(field);
+    await userEvent.type(field, "120");
+    expect(field).toHaveFocus();
+    // A touch on Back doesn't move focus on iOS; fireEvent keeps focus in the field the same way.
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => expect(screen.queryByLabelText("Rest")).toBeNull());
+    expect(onChange).toHaveBeenCalledWith(120);
   });
 });
 

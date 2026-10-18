@@ -41,9 +41,9 @@ describe("log screen", () => {
     await open(device(d, { draft: draftFor("row") }));
     const t = coachFor(d, "row", TODAY, false).targets;
     expect(screen.getByRole("heading", { name: "Seated cable row" })).toBeInTheDocument();
-    expect(target()).toHaveTextContent(`${t.weight} × ${t.sets[0]!.reps}`);
+    expect(target()).toHaveTextContent(`${t.weight} lb × ${t.sets[0]!.reps}`);
     expect(target()).toHaveTextContent("Moderate–All out");
-    expect(lastTime()).toHaveTextContent("130 × 10");
+    expect(lastTime()).toHaveTextContent("130 lb × 10");
     expect(lastTime()).toHaveTextContent("10 · 10 · 9");
     expect(screen.getByText(t.reason)).toBeInTheDocument();
     expect(screen.getByText(/^Set 1 of 3/)).toBeInTheDocument();
@@ -88,11 +88,11 @@ describe("log screen", () => {
     const kv = Object.assign(failing(inner), { dump: inner.dump }) as unknown as MemoryKV;
     const { user, app } = await open(kv);
     await user.click(screen.getByRole("button", { name: "Warm-up" }));
-    await user.type(screen.getByLabelText("lb"), "145");
+    await user.type(screen.getByLabelText("Weight, lb"), "145");
     await user.click(screen.getByRole("radio", { name: "Hard" }));
     await user.click(screen.getByRole("button", { name: "Log set" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Couldn't save/));
-    expect(screen.getByLabelText("lb")).toHaveValue("145");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("145");
     expect(screen.getByRole("radio", { name: "Hard" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByText(/^Set 1 of 3/)).toBeInTheDocument();
     expect(app.getState().doc.sessions.some((s) => s.date === TODAY)).toBe(false);
@@ -105,7 +105,7 @@ describe("log screen", () => {
     const late = await open(device(d, ui), Date.parse("2026-10-18T00:40:00"));
     expect(screen.getByRole("button", { name: "Seated cable row" })).toBeInTheDocument();
     expect(screen.getByText(/^Set 2 of 3/)).toBeInTheDocument();
-    expect(screen.getByLabelText("lb")).toHaveValue("135");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("135");
     late.unmount();
     await open(device(d, ui), Date.parse("2026-10-18T02:31:00"));
     expect(screen.getByText("Start with any exercise")).toBeInTheDocument();
@@ -138,20 +138,20 @@ describe("log screen", () => {
   it("tapping the current chip or re-picking the current exercise keeps what's typed (wave 2 review)", async () => {
     const d = doc({ exercises: [row, curl], sessions: [day(TODAY, [["curl", sets(30, [10])], ["row", sets(130, [10])]])] });
     const { user } = await open(device(d, { draft: { ...draftFor("row"), warmup: false } }));
-    await user.type(screen.getByLabelText("lb"), "145");
+    await user.type(screen.getByLabelText("Weight, lb"), "145");
     await user.click(screen.getByRole("radio", { name: "Hard" }));
     await user.click(screen.getByRole("button", { name: "Seated cable row" }));
-    expect(screen.getByLabelText("lb")).toHaveValue("145");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("145");
     await user.click(screen.getByRole("button", { name: "＋ Next exercise" }));
     await user.click(within(await screen.findByRole("dialog", { name: "Next exercise" })).getByRole("button", { name: /^Seated cable row/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByLabelText("lb")).toHaveValue("145");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("145");
     expect(screen.getByRole("radio", { name: "Hard" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("a double tap on Log set logs one set (wave 2 review)", async () => {
     const { user, kv } = await open(device(history(), { draft: draftFor("row") }));
-    await user.type(screen.getByLabelText("lb"), "60");
+    await user.type(screen.getByLabelText("Weight, lb"), "60");
     await user.type(screen.getByLabelText("Reps"), "8");
     await user.dblClick(screen.getByRole("button", { name: "Log set" }));
     await waitFor(() => expect(stored(kv).sessions.at(-1)!.date).toBe(TODAY));
@@ -162,10 +162,10 @@ describe("log screen", () => {
   it("a half-typed weight comes back after a reload (review focus 1)", async () => {
     const kv = device(history(), { draft: draftFor("row") });
     const first = await open(kv);
-    await first.user.type(screen.getByLabelText("lb"), "14");
+    await first.user.type(screen.getByLabelText("Weight, lb"), "14");
     await first.uiStore.getState().flush();
     first.unmount();
     await open(kv);
-    expect(screen.getByLabelText("lb")).toHaveValue("14");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("14");
   });
 });

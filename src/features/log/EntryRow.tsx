@@ -32,6 +32,7 @@ export function EntryRow({ day, exerciseId, unit, prefill, mode, onSubmit, onCan
   const draft = stored?.day === day && stored.exerciseId === exerciseId ? stored : null;
   const setDraft = useUi((s) => s.setDraft);
   const weightId = useId();
+  const whyId = useId();
   const repsId = useId();
   const weightRef = useRef<HTMLInputElement>(null);
   const repsRef = useRef<HTMLInputElement>(null);
@@ -74,6 +75,7 @@ export function EntryRow({ day, exerciseId, unit, prefill, mode, onSubmit, onCan
             ref={weightRef}
             id={weightId}
             data-entry-focus
+            aria-label={`Weight, ${unit}`}
             className={styles.number}
             inputMode="decimal"
             autoComplete="off"
@@ -116,7 +118,10 @@ export function EntryRow({ day, exerciseId, unit, prefill, mode, onSubmit, onCan
         onChange={(d) => update({ difficulty: d, warmup: false })}
       />
       {mode === "new" ? (
-        <Button type="submit" variant="primary" block disabled={!ready}>Log set</Button>
+        <>
+          <Button type="submit" variant="primary" block disabled={!ready} aria-describedby={ready ? undefined : whyId}>Log set</Button>
+          {!ready && <p id={whyId} className={styles.why}>Pick a difficulty to log</p>}
+        </>
       ) : (
         <div className={styles.actions}>
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>

@@ -35,7 +35,9 @@ describe("next-exercise picker", () => {
     const short = weeklyVolume(d, TODAY).filter((r) => r.status === "under").sort((a, b) => b.low - b.sets - (a.low - a.sets));
     expect(short.length).toBeGreaterThan(1);
     const items = within(screen.getByRole("region", { name: "Still short this week" })).getAllByRole("listitem");
-    expect(items.map((li) => li.textContent)).toEqual(short.map((r) => `${r.label}${Math.round(r.sets * 10) / 10}/${r.low}`));
+    // Read aloud as "4 of 10 sets", not a fraction.
+    expect(items.map((li) => li.textContent)).toEqual(short.map((r) => `${r.label}${Math.round(r.sets * 10) / 10}/${r.low}${Math.round(r.sets * 10) / 10} of ${r.low} sets`));
+    expect(within(items[0]!).getByText(/\d\/\d/)).toHaveAttribute("aria-hidden", "true");
   });
 
   it("says so when every trained muscle is on track", async () => {
@@ -64,7 +66,7 @@ describe("next-exercise picker", () => {
     const { user } = await openPicker(doc({ exercises: [row, curl], sessions: [day(TODAY, [["row", sets(130, [10])]])] }));
     await user.click(screen.getByRole("button", { name: /^Curl/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(screen.getByLabelText("lb")).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText("Weight, lb")).toHaveFocus());
   });
 
   it("closing the picker without a pick puts focus back on Next exercise", async () => {

@@ -18,7 +18,7 @@ async function open(opts: { warmup?: boolean; placeholder?: { weight: number | n
 describe("entry row", () => {
   it("logs a working set with its difficulty word stored as rir", async () => {
     const { user, onSubmit } = await open();
-    await user.type(screen.getByLabelText("lb"), "145");
+    await user.type(screen.getByLabelText("Weight, lb"), "145");
     await user.type(screen.getByLabelText("Reps"), "8");
     await user.click(screen.getByRole("radio", { name: "Hard" }));
     await user.click(screen.getByRole("button", { name: "Log set" }));
@@ -33,9 +33,19 @@ describe("entry row", () => {
     expect(screen.getByRole("button", { name: "Log set" })).toBeEnabled();
   });
 
+  it("the weight field is named with its unit; a disabled Log set says why", async () => {
+    const { user } = await open({ placeholder: { weight: 140, reps: 10 } });
+    expect(screen.getByRole("textbox", { name: "Weight, lb" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log set" })).toHaveAccessibleDescription("Pick a difficulty to log");
+    expect(screen.getByText("Pick a difficulty to log")).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    expect(screen.queryByText("Pick a difficulty to log")).toBeNull();
+    expect(screen.getByRole("button", { name: "Log set" })).not.toHaveAccessibleDescription();
+  });
+
   it("an untouched field shows the target as real text and logs it", async () => {
     const { user, onSubmit } = await open({ placeholder: { weight: 140, reps: 10 } });
-    expect(screen.getByLabelText("lb")).toHaveValue("140");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("140");
     expect(screen.getByLabelText("Reps")).toHaveValue("10");
     await user.click(screen.getByRole("radio", { name: "Easy" }));
     await user.click(screen.getByRole("button", { name: "Log set" }));
@@ -44,9 +54,9 @@ describe("entry row", () => {
 
   it("typing into a prefilled field replaces the target instead of adding to it", async () => {
     const { user, onSubmit } = await open({ placeholder: { weight: 140, reps: 10 } });
-    await user.click(screen.getByLabelText("lb"));
+    await user.click(screen.getByLabelText("Weight, lb"));
     await user.keyboard("135");
-    expect(screen.getByLabelText("lb")).toHaveValue("135");
+    expect(screen.getByLabelText("Weight, lb")).toHaveValue("135");
     await user.click(screen.getByRole("radio", { name: "Hard" }));
     await user.click(screen.getByRole("button", { name: "Log set" }));
     expect(onSubmit).toHaveBeenCalledWith({ weight: 135, reps: 10, warmup: false, rir: 1 });
@@ -94,13 +104,13 @@ describe("entry row", () => {
     await user.click(screen.getByRole("button", { name: "Log set" }));
     expect(screen.getByText("Enter a number 0 or higher")).toBeInTheDocument();
     expect(screen.getByText("Enter a whole number 1 or higher")).toBeInTheDocument();
-    expect(screen.getByLabelText("lb")).toHaveFocus();
+    expect(screen.getByLabelText("Weight, lb")).toHaveFocus();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("every keystroke lands in the draft at once", async () => {
     const { user, uiStore } = await open();
-    await user.type(screen.getByLabelText("lb"), "14");
+    await user.type(screen.getByLabelText("Weight, lb"), "14");
     expect(uiStore.getState().log.draft?.weight).toBe("14");
     await user.click(screen.getByRole("radio", { name: "All out" }));
     expect(uiStore.getState().log.draft?.difficulty).toBe("all-out");

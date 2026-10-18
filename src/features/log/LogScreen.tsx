@@ -113,6 +113,7 @@ export function LogScreen() {
   }
 
   const { targets, last } = coach;
+  const unit = doc.settings.unit;
   const working = block?.sets.filter((s) => !s.warmup).length ?? 0;
   const m = setCount(targets);
   const next = targets.sets[Math.min(working, Math.max(0, targets.sets.length - 1))];
@@ -221,7 +222,7 @@ export function LogScreen() {
             <span className={styles.boxNote}>{`First time: pick a weight you could do for ${targets.sets[0]?.reps ?? 0} reps`}</span>
           ) : (
             <>
-              <b className={styles.boxValue}>{targets.ladder?.length ? `Work up: ${targets.ladder.join(" · ")}` : `${targets.weight ?? "—"} × ${next?.reps ?? "—"}`}</b>
+              <b className={styles.boxValue}>{targets.ladder?.length ? `Work up: ${targets.ladder.join(" · ")} ${unit}` : `${targets.weight == null ? "—" : `${targets.weight} ${unit}`} × ${next?.reps ?? "—"}`}</b>
               {next && <span className={styles.boxNote}>{aimLabel(next.rirLow, next.rirHigh)}</span>}
             </>
           )}
@@ -230,7 +231,7 @@ export function LogScreen() {
           <span className={styles.boxLabel}>Last time</span>
           {last ? (
             <>
-              <b className={styles.boxValue}>{`${last.W} × ${last.best}`}</b>
+              <b className={styles.boxValue}>{`${last.W} ${unit} × ${last.best}`}</b>
               <span className={styles.boxNote}>{last.sets.map((s) => s.reps).join(" · ")}</span>
             </>
           ) : (
@@ -248,7 +249,7 @@ export function LogScreen() {
         key={`${currentId}:${editing ? editing.index : "new"}`}
         day={day}
         exerciseId={currentId!}
-        unit={doc.settings.unit}
+        unit={unit}
         prefill={editedSet ? { weight: editedSet.weight, reps: editedSet.reps } : prefill(targets, block, warmup)}
         mode={editing ? "edit" : "new"}
         onSubmit={(set) => void submit(set)}

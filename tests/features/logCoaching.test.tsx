@@ -41,7 +41,7 @@ describe("test day", () => {
     const { user, kv } = await open(device(benchHistory(), "bench"));
     await user.click(screen.getByRole("button", { name: "More options" }));
     await user.click(screen.getByRole("switch", { name: "Test day" }));
-    expect(screen.getByRole("region", { name: "Target" })).toHaveTextContent(/Work up: [\d.]+ · [\d.]+ · [\d.]+/);
+    expect(screen.getByRole("region", { name: "Target" })).toHaveTextContent(/Work up: [\d.]+ · [\d.]+ · [\d.]+ lb/);
     await user.click(screen.getByRole("button", { name: "Warm-up" }));
     await user.click(screen.getByRole("radio", { name: "Hard" }));
     await user.click(screen.getByRole("button", { name: "Log set" }));

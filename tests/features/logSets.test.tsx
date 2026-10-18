@@ -37,8 +37,8 @@ describe("fixing a set", () => {
     d.settings.unit = "kg";
     const { user, kv } = await open(d);
     await user.click(screen.getByRole("button", { name: /59 × 10/ }));
-    await user.clear(screen.getByLabelText("kg"));
-    await user.type(screen.getByLabelText("kg"), "60");
+    await user.clear(screen.getByLabelText("Weight, kg"));
+    await user.type(screen.getByLabelText("Weight, kg"), "60");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(stored(kv).sessions[0]!.blocks[0]!.sets[0]).toEqual({ weight: 60, reps: 10, warmup: false, rir: 2 }));
   });
@@ -216,6 +216,6 @@ describe("focus after fixing or removing a set", () => {
     await user.click(screen.getByRole("button", { name: /130 × 10/ }));
     await user.click(screen.getByRole("button", { name: "Delete set" }));
     await waitFor(() => expect(screen.queryByRole("list", { name: "Sets today" })).toBeNull());
-    await waitFor(() => expect(screen.getByLabelText("lb")).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText("Weight, lb")).toHaveFocus());
   });
 });

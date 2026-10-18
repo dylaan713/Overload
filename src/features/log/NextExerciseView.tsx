@@ -51,7 +51,8 @@ export function NextExerciseView({ onPick }: { onPick: (exerciseId: string) => v
                   <span className={styles.bar} aria-hidden="true">
                     <span style={{ width: `${Math.min(100, (r.sets / r.low) * 100)}%` }} />
                   </span>
-                  <span className={styles.volumeCount}>{`${fmt(r.sets)}/${r.low}`}</span>
+                  <span className={styles.volumeCount} aria-hidden="true">{`${fmt(r.sets)}/${r.low}`}</span>
+                  <span className={styles.srOnly}>{`${fmt(r.sets)} of ${r.low} sets`}</span>
                 </li>
               ))}
             </ul>

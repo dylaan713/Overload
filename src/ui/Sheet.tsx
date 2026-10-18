@@ -1,6 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import { useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotionConfig, useTransform, type AnimationPlaybackControlsWithThen } from "motion/react";
 import { Button } from "./Button";
 import { FLICK, commitOnRelease, rubberband } from "./gesture";
 import { FADE, SPRING } from "./motion";
@@ -26,12 +26,13 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  */
 export function Sheet({ title, onClose, onBack, backLabel, headerAction, children }: SheetProps) {
   const titleId = useId();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionConfig() ?? false;
   const ref = useRef<HTMLDivElement>(null);
   const y = useMotionValue(0);
   const fade = useMotionValue(1);
   const anim = useRef<AnimationPlaybackControlsWithThen | null>(null);
   const closing = useRef(0); // token of the close in flight; 0 = none
+  const dragging = useRef(false);
   const tokens = useRef(0);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -63,7 +64,8 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
   }, []);
 
   function close(velocity = 0) {
-    if (closing.current) return;
+    // While a finger holds the sheet, the finger decides: release past the threshold closes it.
+    if (closing.current || dragging.current) return;
     const token = (closing.current = ++tokens.current);
     // Commit whatever is being typed before the content unmounts.
     if (document.activeElement instanceof HTMLElement && ref.current?.contains(document.activeElement)) document.activeElement.blur();
@@ -71,6 +73,7 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
     anim.current = reduced
       ? animate(fade, 0, FADE)
       : animate(y, height(), { ...(Math.abs(velocity) > FLICK ? SPRING.momentum : SPRING.default), velocity });
+    // Reduced motion fades from wherever the finger left it; the page behind follows the fade.
     anim.current.then(() => {
       if (closing.current === token) onCloseRef.current();
     });
@@ -81,14 +84,16 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
     value: y,
     onStart() {
       // Grabbing a closing sheet cancels the close: it follows the finger from where it is.
+      dragging.current = true;
       anim.current?.stop();
       closing.current = 0;
       fade.set(1);
     },
     map: (raw) => (raw < 0 ? rubberband(raw, height()) : raw),
     onRelease(raw, velocity) {
+      dragging.current = false;
       if (commitOnRelease(raw, velocity, height())) close(velocity);
-      else anim.current = animate(y, 0, { ...(Math.abs(velocity) > FLICK ? SPRING.momentum : SPRING.default), velocity });
+      else anim.current = animate(y, 0, reduced ? FADE : { ...(Math.abs(velocity) > FLICK ? SPRING.momentum : SPRING.default), velocity });
     },
   });
 
@@ -109,7 +114,7 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
         aria-labelledby={titleId}
         tabIndex={-1}
         className={styles.sheet}
-        style={{ y: reduced ? 0 : y, opacity: reduced ? fade : 1 }}
+        style={{ y, opacity: reduced ? fade : 1 }}
         onKeyDown={onKeyDown}
       >
         <div className={styles.handle} data-testid="sheet-handle" {...drag}>

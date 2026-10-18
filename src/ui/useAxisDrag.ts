@@ -26,10 +26,17 @@ export function useAxisDrag(opts: {
   o.current = opts;
   const s = useRef<{ id: number; start: number; base: number; raw: number; active: boolean; samples: Sample[] } | null>(null);
   const coord = (e: ReactPointerEvent) => (o.current.axis === "x" ? e.clientX : e.clientY);
+  const cancel = (id: number) => {
+    const d = s.current;
+    if (!d || d.id !== id) return;
+    s.current = null;
+    if (d.active) o.current.onRelease(d.raw, 0);
+  };
 
   return {
     onPointerDown(e: ReactPointerEvent<HTMLElement>) {
-      if (e.button > 0 || (o.current.canStart && !o.current.canStart(e))) return;
+      // One finger owns a drag; a second touch is ignored rather than hijacking it.
+      if (s.current || e.button > 0 || (o.current.canStart && !o.current.canStart(e))) return;
       s.current = { id: e.pointerId, start: coord(e), base: 0, raw: 0, active: false, samples: [] };
     },
     onPointerMove(e: ReactPointerEvent<HTMLElement>) {
@@ -49,15 +56,17 @@ export function useAxisDrag(opts: {
     },
     onPointerUp(e: ReactPointerEvent<HTMLElement>) {
       const d = s.current;
+      if (!d || d.id !== e.pointerId) return; // another finger lifting doesn't end this drag
       s.current = null;
-      if (!d || d.id !== e.pointerId || !d.active) return;
+      if (!d.active) return;
       d.samples.push({ t: performance.now(), v: d.raw });
       o.current.onRelease(d.raw, velocityFrom(d.samples));
     },
     onPointerCancel(e: ReactPointerEvent<HTMLElement>) {
-      const d = s.current;
-      s.current = null;
-      if (d?.active && d.id === e.pointerId) o.current.onRelease(d.raw, 0);
+      cancel(e.pointerId);
+    },
+    onLostPointerCapture(e: ReactPointerEvent<HTMLElement>) {
+      cancel(e.pointerId);
     },
   };
 }

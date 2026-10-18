@@ -1,3 +1,4 @@
+import { isValidYmd } from "./dates";
 import type { ClassRules, Equipment, Exercise, Phase, Settings, StoreDoc, Style, StyleRules, Unit } from "./types";
 
 export const STYLE_DEFAULTS: Record<Style, StyleRules> = {
@@ -82,6 +83,7 @@ export function lighter(ex: Exercise, w: number, step: number, opts: { pct?: num
 
 const LB_TO_KG = 0.4536;
 const KG_TO_LB = 2.2046;
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
  * Converts every logged weight (rounded to 0.1), resets equipment steps and clears per-exercise overrides.
@@ -90,20 +92,22 @@ const KG_TO_LB = 2.2046;
 export function convertUnits(doc: StoreDoc, to: Unit): { doc: StoreDoc; changedSets: number } {
   if (doc.settings.unit === to) return { doc, changedSets: 0 };
   const factor = to === "kg" ? LB_TO_KG : KG_TO_LB;
+  const forward = to === "kg" ? KG_TO_LB : LB_TO_KG; // the switch that created an `orig` in unit `to`
   let changedSets = 0;
   const sessions = doc.sessions.map((s) => ({
     ...s,
     blocks: s.blocks.map((b) => ({
       ...b,
       sets: b.sets.map((set) => {
-        if (set.weight === 0) return set;
+        if (set.weight === 0 && !set.orig) return set;
         changedSets++;
-        // Back to the unit it was logged in: restore the exact logged weight instead of converting a rounded one.
-        if (set.orig?.unit === to) {
+        // Back to the unit it was logged in: restore the exact logged weight, but only if the shown weight is
+        // still that weight's conversion. An edit since the switch makes `orig` stale, and the edit wins.
+        if (set.orig?.unit === to && round1(set.orig.weight * forward) === set.weight) {
           const { orig, ...rest } = set;
           return { ...rest, weight: orig.weight };
         }
-        return { ...set, weight: Math.round(set.weight * factor * 10) / 10, orig: set.orig ?? { weight: set.weight, unit: doc.settings.unit } };
+        return { ...set, weight: round1(set.weight * factor), orig: { weight: set.weight, unit: doc.settings.unit } };
       }),
     })),
   }));
@@ -132,11 +136,16 @@ export function startPhase(settings: Settings, style: Style, today: string): Set
     const phases = before?.style === style ? sorted.filter((p) => p.id !== current.id) : sorted.map((p) => (p.id === current.id ? { ...p, style } : p));
     return { ...settings, phases };
   }
-  return { ...settings, phases: [...sorted, { id: `phase-${today}`, style, startDate: today }] };
+  // Ids must stay unique even after a start date was moved onto (or off) today.
+  const taken = new Set(sorted.map((p) => p.id));
+  let id = `phase-${today}`;
+  for (let n = 2; taken.has(id); n++) id = `phase-${today}-${n}`;
+  return { ...settings, phases: [...sorted, { id, style, startDate: today }] };
 }
 
 /** Move a phase's start date, keeping phases in order and nothing in the future. */
 export function setPhaseStart(settings: Settings, phaseId: string, date: string, today: string): Settings | { error: string } {
+  if (!isValidYmd(date)) return { error: "Enter a valid date" };
   if (date > today) return { error: "Start date can't be in the future" };
   const sorted = [...settings.phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
   const i = sorted.findIndex((p) => p.id === phaseId);

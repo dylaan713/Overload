@@ -162,3 +162,52 @@ describe("settings and import", () => {
     expect(stored(kv).exercises.map((e) => e.id)).toEqual(["z"]);
   });
 });
+
+describe("wave 2 review: the store never loses data", () => {
+  it("an action before init finishes can't wipe stored data", async () => {
+    const kv = seedDoc(doc({ exercises: [ex("a"), ex("b")] }));
+    const app = createAppStore(kv, { today, newId });
+    const booting = app.getState().init();
+    expect(await app.getState().updateSettings((s) => ({ ...s, theme: "dark" }))).toBe(false);
+    await booting;
+    expect(app.getState().doc.exercises).toHaveLength(2);
+    expect(stored(kv).exercises).toHaveLength(2);
+  });
+
+  it("after a boot error nothing can overwrite the stored document", async () => {
+    const kv = createMemoryKV({ [V2_KEY]: "{corrupt" });
+    const app = await ready(kv);
+    expect(await app.getState().updateSettings((s) => s)).toBe(false);
+    expect(kv.dump()[V2_KEY]).toBe("{corrupt");
+  });
+
+  it("two overlapping failed writes leave nothing showing that wasn't saved", async () => {
+    const app = await ready(failing(seedDoc(doc({ exercises: [ex("a"), ex("b")] }))));
+    const [ra, rb] = await Promise.all([app.getState().setArchived("a", true), app.getState().setArchived("b", true)]);
+    expect([ra, rb]).toEqual([false, false]);
+    expect(app.getState().doc.exercises.map((e) => e.archived)).toEqual([false, false]);
+  });
+
+  it("when an earlier write fails and a later one succeeds, memory matches storage", async () => {
+    const inner = seedDoc(doc({ exercises: [ex("a"), ex("b")] }));
+    let calls = 0;
+    const flaky: KeyValueStore = {
+      get: inner.get,
+      // A v2 doc exists, so boot writes nothing: write 1 is "archive a" (fails, late), write 2 is "archive b".
+      async set(k, v) {
+        const n = ++calls;
+        if (n === 1) {
+          await new Promise((r) => setTimeout(r, 20));
+          throw new Error("disk busy");
+        }
+        return inner.set(k, v);
+      },
+    };
+    const app = await ready(flaky);
+    await Promise.all([app.getState().setArchived("a", true), app.getState().setArchived("b", true)]);
+    const memory = app.getState().doc.exercises.map((e) => e.archived);
+    expect(memory).toEqual(stored(inner).exercises.map((e) => e.archived));
+    expect(memory).toEqual([false, true]); // a failed, b saved on its own
+  });
+});
+

@@ -163,3 +163,40 @@ describe("phase editing", () => {
   });
 });
 
+describe("wave 2 review: phases and units", () => {
+  it("setPhaseStart rejects anything that isn't a real calendar date", () => {
+    const one = defaultSettings("2026-09-01");
+    for (const bad of ["", "1999-13-45", "0000-00-00", "2026-02-30", "17/10/2026"]) {
+      expect(setPhaseStart(one, "phase-2026-09-01", bad, "2026-10-17")).toEqual({ error: "Enter a valid date" });
+    }
+  });
+
+  it("phase ids stay unique after a start date is moved", () => {
+    let st = startPhase(defaultSettings("2026-09-01"), "strength", "2026-10-17");
+    st = setPhaseStart(st, "phase-2026-10-17", "2026-10-10", "2026-10-17") as typeof st;
+    st = startPhase(st, "hypertrophy", "2026-10-17");
+    const ids = st.phases.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("a stale orig never overwrites a real weight", () => {
+    const d = doc({ exercises: [ex("a")], sessions: [day("2026-09-02", [["a", sets(230, [5])]])] });
+    d.sessions[0]!.blocks[0]!.sets[0]!.orig = { weight: 225, unit: "lb" }; // left behind by an edit
+    const back = convertUnits(convertUnits(d, "kg").doc, "lb").doc;
+    expect(back.sessions[0]!.blocks[0]!.sets[0]!.weight).toBe(230);
+  });
+
+  it("an edit made after switching survives switching back", () => {
+    const d = doc({ exercises: [ex("a")], sessions: [day("2026-09-02", [["a", sets(225, [5])]])] });
+    const kg = convertUnits(d, "kg").doc;
+    kg.sessions[0]!.blocks[0]!.sets[0]!.weight = 110; // edited in kg, orig not cleared
+    expect(convertUnits(kg, "lb").doc.sessions[0]!.blocks[0]!.sets[0]!.weight).toBe(242.5);
+  });
+
+  it("tiny weights come back exactly", () => {
+    const d = doc({ exercises: [ex("a")], sessions: [day("2026-09-02", [["a", sets(0.1, [5])]])] });
+    const kg = convertUnits(d, "kg").doc;
+    expect(convertUnits(kg, "lb").doc.sessions[0]!.blocks[0]!.sets[0]!.weight).toBe(0.1);
+  });
+});
+

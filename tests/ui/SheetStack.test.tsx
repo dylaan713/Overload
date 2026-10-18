@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MotionConfig } from "motion/react";
 import { SheetStack, type SheetView } from "../../src/ui/SheetStack";
 
 const leaf = (n: number): SheetView => ({
@@ -56,3 +57,38 @@ describe("SheetStack", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("SheetStack focus (wave 2 review)", () => {
+  it("a push moves focus into the new view; Back returns it to the opener", async () => {
+    render(<SheetStack root={root} onClose={() => {}} />);
+    const opener = screen.getByRole("button", { name: "Open 2" });
+    await userEvent.click(opener);
+    expect(screen.getByText("Body 2").closest("section")).toContainElement(document.activeElement as HTMLElement);
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Open 2" })).toHaveFocus());
+  });
+});
+
+describe("reduced motion (wave 2 review)", () => {
+  it("drags still follow the finger", async () => {
+    render(
+      <MotionConfig reducedMotion="always">
+        <SheetStack root={root} onClose={() => {}} />
+      </MotionConfig>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Open 2" }));
+    const top = () => screen.getByText("Body 2").closest("section")!;
+    await waitFor(() => expect(top().style.transform).toMatch(/^(none|translateX\(0px\))?$/)); // settled
+    const stack = top().parentElement!;
+    fireEvent.pointerDown(stack, { pointerId: 1, clientX: 5, clientY: 300 });
+    fireEvent.pointerMove(stack, { pointerId: 1, clientX: 120, clientY: 300 });
+    // Motion renders style changes on the next frame.
+    await waitFor(() => expect(top().style.transform).toContain("translateX(115px)"));
+    fireEvent.pointerUp(stack, { pointerId: 1, clientX: 120, clientY: 300 });
+    const handle = screen.getByTestId("sheet-handle");
+    fireEvent.pointerDown(handle, { pointerId: 2, clientY: 100 });
+    fireEvent.pointerMove(handle, { pointerId: 2, clientY: 160 });
+    await waitFor(() => expect(screen.getByRole("dialog").style.transform).toContain("translateY(60px)"));
+  });
+});
+

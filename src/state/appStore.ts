@@ -39,7 +39,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
  * The document plus every action that changes it. Each action shows the change at once, then writes the
- * whole document; if the write fails, the previous document comes back and saveError explains why.
+ * whole document; if the write fails, the change disappears again and saveError explains why.
  */
 export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; newId?: () => string } = {}): AppStore {
   const today = opts.today ?? (() => todayYmd());
@@ -47,19 +47,41 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
   let booting: Promise<void> | null = null;
 
   return createStore<AppState>()((set, get) => {
-    async function commit(next: StoreDoc): Promise<boolean> {
-      const prev = get().doc;
-      set({ doc: next, saveError: null });
-      try {
-        await saveDoc(kv, next);
-        return true;
-      } catch (e) {
-        set({ doc: prev, saveError: `Couldn't save: ${message(e)}` });
-        return false;
+    // Every change is a function of the document. Writes run one at a time, each applied to the last
+    // *saved* document, so a failed write can never leak into a later one. What's shown is always
+    // "saved + changes still in flight", so memory and storage can't drift apart.
+    let saved: StoreDoc | null = null;
+    const inFlight: ((d: StoreDoc) => StoreDoc)[] = [];
+    let queue: Promise<unknown> = Promise.resolve();
+    const shown = () => inFlight.reduce((d, fn) => fn(d), saved!);
+
+    function commit(fn: (d: StoreDoc) => StoreDoc): Promise<boolean> {
+      if (get().status !== "ready" || !saved) {
+        // Before boot finishes, or after it failed, a write could replace data we never loaded.
+        set({ saveError: "Couldn't save: your data hasn't loaded" });
+        return Promise.resolve(false);
       }
+      inFlight.push(fn);
+      set({ doc: fn(get().doc), saveError: null });
+      const run = queue.then(async () => {
+        const next = fn(saved!);
+        try {
+          await saveDoc(kv, next);
+          saved = next;
+          return true;
+        } catch (e) {
+          set({ saveError: `Couldn't save: ${message(e)}` });
+          return false;
+        } finally {
+          inFlight.splice(inFlight.indexOf(fn), 1);
+          set({ doc: shown() });
+        }
+      });
+      queue = run;
+      return run;
     }
     const mapExercise = (id: string, fn: (e: Exercise) => Exercise) =>
-      commit({ ...get().doc, exercises: get().doc.exercises.map((e) => (e.id === id ? fn(e) : e)) });
+      commit((d) => ({ ...d, exercises: d.exercises.map((e) => (e.id === id ? fn(e) : e)) }));
 
     return {
       status: "loading",
@@ -75,6 +97,7 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
           try {
             const r = await bootStore(kv);
             const hasLegacy = await hasLegacyData(kv);
+            saved = r.doc;
             set({ status: "ready", bootKind: r.kind, doc: r.doc, warnings: r.warnings, hasLegacy });
           } catch (e) {
             set({ status: "error", error: message(e) });
@@ -83,19 +106,25 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
         return booting;
       },
 
-      updateSettings: (fn) => commit({ ...get().doc, settings: fn(get().doc.settings) }),
+      updateSettings: (fn) => commit((d) => ({ ...d, settings: fn(d.settings) })),
 
-      setUnit: (unit) => commit(convertUnits(get().doc, unit).doc),
+      setUnit: (unit) => commit((d) => convertUnits(d, unit).doc),
 
       async startPhase(style) {
-        const settings = startPhaseIn(get().doc.settings, style, today());
-        return settings === get().doc.settings ? true : commit({ ...get().doc, settings });
+        const day = today();
+        if (startPhaseIn(get().doc.settings, style, day) === get().doc.settings) return true;
+        return commit((d) => ({ ...d, settings: startPhaseIn(d.settings, style, day) }));
       },
 
       async setPhaseStart(phaseId, date) {
-        const r = setPhaseStartIn(get().doc.settings, phaseId, date, today());
+        const day = today();
+        const r = setPhaseStartIn(get().doc.settings, phaseId, date, day);
         if ("error" in r) return r.error;
-        return (await commit({ ...get().doc, settings: r })) ? null : get().saveError;
+        const apply = (d: StoreDoc) => {
+          const next = setPhaseStartIn(d.settings, phaseId, date, day);
+          return "error" in next ? d : { ...d, settings: next };
+        };
+        return (await commit(apply)) ? null : get().saveError;
       },
 
       async addFromLibrary(entry) {
@@ -103,19 +132,19 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
         if (state.status === "added") return state.exerciseId;
         if (state.status === "archived") return (await get().setArchived(state.exerciseId, false)) ? state.exerciseId : null;
         const ex = exerciseFromLibrary(entry, newId());
-        return (await commit({ ...get().doc, exercises: [...get().doc.exercises, ex] })) ? ex.id : null;
+        return (await commit((d) => (d.exercises.some((e) => e.libraryId === entry.id) ? d : { ...d, exercises: [...d.exercises, ex] }))) ? ex.id : null;
       },
 
       async addCustom(input) {
         const ex = customExercise(input, newId());
         if ("error" in ex) return ex;
-        return (await commit({ ...get().doc, exercises: [...get().doc.exercises, ex] })) ? { id: ex.id } : { error: get().saveError ?? "Couldn't save" };
+        return (await commit((d) => ({ ...d, exercises: [...d.exercises, ex] }))) ? { id: ex.id } : { error: get().saveError ?? "Couldn't save" };
       },
 
       updateExercise: (id, patch) => mapExercise(id, (e) => ({ ...e, ...patch })),
       setArchived: (id, archived) => mapExercise(id, (e) => ({ ...e, archived })),
-      deleteExercise: (id) => commit(deleteExerciseCascade(get().doc, id)),
-      replaceDoc: (doc) => commit(doc),
+      deleteExercise: (id) => commit((d) => deleteExerciseCascade(d, id)),
+      replaceDoc: (doc) => commit(() => doc),
       dismissSaveError: () => set({ saveError: null }),
     };
   });

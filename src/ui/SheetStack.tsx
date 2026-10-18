@@ -1,5 +1,5 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { animate, motion, useMotionValue, useReducedMotion, useTransform, type AnimationPlaybackControlsWithThen } from "motion/react";
+import { animate, motion, useMotionValue, useReducedMotionConfig, useTransform, type AnimationPlaybackControlsWithThen } from "motion/react";
 import { FLICK, commitOnRelease } from "./gesture";
 import { FADE, SPRING } from "./motion";
 import { Sheet } from "./Sheet";
@@ -38,7 +38,7 @@ const PARALLAX = 0.3; // the parent sits 30% to the left under a pushed view
  * stack, so a parent keeps its state (e.g. a search query) when you come back to it.
  */
 export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => void }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionConfig() ?? false;
   const [views, setViews] = useState<SheetView[]>([root]);
   const box = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
@@ -47,6 +47,8 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
   const pending = useRef(0); // token of a pop in flight
   const tokens = useRef(0);
   const lastLength = useRef(1);
+  const sections = useRef<(HTMLElement | null)[]>([]);
+  const openers = useRef<(HTMLElement | null)[]>([]); // openers[i] pushed view i + 1
 
   const width = () => box.current?.offsetWidth || window.innerWidth;
   const parentX = useTransform(() => -PARALLAX * (width() - x.get()));
@@ -56,11 +58,17 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
   useLayoutEffect(() => {
     const grew = views.length > lastLength.current;
     lastLength.current = views.length;
+    const top = views.length - 1;
     if (!grew) {
       x.set(0);
       fade.set(1);
+      // Back where we came from: focus returns to the control that opened the view we left.
+      const opener = openers.current[top];
+      if (opener?.isConnected) opener.focus();
+      else sections.current[top]?.focus();
       return;
     }
+    sections.current[top]?.focus(); // the new view takes focus; its parent is now inert
     anim.current?.stop();
     if (reduced) {
       fade.set(0);
@@ -89,6 +97,7 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
       depth: views.length,
       push(view) {
         pending.current = 0; // a push cancels a pop in flight
+        openers.current[views.length - 1] = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setViews((v) => [...v, view]);
       },
       pop() {
@@ -114,12 +123,15 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
     onRelease(raw, velocity) {
       if (commitOnRelease(raw, velocity, width())) {
         const token = (pending.current = ++tokens.current);
-        anim.current = animate(x, width(), { ...(Math.abs(velocity) > FLICK ? SPRING.momentum : SPRING.default), velocity });
+        // Reduced motion: the view tracked the finger; it fades out from there instead of being thrown.
+        anim.current = reduced
+          ? animate(fade, 0, FADE)
+          : animate(x, width(), { ...(Math.abs(velocity) > FLICK ? SPRING.momentum : SPRING.default), velocity });
         anim.current.then(() => {
           if (pending.current === token) setViews((v) => v.slice(0, -1));
         });
       } else {
-        anim.current = animate(x, 0, { ...SPRING.default, velocity });
+        anim.current = animate(x, 0, reduced ? FADE : { ...SPRING.default, velocity });
       }
     },
   });
@@ -142,11 +154,16 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
             return (
               <motion.section
                 key={v.id + ":" + i}
+                ref={(el: HTMLElement | null) => {
+                  sections.current[i] = el;
+                }}
+                tabIndex={-1}
+                aria-label={v.title}
                 className={styles.view}
                 hidden={!isTop && !isParent}
                 inert={!isTop}
                 aria-hidden={!isTop || undefined}
-                style={isTop ? { x: reduced ? 0 : x, opacity: reduced ? fade : 1 } : isParent ? { x: reduced ? 0 : parentX } : undefined}
+                style={isTop ? { x, opacity: reduced ? fade : 1 } : isParent ? { x: reduced ? 0 : parentX } : undefined}
               >
                 {v.render(nav)}
                 {isParent && !reduced && <motion.div className={styles.dim} style={{ opacity: dim }} />}

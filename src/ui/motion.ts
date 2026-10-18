@@ -10,7 +10,10 @@ export const SPRING = {
   momentum: { type: "spring", bounce: 0.2, duration: 0.3 },
 } as const;
 
-/** Honors the system's reduced-motion setting: transforms are skipped, opacity still animates. */
+/**
+ * Honors the system's reduced-motion setting: transforms are skipped, opacity still animates. Components
+ * read it with useReducedMotionConfig, so their imperative springs follow it too (and tests can force it).
+ */
 export function MotionRoot({ children }: { children: ReactNode }) {
   return createElement(MotionConfig, { reducedMotion: "user", transition: SPRING.default }, children);
 }

@@ -12,12 +12,12 @@ describe("ToastView", () => {
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
   });
 
-  it("the action runs, then the toast dismisses", async () => {
+  it("the toast dismisses, then the action runs", async () => {
     const calls: string[] = [];
     const onDismiss = vi.fn(() => calls.push("dismiss"));
     render(<ToastView toast={{ id: "1", text: "x", action: { label: "Undo", onAction: () => calls.push("undo") } }} onDismiss={onDismiss} />);
     await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-    expect(calls).toEqual(["undo", "dismiss"]);
+    expect(calls).toEqual(["dismiss", "undo"]); // dismiss first, so an action can show a follow-up toast
   });
 
   it("renders an empty status region when there's no toast", () => {

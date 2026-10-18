@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotionConfig } from "motion/react";
 import { commitOnRelease } from "./gesture";
 import { SPRING } from "./motion";
 import { useAxisDrag } from "./useAxisDrag";
@@ -13,7 +13,7 @@ export interface ToastData {
 
 /** Enters from the bottom and leaves the same way; a downward swipe dismisses it. */
 export function ToastView({ toast, onDismiss }: { toast: ToastData | null; onDismiss: () => void }) {
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useReducedMotionConfig() ?? false;
   return (
     <div role="status" aria-live="polite" className={styles.region}>
       <AnimatePresence initial={false}>
@@ -51,8 +51,9 @@ function ToastCard({ toast, onDismiss, reduced }: { toast: ToastData; onDismiss:
             type="button"
             className={styles.action}
             onClick={() => {
-              toast.action!.onAction();
+              // Dismiss first, so an action can show a follow-up toast without it being cleared.
               onDismiss();
+              toast.action!.onAction();
             }}
           >
             {toast.action.label}

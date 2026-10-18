@@ -4,7 +4,7 @@ import type { KeyValueStore } from "../data/kv";
 import { todayYmd } from "../domain/dates";
 import { createAppStore } from "../state/appStore";
 import { StoreProvider, useApp, useKv } from "../state/context";
-import { createUiStore } from "../state/uiStore";
+import { createUiStore, watchHidden } from "../state/uiStore";
 import { MotionRoot } from "../ui/motion";
 import { downloadText } from "./download";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -23,6 +23,7 @@ export function App({ kv }: { kv: KeyValueStore }) {
     void stores.ui.getState().hydrate();
     void stores.app.getState().init();
   }, [stores]);
+  useEffect(() => watchHidden(stores.ui), [stores]);
   return (
     <MotionRoot>
       <ErrorBoundary onDownloadRaw={() => void downloadRaw(kv)}>

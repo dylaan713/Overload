@@ -13,11 +13,11 @@ import { seedDoc, type MemoryKV } from "./seed";
 /** Renders UI over real stores on an in-memory KV (default: an empty v2 doc), booted unless init: false. */
 export async function renderWithStore(
   ui: ReactElement,
-  opts: { doc?: StoreDoc; legacy?: Record<string, string>; kv?: MemoryKV; init?: boolean; today?: string } = {},
+  opts: { doc?: StoreDoc; legacy?: Record<string, string>; kv?: MemoryKV; init?: boolean; today?: string; now?: () => number } = {},
 ) {
   const kv = opts.kv ?? (opts.legacy ? createMemoryKV(opts.legacy) : seedDoc(opts.doc ?? buildDoc({})));
   const app = createAppStore(kv, opts.today ? { today: () => opts.today! } : {});
-  const uiStore = createUiStore(kv);
+  const uiStore = createUiStore(kv, opts.now ? { now: opts.now } : {});
   if (opts.init !== false) {
     await uiStore.getState().hydrate();
     await app.getState().init();

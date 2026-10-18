@@ -13,6 +13,8 @@ export interface SheetProps {
   onBack?: () => void;
   backLabel?: string;
   headerAction?: ReactNode;
+  /** Filled with this sheet's close, so content can dismiss it along the same animated path as Done. */
+  closeRef?: { current: (() => void) | null };
   children: ReactNode;
 }
 
@@ -26,7 +28,7 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
  * The inert page is what makes it modal: no aria-modal, because VoiceOver would then hide toasts and
  * alerts rendered beside the sheet (Undo, Dismiss).
  */
-export function Sheet({ title, onClose, onBack, backLabel, headerAction, children }: SheetProps) {
+export function Sheet({ title, onClose, onBack, backLabel, headerAction, closeRef, children }: SheetProps) {
   const titleId = useId();
   const reduced = useReducedMotionConfig() ?? false;
   const ref = useRef<HTMLDivElement>(null);
@@ -80,6 +82,8 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, childre
       if (closing.current === token) onCloseRef.current();
     });
   }
+
+  if (closeRef) closeRef.current = () => close();
 
   const drag = useAxisDrag({
     axis: "y",

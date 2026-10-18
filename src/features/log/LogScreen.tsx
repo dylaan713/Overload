@@ -5,6 +5,7 @@ import type { Block, SetEntry } from "../../domain/types";
 import { useApp, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/EmptyState";
+import { freshDraft } from "./draft";
 import { EntryRow } from "./EntryRow";
 import { SetList } from "./SetList";
 import styles from "./Log.module.css";
@@ -80,10 +81,7 @@ export function LogScreen() {
   const warmupDefault = !hasWorking(block);
   const warmup = draft?.exerciseId === currentId ? draft.warmup : warmupDefault;
 
-  function pick(exerciseId: string) {
-    const b = blockFor(doc, day, exerciseId);
-    setDraft({ day, exerciseId, weight: "", reps: "", difficulty: null, editing: null, warmup: !hasWorking(b), test: b?.test ?? false });
-  }
+  const pick = (exerciseId: string) => setDraft(freshDraft(doc, day, exerciseId));
 
   async function submit(set: SetEntry) {
     if (!(await logSet({ day, exerciseId: currentId!, set, test }))) return; // a failed save keeps what was typed

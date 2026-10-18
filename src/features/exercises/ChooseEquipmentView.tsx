@@ -5,7 +5,7 @@ import { Button } from "../../ui/Button";
 import { ListGroup, ListRow } from "../../ui/ListRow";
 import { Pill } from "../../ui/Pill";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
-import { LIBRARY_VIEW_ID } from "./ids";
+import { useLibraryFlow } from "./flow";
 import styles from "./Exercises.module.css";
 
 /** One library entry: tap to add; already added shows "Added"; archived offers Restore. */
@@ -16,10 +16,13 @@ export function EntryRow({ entry }: { entry: LibraryExercise }) {
   const addFromLibrary = useApp((s) => s.addFromLibrary);
   const showToast = useUi((s) => s.showToast);
   const nav = useSheetNav();
+  const flow = useLibraryFlow();
   async function add(verb: "Added" | "Restored") {
-    if (await addFromLibrary(entry)) {
-      nav.popTo(LIBRARY_VIEW_ID);
+    const id = await addFromLibrary(entry);
+    if (id) {
+      nav.popTo(flow.returnTo);
       showToast({ text: `${verb} ${entry.name}` });
+      flow.onAdded?.(id);
     }
   }
   if (state.status === "added") return <ListRow label={entry.name} disabled trailing={<Pill tone="accent">Added</Pill>} />;

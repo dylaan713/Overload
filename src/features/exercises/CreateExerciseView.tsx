@@ -8,7 +8,7 @@ import { NumberField } from "../../ui/NumberField";
 import { Segmented } from "../../ui/Segmented";
 import { useSheetNav, type SheetView } from "../../ui/SheetStack";
 import { EquipmentSelect, MuscleFields } from "./fields";
-import { LIBRARY_VIEW_ID } from "./ids";
+import { useLibraryFlow } from "./flow";
 import styles from "./Exercises.module.css";
 
 type Errors = Partial<Record<"name" | "equipment" | "primary" | "class", string>>;
@@ -19,6 +19,7 @@ export function CreateExerciseView() {
   const addCustom = useApp((s) => s.addCustom);
   const showToast = useUi((s) => s.showToast);
   const nav = useSheetNav();
+  const flow = useLibraryFlow();
   const [name, setName] = useState("");
   const [equipment, setEquipment] = useState<Equipment | "">("");
   const [primary, setPrimary] = useState<Muscle[]>([]);
@@ -43,8 +44,9 @@ export function CreateExerciseView() {
     }
     const r = await addCustom({ name, equipment, primary, secondary, class: cls, step });
     if ("id" in r) {
-      nav.popTo(LIBRARY_VIEW_ID);
+      nav.popTo(flow.returnTo);
       showToast({ text: `Added ${name.trim()}` });
+      flow.onAdded?.(r.id);
     }
   }
 

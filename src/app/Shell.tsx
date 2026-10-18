@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { themePreference } from "../domain/theme";
 import { LogScreen } from "../features/log/LogScreen";
+import { NextExerciseSheet } from "../features/log/NextExerciseView";
 import { HistoryPlaceholder, ProgressPlaceholder } from "../features/placeholders";
 import { settingsView } from "../features/settings/SettingsRoot";
 import { useApp, useUi } from "../state/context";
@@ -89,6 +90,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
         <TabBar tab={tab} onChange={setTab} scrolled={underBottom} />
       </div>
       {sheet === "settings" && <SheetStack root={settingsRoot()} onClose={closeSheet} />}
+      {sheet === "next-exercise" && <NextExerciseSheet onClose={closeSheet} />}
       {saveError && (
         <div className={styles.alerts}>
           <Banner tone="error" role="alert">

@@ -12,6 +12,8 @@ export interface SheetNav {
   popToRoot(): void;
   /** Pop back to the view with this id (no-op if it isn't in the stack or is already on top). */
   popTo(id: string): void;
+  /** Closes the whole sheet, animated like Done. */
+  close(): void;
   depth: number;
 }
 
@@ -39,10 +41,17 @@ const PARALLAX = 0.3; // the parent sits 30% to the left under a pushed view
  * so an edge swipe moves them together and can be released either way. Views stay mounted while in the
  * stack, so a parent keeps its state (e.g. a search query) when you come back to it.
  */
-export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => void }) {
+export function SheetStack({ root, onClose, closeRef: outerClose }: {
+  root: SheetView;
+  onClose: () => void;
+  /** Filled with the sheet's animated close, for callers outside the stack. */
+  closeRef?: { current: (() => void) | null };
+}) {
   const reduced = useReducedMotionConfig() ?? false;
   const [views, setViews] = useState<SheetView[]>([root]);
   const box = useRef<HTMLDivElement>(null);
+  const ownClose = useRef<(() => void) | null>(null);
+  const closeRef = outerClose ?? ownClose;
   const x = useMotionValue(0);
   const fade = useMotionValue(1);
   const anim = useRef<AnimationPlaybackControlsWithThen | null>(null);
@@ -117,6 +126,9 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
       popToRoot() {
         if (views.length > 1) leave(1);
       },
+      close() {
+        closeRef.current?.();
+      },
       popTo(id) {
         const i = views.findIndex((v) => v.id === id);
         if (i !== -1 && i < views.length - 1) leave(i + 1);
@@ -163,6 +175,7 @@ export function SheetStack({ root, onClose }: { root: SheetView; onClose: () => 
         onBack={top > 0 ? nav.pop : undefined}
         backLabel={top > 0 ? views[top - 1]!.title : undefined}
         headerAction={current.headerAction}
+        closeRef={closeRef}
       >
         <div ref={box} className={styles.stack} {...swipe}>
           {views.map((v, i) => {

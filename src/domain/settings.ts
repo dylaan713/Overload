@@ -43,8 +43,9 @@ export function rulesFor(ex: Exercise, settings: Settings, date: string): ClassR
   return { ...rules[ex.class], volume: { ...rules.volume }, style };
 }
 
+// Assistance load uses the bodyweight step (spec step table), not the machine's stack step.
 export function loadStep(ex: Exercise, settings: Settings): number {
-  return ex.step ?? settings.equipmentSteps[ex.equipment];
+  return ex.step ?? settings.equipmentSteps[ex.loadKind === "assisted" ? "bodyweight" : ex.equipment];
 }
 
 // Grid helpers. The tolerance absorbs float noise (224.9999… is 225); the final round strips it from the result.

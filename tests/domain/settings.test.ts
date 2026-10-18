@@ -66,6 +66,7 @@ describe("load steps", () => {
   it("uses the override, else the equipment default", () => {
     expect(loadStep(ex("db", { equipment: "dumbbell" }), s)).toBe(5);
     expect(loadStep(ex("db", { equipment: "dumbbell", step: 2.5 }), s)).toBe(2.5);
+    expect(loadStep(ex("ap", { equipment: "machine", loadKind: "assisted" }), s)).toBe(5); // assistance moves in bodyweight steps (spec table)
   });
   it("floors and rounds to the grid with float tolerance", () => {
     expect(floorTo(224.99999999999, 5)).toBe(225);

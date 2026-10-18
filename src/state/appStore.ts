@@ -3,10 +3,14 @@ import { bootStore, hasLegacyData } from "../data/boot";
 import type { KeyValueStore } from "../data/kv";
 import { emptyDoc, saveDoc } from "../data/store";
 import { todayYmd } from "../domain/dates";
+import { decideFatigue as decideFatigueIn } from "../domain/engine/fatigue";
 import { deleteExerciseCascade, libraryState } from "../domain/exercises";
 import { customExercise, customLoadKind, exerciseFromLibrary, type LibraryExercise } from "../domain/library";
+import {
+  appendSet, removeSet as removeSetIn, replaceSet, restoreSet as restoreSetIn, setTestFlag, type RemovedSet, type SetRef,
+} from "../domain/log";
 import { convertUnits, setPhaseStart as setPhaseStartIn, startPhase as startPhaseIn } from "../domain/settings";
-import type { Exercise, Settings, StoreDoc, Style, Unit } from "../domain/types";
+import type { Exercise, SetEntry, Settings, StoreDoc, Style, Unit } from "../domain/types";
 
 export type ExercisePatch = Partial<Pick<Exercise, "name" | "primary" | "secondary" | "step" | "equipment" | "class">>;
 export type CustomInput = Parameters<typeof customExercise>[0];
@@ -32,6 +36,14 @@ export interface AppState {
   setArchived(id: string, archived: boolean): Promise<boolean>;
   deleteExercise(id: string): Promise<boolean>;
   replaceDoc(doc: StoreDoc): Promise<boolean>;
+  logSet(input: { day: string; exerciseId: string; set: SetEntry; test: boolean }): Promise<boolean>;
+  editSet(ref: SetRef, set: SetEntry): Promise<boolean>;
+  /** The removed set (for Undo), or null if there was nothing to remove or the save failed. */
+  removeSet(ref: SetRef): Promise<RemovedSet | null>;
+  restoreSet(removed: RemovedSet): Promise<boolean>;
+  /** The refusal message, or null. */
+  setBlockTest(day: string, exerciseId: string, test: boolean): Promise<string | null>;
+  decideFatigue(weekStart: string, status: "accepted" | "dismissed"): Promise<boolean>;
   dismissSaveError(): void;
 }
 
@@ -152,6 +164,26 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
       setArchived: (id, archived) => mapExercise(id, (e) => ({ ...e, archived })),
       deleteExercise: (id) => commit((d) => deleteExerciseCascade(d, id)),
       replaceDoc: (doc) => commit(() => doc),
+
+      logSet: (input) => commit((d) => appendSet(d, input, newId)),
+      editSet: (ref, set) => commit((d) => replaceSet(d, ref, set)),
+      async removeSet(ref) {
+        const r = removeSetIn(get().doc, ref);
+        if (!r) return null;
+        return (await commit((d) => removeSetIn(d, ref)?.doc ?? d)) ? r.removed : null;
+      },
+      restoreSet: (removed) => commit((d) => restoreSetIn(d, removed)),
+      async setBlockTest(day, exerciseId, test) {
+        const r = setTestFlag(get().doc, day, exerciseId, test);
+        if ("error" in r) return r.error;
+        return (await commit((d) => {
+          const next = setTestFlag(d, day, exerciseId, test);
+          return "error" in next ? d : next;
+        }))
+          ? null
+          : (get().saveError ?? "Couldn't save");
+      },
+      decideFatigue: (weekStart, status) => commit((d) => decideFatigueIn(d, weekStart, status, today())),
       dismissSaveError: () => set({ saveError: null }),
     };
   });

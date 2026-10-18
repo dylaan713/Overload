@@ -65,6 +65,49 @@ describe("style rules", () => {
     await user.click(screen.getByRole("button", { name: "Settings" }));
     await waitFor(() => expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument());
   });
+
+  it("a refused pair value stays pending and is saved with its partner once the pair is valid", async () => {
+    const { user, kv } = await open({ doc: doc({ style: "hypertrophy" }) });
+    await user.click(screen.getByRole("button", { name: /Style rules/ }));
+    const compound = section("Compound");
+    const low = within(compound).getByLabelText("Reps low");
+    const high = within(compound).getByLabelText("Reps high");
+    await user.clear(low);
+    await user.type(low, "12");
+    await user.tab();
+    expect(within(compound).getByText("Low can't be above high")).toBeInTheDocument();
+    const rest = within(compound).getByLabelText("Rest (seconds)");
+    await user.clear(rest);
+    await user.type(rest, "150");
+    await user.tab();
+    await waitFor(() => expect(stored(kv).settings.styles.hypertrophy.compound.restSeconds).toBe(150));
+    expect(low).toHaveValue("12");
+    expect(stored(kv).settings.styles.hypertrophy.compound.repLow).toBe(6);
+    await user.clear(high);
+    await user.type(high, "14");
+    await user.tab();
+    await waitFor(() => expect(stored(kv).settings.styles.hypertrophy.compound).toMatchObject({ repLow: 12, repHigh: 14 }));
+    expect(low).toHaveValue("12");
+    expect(within(compound).queryByText("Low can't be above high")).not.toBeInTheDocument();
+  });
+
+  it("weekly volume keeps a refused value pending and saves the pair once valid", async () => {
+    const { user, kv } = await open({ doc: doc({ style: "hypertrophy" }) });
+    await user.click(screen.getByRole("button", { name: /Style rules/ }));
+    const volume = section("Weekly volume");
+    const before = stored(kv).settings.styles.hypertrophy.volume;
+    const low = within(volume).getByLabelText("Sets low");
+    await user.clear(low);
+    await user.type(low, String(before.high + 2));
+    await user.tab();
+    expect(within(volume).getByText("Low can't be above high")).toBeInTheDocument();
+    expect(stored(kv).settings.styles.hypertrophy.volume).toEqual(before);
+    const high = within(volume).getByLabelText("Sets high");
+    await user.clear(high);
+    await user.type(high, String(before.high + 4));
+    await user.tab();
+    await waitFor(() => expect(stored(kv).settings.styles.hypertrophy.volume).toEqual({ low: before.high + 2, high: before.high + 4 }));
+  });
 });
 
 describe("units", () => {

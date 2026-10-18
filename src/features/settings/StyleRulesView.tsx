@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { capitalize } from "../../app/format";
 import { phaseOf } from "../../domain/settings";
 import type { ClassRules, Style, StyleRules } from "../../domain/types";
@@ -32,19 +32,33 @@ export function StyleRulesView() {
   );
 }
 
-function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRules; onSave: (r: ClassRules) => void }) {
-  const [pairError, setPairError] = useState<string | null>(null);
-  function set(key: keyof ClassRules, v: number) {
-    const next = { ...rules, [key]: v };
-    if (PAIRS.some(([lo, hi]) => next[lo] > next[hi])) {
-      setPairError("Low can't be above high");
-      return;
-    }
-    setPairError(null);
-    onSave(next);
+const pairsValid = <T extends object>(r: T, pairs: [keyof T, keyof T][]) => !pairs.some(([lo, hi]) => r[lo] > r[hi]);
+
+/**
+ * The fields show a draft, so a refused low/high value stays on screen (flagged) instead of silently
+ * reverting while its partner saves. The draft's pairs are saved together once they're valid; any other
+ * field saves at once, with the stored pair values.
+ */
+function usePairDraft<T extends object>(rules: T, pairs: [keyof T, keyof T][], onSave: (r: T) => void) {
+  const [draft, setDraft] = useState(rules);
+  const pairKeys = pairs.flat();
+  const pending = (from: T, onto: T) => ({ ...onto, ...Object.fromEntries(pairKeys.map((k) => [k, from[k]])) }) as T;
+  // Adopt stored changes (a rollback, an import); keep a pending pair until it's fixed.
+  useEffect(() => setDraft((d) => (pairsValid(d, pairs) ? rules : pending(d, rules))), [rules]); // eslint-disable-line react-hooks/exhaustive-deps
+  const valid = pairsValid(draft, pairs);
+  function set(key: keyof T, v: T[keyof T]) {
+    const next = { ...draft, [key]: v };
+    setDraft(next);
+    const toSave = pairsValid(next, pairs) ? next : pending(rules, next);
+    if ((Object.keys(toSave) as (keyof T)[]).some((k) => toSave[k] !== rules[k])) onSave(toSave);
   }
+  return { draft, set, error: valid ? null : "Low can't be above high" };
+}
+
+function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRules; onSave: (r: ClassRules) => void }) {
+  const { draft, set, error } = usePairDraft(rules, PAIRS, onSave);
   const field = (key: keyof ClassRules, label: string, min: number, max: number) => (
-    <NumberField label={label} value={rules[key]} min={min} max={max} integer onChange={(v) => set(key, v!)} />
+    <NumberField label={label} value={draft[key]} min={min} max={max} integer onChange={(v) => set(key, v!)} />
   );
   return (
     <ListGroup title={title}>
@@ -57,7 +71,7 @@ function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRul
           {field("rirLow", "Target RIR low", 0, 4)}
           {field("rirHigh", "Target RIR high", 0, 4)}
         </div>
-        {pairError && <p role="alert" className={styles.error}>{pairError}</p>}
+        {error && <p role="alert" className={styles.error}>{error}</p>}
         <div className={styles.pair}>
           {field("sets", "Sets", 1, 20)}
           {field("warmupSets", "Warm-up sets", 0, 10)}
@@ -68,20 +82,17 @@ function ClassSection({ title, rules, onSave }: { title: string; rules: ClassRul
   );
 }
 
-function VolumeSection({ volume, onSave }: { volume: StyleRules["volume"]; onSave: (v: StyleRules["volume"]) => void }) {
-  const [error, setError] = useState<string | null>(null);
-  function set(key: "low" | "high", v: number) {
-    const next = { ...volume, [key]: v };
-    if (next.low > next.high) return setError("Low can't be above high");
-    setError(null);
-    onSave(next);
-  }
+type Volume = StyleRules["volume"];
+const VOLUME_PAIRS: [keyof Volume, keyof Volume][] = [["low", "high"]];
+
+function VolumeSection({ volume, onSave }: { volume: Volume; onSave: (v: Volume) => void }) {
+  const { draft, set, error } = usePairDraft(volume, VOLUME_PAIRS, onSave);
   return (
     <ListGroup title="Weekly volume" footer="Working sets per muscle each week (Sunday to Saturday).">
       <ListItem>
         <div className={styles.pair}>
-          <NumberField label="Sets low" value={volume.low} min={0} max={60} integer onChange={(v) => set("low", v!)} />
-          <NumberField label="Sets high" value={volume.high} min={0} max={60} integer onChange={(v) => set("high", v!)} />
+          <NumberField label="Sets low" value={draft.low} min={0} max={60} integer onChange={(v) => set("low", v!)} />
+          <NumberField label="Sets high" value={draft.high} min={0} max={60} integer onChange={(v) => set("high", v!)} />
         </div>
         {error && <p role="alert" className={styles.error}>{error}</p>}
       </ListItem>

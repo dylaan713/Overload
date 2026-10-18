@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { aimLabel } from "../../domain/difficulty";
+import { aimLabel, difficultyOf } from "../../domain/difficulty";
 import { blockFor, coachFor, logDayFor, prefill, sessionOn, setCount } from "../../domain/log";
 import type { Block, SetEntry } from "../../domain/types";
-import { useApp, useUi } from "../../state/context";
+import { useApp, useAppStore, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/EmptyState";
 import { freshDraft } from "./draft";
 import { EntryRow } from "./EntryRow";
-import { SetList } from "./SetList";
+import { SetList, setLabels } from "./SetList";
 import styles from "./Log.module.css";
 
 const hasWorking = (b: Block | undefined) => !!b?.sets.some((s) => !s.warmup);
@@ -35,7 +35,12 @@ function useNow(now: () => number) {
 export function LogScreen() {
   const doc = useApp((s) => s.doc);
   const today = useApp((s) => s.today)();
+  const appStore = useAppStore();
   const logSet = useApp((s) => s.logSet);
+  const editSet = useApp((s) => s.editSet);
+  const removeSet = useApp((s) => s.removeSet);
+  const restoreSet = useApp((s) => s.restoreSet);
+  const showToast = useUi((s) => s.showToast);
   const log = useUi((s) => s.log);
   const nowFn = useUi((s) => s.now);
   const setDraft = useUi((s) => s.setDraft);
@@ -80,13 +85,38 @@ export function LogScreen() {
   const firstTime = targets.rule === "first-time";
   const warmupDefault = !hasWorking(block);
   const warmup = draft?.exerciseId === currentId ? draft.warmup : warmupDefault;
+  const editing = draft?.exerciseId === currentId && draft.editing && block && draft.editing.blockId === block.id ? draft.editing : null;
+  const editedSet = editing ? block?.sets[editing.index] : undefined;
+  const labels = setLabels(block);
+  const backToNew = () =>
+    setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: !hasWorking(blockFor(appStore.getState().doc, day, currentId!)), test });
 
   const pick = (exerciseId: string) => setDraft(freshDraft(doc, day, exerciseId));
 
   async function submit(set: SetEntry) {
+    if (editing) {
+      if (await editSet(editing, set)) backToNew();
+      return;
+    }
     if (!(await logSet({ day, exerciseId: currentId!, set, test }))) return; // a failed save keeps what was typed
     markLogged(day, nowFn());
     setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: set.warmup, test });
+  }
+
+  function edit(index: number) {
+    const set = block!.sets[index]!;
+    setDraft({
+      day, exerciseId: currentId!, editing: { day, blockId: block!.id, index },
+      weight: String(set.weight), reps: String(set.reps), warmup: set.warmup, difficulty: set.rir == null ? null : difficultyOf(set.rir), test,
+    });
+  }
+
+  async function remove(index: number) {
+    const label = labels[index]!;
+    const removed = await removeSet({ day, blockId: block!.id, index });
+    if (!removed) return;
+    if (editing) backToNew(); // positions shifted: whatever was being edited is no longer at its index
+    showToast({ text: label === "W" ? "Removed warm-up" : `Removed set ${label}`, action: { label: "Undo", onAction: () => void restoreSet(removed) } });
   }
 
   return (
@@ -137,17 +167,20 @@ export function LogScreen() {
         <p className={styles.hint}>{`Warm-up: ${targets.warmups.map((w) => `${w.weight}×${w.reps}`).join(" · ")}`}</p>
       )}
 
+      {editing && <p className={styles.editing}>{labels[editing.index] === "W" ? "Editing warm-up" : `Editing set ${labels[editing.index]}`}</p>}
       <EntryRow
-        key={currentId}
+        key={`${currentId}:${editing ? editing.index : "new"}`}
         day={day}
         exerciseId={currentId!}
         warmupDefault={warmupDefault}
         unit={doc.settings.unit}
-        placeholder={prefill(targets, block, warmup)}
-        mode="new"
+        placeholder={editedSet ? { weight: editedSet.weight, reps: editedSet.reps } : prefill(targets, block, warmup)}
+        mode={editing ? "edit" : "new"}
         onSubmit={(set) => void submit(set)}
+        onCancel={backToNew}
+        onDelete={() => editing && void remove(editing.index)}
       />
-      <SetList block={block} />
+      <SetList block={block} editingIndex={editing?.index ?? null} onEdit={edit} onRemove={(i) => void remove(i)} />
 
       <div className={styles.dock}>
         <Button variant="secondary" block onClick={() => openSheet("next-exercise")}>＋ Next exercise</Button>

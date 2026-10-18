@@ -47,9 +47,26 @@
 .hint { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* Today's sets */
-.sets { list-style: none; padding: 0; margin: 0; border-radius: var(--radius-sm); background: var(--surface); }
-.set { display: grid; grid-template-columns: 2ch 1fr auto; gap: 12px; align-items: center; min-height: 44px; padding: 0 12px; border-top: 1px solid var(--line); }
-.set:first-child { border-top: 0; }
+.sets { list-style: none; padding: 0; margin: 0; border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.setItem { overflow: hidden; border-top: 1px solid var(--line); touch-action: pan-y; }
+.setItem:first-child { border-top: 0; }
+.set {
+  display: grid;
+  grid-template-columns: 2ch 1fr auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-base);
+  text-align: left;
+  transition: background-color var(--dur-press);
+}
+.set:active, .set[aria-current="true"] { background: var(--surface2); }
+.editing { font-size: var(--text-sm); color: var(--accent); font-weight: 600; }
 .setNo { color: var(--muted); font-family: var(--font-mono); }
 .setLoad { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .setFeel { font-size: var(--text-sm); color: var(--muted); }

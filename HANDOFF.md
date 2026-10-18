@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-18 (Plan B: Log, all 3 waves): Log tab built on `rewrite` — one exercise at a time, fixed target beside last time, Easy/Moderate/Hard/All out (stored as RIR), warm-up switch on by default, draft saved on every keystroke + flushed on hide, Next-exercise picker with this week's short muscles, tap-to-fix / swipe-to-remove with Undo, test day, lighter-week card; Style rules use "Aim for" words. 3 fresh reviews: 1+0+1 Critical, 1+2+5 Important all fixed with tests; 421 tests, typecheck, lint, build green; browser walk at 390/320 done. Rulings + deferred minors: `.superpowers/sdd/2026-10-18-log/progress.md`.
+Next: Dylan tries the Log on the Mac (`npm run build && npx vite preview`, /next.html; reload once if the old UI shows) and rules on the deferred items (placeholder-as-prefill look, focus after edit/remove, dock covering the difficulty row on short screens); then Plan C (Progress + History + cutover).
+
 State Update 2026-10-18 (Task 10 checks): production preview passes at phone width (light, dark + reduced motion, 320px no overflow, Undo toast topmost over the sheet); a stale service worker from an old preview briefly served the old app, so on the phone open /next.html twice or clear site data if you see the old UI.
 Next: Dylan tries it on the phone (VoiceOver reaches Undo, Export downloads, edit a field then edge-swipe back, motion feel); then Plan B (Log).
 

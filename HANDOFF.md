@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-18 (Task 10 checks): production preview passes at phone width (light, dark + reduced motion, 320px no overflow, Undo toast topmost over the sheet); a stale service worker from an old preview briefly served the old app, so on the phone open /next.html twice or clear site data if you see the old UI.
+Next: Dylan tries it on the phone (VoiceOver reaches Undo, Export downloads, edit a field then edge-swipe back, motion feel); then Plan B (Log).
+
 State Update 2026-10-18 (wave 3 review, fixes B): I4 (sheet modal via inert only, so VoiceOver reaches Undo/Dismiss), blur on Back/swipe-back, crash-screen raw download, confirm unit switch that resets changed steps; all with tests, 334 green.
 Next: light/reduced-motion screenshots + production-preview check; then Dylan on the phone (VoiceOver reaches Undo, Export downloads, edit a field then edge-swipe back); then Plan B.
 

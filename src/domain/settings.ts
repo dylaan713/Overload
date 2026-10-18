@@ -117,3 +117,31 @@ export function convertUnits(doc: StoreDoc, to: Unit): { doc: StoreDoc; changedS
     changedSets,
   };
 }
+
+/**
+ * Switch the training style from `today`. Same style: unchanged (same object). If the current phase began
+ * today, change it in place, and drop it if that makes it repeat the phase before (no zero-length phases).
+ */
+export function startPhase(settings: Settings, style: Style, today: string): Settings {
+  const current = phaseOf(settings, today);
+  if (current.style === style) return settings;
+  const sorted = [...settings.phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  if (current.startDate === today) {
+    const i = sorted.findIndex((p) => p.id === current.id);
+    const before = sorted[i - 1];
+    const phases = before?.style === style ? sorted.filter((p) => p.id !== current.id) : sorted.map((p) => (p.id === current.id ? { ...p, style } : p));
+    return { ...settings, phases };
+  }
+  return { ...settings, phases: [...sorted, { id: `phase-${today}`, style, startDate: today }] };
+}
+
+/** Move a phase's start date, keeping phases in order and nothing in the future. */
+export function setPhaseStart(settings: Settings, phaseId: string, date: string, today: string): Settings | { error: string } {
+  if (date > today) return { error: "Start date can't be in the future" };
+  const sorted = [...settings.phases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const i = sorted.findIndex((p) => p.id === phaseId);
+  if (i === -1) return { error: "Unknown phase" };
+  if (i > 0 && date <= sorted[i - 1]!.startDate) return { error: "Start date must be after the previous phase starts" };
+  if (i < sorted.length - 1 && date >= sorted[i + 1]!.startDate) return { error: "Start date must be before the next phase starts" };
+  return { ...settings, phases: sorted.map((p) => (p.id === phaseId ? { ...p, startDate: date } : p)) };
+}

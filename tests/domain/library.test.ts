@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LIBRARY, customExercise, exerciseFromLibrary, searchLibrary } from "../../src/domain/library";
+import { LIBRARY, customExercise, equipmentLabel, exerciseError, exerciseFromLibrary, groupByMovement, searchLibrary } from "../../src/domain/library";
 import { MUSCLE_LABEL, REGION_OF } from "../../src/domain/library/muscles";
 import { EQUIPMENT, MUSCLES } from "../../src/domain/types";
 
@@ -94,3 +94,26 @@ describe("adding exercises", () => {
     expect(customExercise({ name: "Thing", equipment: "cable", primary: ["abs"], class: "isolation", step: 0 }, "x")).toEqual({ error: "Step must be more than 0" });
   });
 });
+
+describe("library helpers for the UI", () => {
+  it("exerciseError shares customExercise's messages", () => {
+    expect(exerciseError({ name: " ", primary: ["chest"] })).toBe("Name can't be empty");
+    expect(exerciseError({ name: "x", primary: [] })).toBe("Pick at least one muscle worked");
+    expect(exerciseError({ name: "x", primary: ["chest"], step: 0 })).toBe("Step must be more than 0");
+    expect(exerciseError({ name: "x", primary: ["chest"] })).toBeNull();
+  });
+
+  it("labels equipment for display", () => {
+    expect(equipmentLabel("smith")).toBe("Smith machine");
+    expect(equipmentLabel("ez-bar")).toBe("EZ bar");
+    expect(equipmentLabel("dumbbell")).toBe("dumbbell");
+  });
+
+  it("groups search results by movement in order of first appearance", () => {
+    const groups = groupByMovement(searchLibrary("bench press"));
+    const bench = groups.find((g) => g.movement === "Bench press")!;
+    expect(bench.entries.map((e) => e.equipment)).toEqual(["barbell", "dumbbell", "machine", "smith"]);
+    expect(groups.map((g) => g.movement)).toEqual([...new Set(searchLibrary("bench press").map((e) => e.movement))]);
+  });
+});
+

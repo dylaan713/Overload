@@ -1,5 +1,5 @@
 import type { Equipment, Exercise, LiftClass, Muscle } from "../types";
-import { LIBRARY, type LibraryExercise } from "./catalog";
+import { EQUIPMENT_LABEL, LIBRARY, type LibraryExercise } from "./catalog";
 
 export { LIBRARY, type LibraryExercise } from "./catalog";
 
@@ -20,15 +20,32 @@ export function exerciseFromLibrary(entry: LibraryExercise, id: string): Exercis
   };
 }
 
+export const equipmentLabel = (e: Equipment): string => EQUIPMENT_LABEL[e];
+
+/** Search results grouped by movement, in order of first appearance (one row per movement, then pick equipment). */
+export function groupByMovement(entries: LibraryExercise[]): { movement: string; entries: LibraryExercise[] }[] {
+  const groups = new Map<string, LibraryExercise[]>();
+  for (const e of entries) groups.set(e.movement, [...(groups.get(e.movement) ?? []), e]);
+  return [...groups].map(([movement, list]) => ({ movement, entries: list }));
+}
+
+/** The validation shared by "Create your own" and editing an exercise. */
+export function exerciseError(input: { name: string; primary: Muscle[]; step?: number | null }): string | null {
+  if (!input.name.trim()) return "Name can't be empty";
+  if (input.primary.length === 0) return "Pick at least one muscle worked";
+  const step = input.step ?? null;
+  if (step !== null && !(step > 0)) return "Step must be more than 0";
+  return null;
+}
+
 export function customExercise(
   input: { name: string; equipment: Equipment; primary: Muscle[]; secondary?: Muscle[]; class: LiftClass; step?: number | null },
   id: string,
 ): Exercise | { error: string } {
+  const error = exerciseError(input);
+  if (error) return { error };
   const name = input.name.trim();
-  if (!name) return { error: "Name can't be empty" };
-  if (input.primary.length === 0) return { error: "Pick at least one muscle worked" };
   const step = input.step ?? null;
-  if (step !== null && !(step > 0)) return { error: "Step must be more than 0" };
   return {
     id, libraryId: null, name, equipment: input.equipment, primary: [...input.primary],
     secondary: (input.secondary ?? []).filter((m) => !input.primary.includes(m)),

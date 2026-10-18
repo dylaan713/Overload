@@ -13,7 +13,7 @@ export interface LibraryExercise {
   loadKind: LoadKind;
 }
 
-const EQUIPMENT_LABEL: Record<Equipment, string> = {
+export const EQUIPMENT_LABEL: Record<Equipment, string> = {
   barbell: "barbell", dumbbell: "dumbbell", machine: "machine", cable: "cable", smith: "Smith machine",
   "ez-bar": "EZ bar", "trap-bar": "trap bar", kettlebell: "kettlebell", bodyweight: "bodyweight", band: "band", plate: "plate",
 };

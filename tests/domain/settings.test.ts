@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  EQUIPMENT_STEPS, STYLE_DEFAULTS, convertUnits, defaultSettings, floorTo, heavier, lighter, loadStep, nearestTo, phaseOf, rulesFor,
+  EQUIPMENT_STEPS, STYLE_DEFAULTS, convertUnits, setPhaseStart, startPhase, defaultSettings, floorTo, heavier, lighter, loadStep, nearestTo, phaseOf, rulesFor,
 } from "../../src/domain/settings";
 import type { Phase } from "../../src/domain/types";
 import { day, doc, ex, sets } from "../helpers/build";
@@ -126,3 +126,40 @@ describe("convertUnits", () => {
     expect(convertUnits(d, "lb")).toEqual({ doc: d, changedSets: 0 });
   });
 });
+
+describe("phase editing", () => {
+  const one = defaultSettings("2026-09-01"); // hypertrophy from 09-01
+
+  it("starting a different style appends a phase dated today", () => {
+    const r = startPhase(one, "strength", "2026-10-17");
+    expect(r.phases).toEqual([
+      { id: "phase-2026-09-01", style: "hypertrophy", startDate: "2026-09-01" },
+      { id: "phase-2026-10-17", style: "strength", startDate: "2026-10-17" },
+    ]);
+  });
+
+  it("the same style is a no-op (same object)", () => {
+    expect(startPhase(one, "hypertrophy", "2026-10-17")).toBe(one);
+  });
+
+  it("switching twice on one day never leaves a zero-length phase", () => {
+    const r = startPhase(startPhase(one, "strength", "2026-10-17"), "hypertrophy", "2026-10-17");
+    expect(r.phases).toEqual(one.phases);
+  });
+
+  it("a phase that started today with nothing before it just changes style", () => {
+    const fresh = defaultSettings("2026-10-17");
+    expect(startPhase(fresh, "strength", "2026-10-17").phases).toEqual([{ id: "phase-2026-10-17", style: "strength", startDate: "2026-10-17" }]);
+  });
+
+  it("setPhaseStart checks the bounds", () => {
+    const two = startPhase(one, "strength", "2026-10-10");
+    expect(setPhaseStart(two, "phase-2026-10-10", "2026-10-20", "2026-10-17")).toEqual({ error: "Start date can't be in the future" });
+    expect(setPhaseStart(two, "phase-2026-10-10", "2026-09-01", "2026-10-17")).toEqual({ error: "Start date must be after the previous phase starts" });
+    expect(setPhaseStart(two, "phase-2026-09-01", "2026-10-12", "2026-10-17")).toEqual({ error: "Start date must be before the next phase starts" });
+    const ok = setPhaseStart(two, "phase-2026-10-10", "2026-10-05", "2026-10-17");
+    expect("error" in ok).toBe(false);
+    expect((ok as typeof two).phases.map((p) => p.startDate)).toEqual(["2026-09-01", "2026-10-05"]);
+  });
+});
+

@@ -31,6 +31,14 @@
   letter-spacing: var(--tracking-tight);
   margin: 4px 0 16px;
 }
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .alerts {
   position: fixed;
   top: calc(env(safe-area-inset-top) + 8px);

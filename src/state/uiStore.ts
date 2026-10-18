@@ -5,7 +5,7 @@ import type { SetRef } from "../domain/log";
 
 export const UI_KEY = "overload.v2.ui";
 export type Tab = "log" | "progress" | "history";
-export type SheetId = "settings";
+export type SheetId = "settings" | "next-exercise";
 export interface Toast {
   id: string;
   text: string;

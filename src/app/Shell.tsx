@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { themePreference } from "../domain/theme";
-import { HistoryPlaceholder, LogPlaceholder, ProgressPlaceholder } from "../features/placeholders";
+import { LogScreen } from "../features/log/LogScreen";
+import { HistoryPlaceholder, ProgressPlaceholder } from "../features/placeholders";
 import { settingsView } from "../features/settings/SettingsRoot";
 import { useApp, useUi } from "../state/context";
 import type { Tab } from "../state/uiStore";
@@ -14,7 +15,7 @@ import { applyTheme } from "./theme";
 import styles from "./Shell.module.css";
 
 const TITLES: Record<Tab, string> = { log: "Log", progress: "Progress", history: "History" };
-const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogPlaceholder, progress: ProgressPlaceholder, history: HistoryPlaceholder };
+const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogScreen, progress: ProgressPlaceholder, history: HistoryPlaceholder };
 
 /** The app frame: scrolling content under floating chrome, the Settings sheet, toasts and save errors. */
 export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => SheetView }) {
@@ -59,7 +60,8 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
   // The small title appears once the large title has gone under the header.
   useEffect(() => {
     const el = largeTitle.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
+    if (!el) return setCompact(false); // the Log tab has no large title
+    if (typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(([entry]) => setCompact(!entry!.isIntersecting), { root: scroller.current, rootMargin: "-56px 0px 0px 0px" });
     io.observe(el);
     return () => io.disconnect();
@@ -78,7 +80,8 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
       <div data-page className={styles.page} inert={sheetOpen} data-sheet={sheetOpen || undefined}>
         <Header title={TITLES[tab]} compact={compact} scrolled={underTop} onSettings={() => openSheet("settings")} gearRef={gear} />
         <main ref={scroller} className={styles.content}>
-          <h1 ref={largeTitle} className={styles.largeTitle}>{TITLES[tab]}</h1>
+          {/* The Log trades its large title for the workout's own header; VoiceOver still gets the heading. */}
+          <h1 ref={tab === "log" ? undefined : largeTitle} className={tab === "log" ? styles.srOnly : styles.largeTitle}>{TITLES[tab]}</h1>
           <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab)}>
             <Panel />
           </div>

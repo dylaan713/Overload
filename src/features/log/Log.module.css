@@ -17,3 +17,47 @@
 .toggle:active { opacity: 0.7; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .actions > :last-child { grid-column: 1 / -1; }
+
+/* Screen */
+.screen { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+.dayLine { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+.chip {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  transition: background-color var(--dur-press);
+}
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.chip:active { opacity: 0.7; }
+.name { font-size: var(--text-xl); font-weight: 700; line-height: var(--leading-snug); }
+.meta { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: -8px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.box { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface); }
+.boxLabel { font-size: var(--text-xs); color: var(--muted); }
+.boxValue { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-lg); }
+.boxNote { font-size: var(--text-xs); color: var(--muted); }
+.reason { font-size: var(--text-sm); color: var(--muted); }
+.hint { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Today's sets */
+.sets { list-style: none; padding: 0; margin: 0; border-radius: var(--radius-sm); background: var(--surface); }
+.set { display: grid; grid-template-columns: 2ch 1fr auto; gap: 12px; align-items: center; min-height: 44px; padding: 0 12px; border-top: 1px solid var(--line); }
+.set:first-child { border-top: 0; }
+.setNo { color: var(--muted); font-family: var(--font-mono); }
+.setLoad { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.setFeel { font-size: var(--text-sm); color: var(--muted); }
+
+/* Next exercise stays under the thumb, just above the tab bar */
+.dock {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) - 16px);
+  padding: 8px 0;
+  background: linear-gradient(to bottom, transparent, var(--bg) 12px);
+}

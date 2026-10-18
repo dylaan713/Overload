@@ -9,7 +9,7 @@ const DAY = "2026-10-18";
 async function open(opts: { warmup?: boolean; placeholder?: { weight: number | null; reps: number | null }; mode?: "new" | "edit" } = {}) {
   const onSubmit = vi.fn();
   const r = await renderWithStore(
-    <EntryRow day={DAY} unit="lb" placeholder={opts.placeholder ?? { weight: null, reps: null }} mode={opts.mode ?? "new"} onSubmit={onSubmit} onCancel={() => {}} onDelete={() => {}} />,
+    <EntryRow day={DAY} exerciseId="row" unit="lb" placeholder={opts.placeholder ?? { weight: null, reps: null }} mode={opts.mode ?? "new"} onSubmit={onSubmit} onCancel={() => {}} onDelete={() => {}} />,
   );
   act(() => r.uiStore.getState().setDraft({ day: DAY, exerciseId: "row", warmup: opts.warmup ?? false }));
   return { ...r, onSubmit };

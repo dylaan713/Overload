@@ -95,7 +95,9 @@ export function NextExerciseSheet({ onClose }: { onClose: () => void }) {
   const [pick] = useState(() => (exerciseId: string) => {
     const { doc, today } = app.getState();
     const { log, now, setDraft } = ui.getState();
-    setDraft(freshDraft(doc, logDayFor(doc, today(), now(), log.last), exerciseId));
+    const day = logDayFor(doc, today(), now(), log.last);
+    // Re-picking the exercise already in hand keeps what's typed.
+    if (log.draft?.day !== day || log.draft.exerciseId !== exerciseId) setDraft(freshDraft(doc, day, exerciseId));
     close.current?.();
   });
   const [root] = useState(() => nextExerciseView(pick));

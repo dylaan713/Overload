@@ -135,6 +135,30 @@ describe("log screen", () => {
     expect(screen.getByText(/^Set 2 of/)).toBeInTheDocument();
   });
 
+  it("tapping the current chip or re-picking the current exercise keeps what's typed (wave 2 review)", async () => {
+    const d = doc({ exercises: [row, curl], sessions: [day(TODAY, [["curl", sets(30, [10])], ["row", sets(130, [10])]])] });
+    const { user } = await open(device(d, { draft: { ...draftFor("row"), warmup: false } }));
+    await user.type(screen.getByLabelText("lb"), "145");
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Seated cable row" }));
+    expect(screen.getByLabelText("lb")).toHaveValue("145");
+    await user.click(screen.getByRole("button", { name: "＋ Next exercise" }));
+    await user.click(within(await screen.findByRole("dialog", { name: "Next exercise" })).getByRole("button", { name: /^Seated cable row/ }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByLabelText("lb")).toHaveValue("145");
+    expect(screen.getByRole("radio", { name: "Hard" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("a double tap on Log set logs one set (wave 2 review)", async () => {
+    const { user, kv } = await open(device(history(), { draft: draftFor("row") }));
+    await user.type(screen.getByLabelText("lb"), "60");
+    await user.type(screen.getByLabelText("Reps"), "8");
+    await user.dblClick(screen.getByRole("button", { name: "Log set" }));
+    await waitFor(() => expect(stored(kv).sessions.at(-1)!.date).toBe(TODAY));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(stored(kv).sessions.at(-1)!.blocks[0]!.sets).toHaveLength(1);
+  });
+
   it("a half-typed weight comes back after a reload (review focus 1)", async () => {
     const kv = device(history(), { draft: draftFor("row") });
     const first = await open(kv);

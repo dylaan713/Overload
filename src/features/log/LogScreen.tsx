@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { aimLabel, difficultyOf } from "../../domain/difficulty";
 import { fatigueSuggestion } from "../../domain/engine/fatigue";
 import { blockFor, canTest, coachFor, logDayFor, prefill, sessionOn, setCount, withoutDay } from "../../domain/log";
@@ -13,6 +13,7 @@ import { TestDayMenu } from "./TestDayMenu";
 import { SetList, setLabels } from "./SetList";
 import styles from "./Log.module.css";
 
+const DOUBLE_TAP_MS = 500;
 const hasWorking = (b: Block | undefined) => !!b?.sets.some((s) => !s.warmup);
 const pad = (n: number) => String(n).padStart(2, "0");
 /** "2:14" from milliseconds. */
@@ -52,6 +53,8 @@ export function LogScreen() {
   const markLogged = useUi((s) => s.markLogged);
   const openSheet = useUi((s) => s.openSheet);
   const now = useNow(nowFn);
+  const saving = useRef(false);
+  const loggedAt = useRef(-Infinity);
 
   const day = logDayFor(doc, today, now, log.last);
   const session = sessionOn(doc, day);
@@ -107,16 +110,27 @@ export function LogScreen() {
   const backToNew = () =>
     setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: !hasWorking(blockFor(appStore.getState().doc, day, currentId!)), test });
 
-  const pick = (exerciseId: string) => setDraft(freshDraft(doc, day, exerciseId));
+  // Re-picking the exercise already in hand keeps what's typed.
+  const pick = (exerciseId: string) => {
+    if (exerciseId !== currentId || draft?.exerciseId !== exerciseId) setDraft(freshDraft(doc, day, exerciseId));
+  };
 
   async function submit(set: SetEntry) {
-    if (editing) {
-      if (await editSet(editing, set)) backToNew();
-      return;
+    // A double tap logs one set: ignore taps while saving and just after (nobody logs sets 0.5 s apart).
+    if (saving.current || performance.now() - loggedAt.current < DOUBLE_TAP_MS) return;
+    saving.current = true;
+    try {
+      if (editing) {
+        if (await editSet(editing, set)) backToNew();
+        return;
+      }
+      if (!(await logSet({ day, exerciseId: currentId!, set, test }))) return; // a failed save keeps what was typed
+      loggedAt.current = performance.now();
+      markLogged(day, nowFn());
+      setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: set.warmup, test });
+    } finally {
+      saving.current = false;
     }
-    if (!(await logSet({ day, exerciseId: currentId!, set, test }))) return; // a failed save keeps what was typed
-    markLogged(day, nowFn());
-    setDraft({ day, exerciseId: currentId!, weight: "", reps: "", difficulty: null, editing: null, warmup: set.warmup, test });
   }
 
   async function toggleTest(on: boolean) {

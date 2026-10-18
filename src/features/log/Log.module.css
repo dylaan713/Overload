@@ -71,13 +71,20 @@
 .setLoad { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .setFeel { font-size: var(--text-sm); color: var(--muted); }
 
-/* Next exercise stays under the thumb, just above the tab bar */
+/* Next exercise stays under the thumb: docked just above the tab bar however short or long the page is */
 .dock {
-  position: sticky;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) - 16px);
-  padding: 8px 0;
-  background: linear-gradient(to bottom, transparent, var(--bg) 12px);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: 2;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 8px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 16px);
 }
+/* Room so the last set can scroll clear of the dock */
+.screen:has(.dock) { padding-bottom: 72px; }
 
 /* Next-exercise picker */
 .picker { display: flex; flex-direction: column; gap: 16px; }

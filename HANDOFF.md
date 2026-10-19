@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-19 (audit fixes): an exercise-science audit agent reviewed the engine (sound on progression and intensity). Fixed items 1–4 with tests: effective-set volume (Easy ½, test singles 0), lighter week halves the volume range, "over 20" warns only when lifts stall, hypertrophy compounds aim Moderate–Hard. 561 tests, typecheck, lint, build green.
+Next: Dylan's yes → merge `rewrite` into `main` and push. Deferred from the audit: lengthened-position tags + hints (with deadlift/squat tagging), frequency info, cardio log, faster rep targets.
+
 State Update 2026-10-19 (Plan C wave 4): angled teal dumbbell icon; cutover committed on `rewrite` (index.html runs the new app, old app + /next.html + /dev.html + recharts/old fonts removed, SW registered from src/main.tsx; local old→new swap test: 1st open old app, 2nd open new app, old data kept). Final review: 0 Critical, 4 Important all fixed with tests (no verdicts before 2 weeks; bodyweight/assisted scoring; one measure per lift chart; Repeat keeps the whole workout queued); 8 minors deferred in the ledger. 558 tests, typecheck, lint, build green. README written.
 Next: Dylan's yes → merge `rewrite` into `main` and push (deploys production). On the phone: open the app twice; remove and re-add it to the home screen for the new icon. Then a month of testing; deferred minors and Stage B (Capacitor) after.
 

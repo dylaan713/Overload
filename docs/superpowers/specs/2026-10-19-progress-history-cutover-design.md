@@ -81,6 +81,8 @@ New account or < 3 sessions anywhere: one line, "Log a few sessions to see progr
 
 **Final-review rulings (2026-10-19):** a lift is judged only with ≥ 3 sessions spanning ≥ 14 days (3 sessions compare first vs last; 4+ compare best of first two vs last two). Bodyweight lifts with any unloaded session in the window are tracked by reps. Assisted lifts are listed but not scored ("Assisted, not scored"). "Average est. 1RM" averages loaded external lifts only. The All-out reason applies only to est. 1RM lifts.
 
+**Exercise-science audit (2026-10-19, Dylan approved 1–4):** weekly volume counts effective sets (Easy ½, test singles 0, unrated 1); the range halves during an accepted lighter week; above the range warns only when the muscle's lifts are flat or falling; hypertrophy compounds aim Moderate–Hard (1–2 reps left). Deferred: lengthened-position exercise tags and hints, frequency info, cardio log, faster rep targets.
+
 ## History tab
 
 - **Month calendar** (Dylan chose it over a list), Su–Sa, opens on the current month with the latest workout selected.

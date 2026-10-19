@@ -79,6 +79,8 @@ Top to bottom:
 ### Empty state
 New account or < 3 sessions anywhere: one line, "Log a few sessions to see progress here", no empty charts. The muscle map's This week view still works from the first set.
 
+**Final-review rulings (2026-10-19):** a lift is judged only with ≥ 3 sessions spanning ≥ 14 days (3 sessions compare first vs last; 4+ compare best of first two vs last two). Bodyweight lifts with any unloaded session in the window are tracked by reps. Assisted lifts are listed but not scored ("Assisted, not scored"). "Average est. 1RM" averages loaded external lifts only. The All-out reason applies only to est. 1RM lifts.
+
 ## History tab
 
 - **Month calendar** (Dylan chose it over a list), Su–Sa, opens on the current month with the latest workout selected.

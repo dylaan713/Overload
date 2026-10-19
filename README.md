@@ -1,12 +1,24 @@
-# React + Vite
+# Overload
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A workout-logging app that tells you when to add weight. Log every set with how hard it felt; Overload sets each lift's next target (double progression, step-aware, with setbacks, stalls, time off and lighter weeks handled), shows which muscles are short of their weekly sets, and tracks whether you're getting stronger.
 
-Currently, two official plugins are available:
+Live: https://overloadylan.netlify.app (installable PWA). Data stays on the device (localStorage); back it up from Settings.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tabs
+- **Log** — today's workout, one exercise at a time: target beside last time, Easy / Moderate / Hard / All out, warm-ups, test days.
+- **Progress** — *Lifts*: "Stronger on n of m lifts" over 8 weeks, what needs attention and why, every lift with its trend and chart. *Muscles*: a front/back map of this week's sets or 8-week strength change.
+- **History** — a month calendar; open a day to fix or remove sets, or **Repeat this workout** into today's Log.
 
-## Expanding the ESLint configuration
+## Develop
+React 19 + TypeScript + Vite 6, zustand, motion. No backend.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev        # local app
+npm test           # vitest
+npm run typecheck
+npm run lint
+npm run build      # production build + service worker
+```
+
+Every push to `main` deploys production (Netlify). Native builds (Capacitor) are planned in `PUBLISHING.md`; project state lives in `HANDOFF.md`.

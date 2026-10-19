@@ -93,7 +93,7 @@ npm install @capacitor/local-notifications
 
 Schedule a one-shot notification for the timer's end time (`Date.now() + seconds*1000`)
 when the user starts the countdown, and cancel it if they Skip/Reset. This is the proper
-fix for the alert that couldn't work as a PWA — wire it into `RestTimer` in `src/App.jsx`.
+fix for the alert that couldn't work as a PWA — wire it into a rest timer in the Log (the old `RestTimer` was removed with the old app; see `docs/superpowers/specs/2026-10-18-log-design.md`).
 
 ### iOS (needs the Mac)
 1. Install **Xcode**. `npx cap open ios`.

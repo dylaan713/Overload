@@ -87,6 +87,14 @@ describe("lift chart", () => {
     expect(within(sheet).getByRole("slider", { name: "Reps" })).toHaveAttribute("aria-valuetext", "Oct 15 · 13 reps");
   });
 
+  it("shows the least-assisted set as Last time for assisted lifts (review minor 8)", async () => {
+    const pull = doc({ exercises: [ex("pull", { name: "Assisted pull-up", equipment: "machine", loadKind: "assisted" })], sessions: [day("2026-10-15", [["pull", [...sets(50, [10]), ...sets(30, [7])]]])] });
+    const r = await renderWithStore(<Shell />, { doc: pull, today: TODAY, now: () => Date.parse(`${TODAY}T12:00:00`) });
+    r.uiStore.getState().openSheet("lift", { arg: "pull" });
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("Last time").closest("div")).toHaveTextContent("Last time30 × 7");
+  });
+
   it("says when a range has nothing to draw", async () => {
     const { sheet, user } = await openLift("dip");
     await user.click(within(sheet).getByRole("radio", { name: "4 wk" }));

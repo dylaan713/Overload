@@ -15,7 +15,8 @@ export const workoutTitle = (date: string) => {
   return new Date(y!, m! - 1, d!).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 };
 
-const working = (b: Block) => b.sets.filter((s) => !s.warmup).map((s) => `${s.weight} × ${s.reps}`).join(", ") || "Warm-ups only";
+const setText = (s: Block["sets"][number]) => (s.weight > 0 ? `${s.weight} × ${s.reps}` : `${s.reps} reps`);
+const working = (b: Block) => b.sets.filter((s) => !s.warmup).map(setText).join(", ") || "Warm-ups only";
 
 /** One exercise's sets that day: tap to fix, swipe to remove (with Undo). */
 function BlockSets({ date, exerciseId }: { date: string; exerciseId: string }) {
@@ -44,7 +45,7 @@ function BlockSets({ date, exerciseId }: { date: string; exerciseId: string }) {
     <SetList
       block={block}
       label="Sets"
-      onEdit={(i) => nav.push(fixSetView({ day: date, blockId: block.id, index: i }, block.sets[i]!, labels[i]!))}
+      onEdit={(i) => nav.push(fixSetView(date, exerciseId, block.sets[i]!, labels[i]!))}
       onRemove={remove}
     />
   );

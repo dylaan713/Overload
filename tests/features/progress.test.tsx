@@ -96,6 +96,20 @@ describe("Progress tab", () => {
     expect(why).toHaveTextContent("Quads gets 0.3 of 10+ sets a week. Add sets.");
   });
 
+  it("draws no line for lifts without enough data (review minor 4)", async () => {
+    await openProgress();
+    const curl = within(screen.getByRole("region", { name: "Your lifts" })).getByRole("button", { name: /^Curl/ });
+    expect(curl.querySelector("polyline")).toBeNull();
+  });
+
+  it("announces the Strength tap panel (review minor 10)", async () => {
+    const { user } = await openProgress();
+    await user.click(screen.getByRole("radio", { name: "Muscles" }));
+    await user.click(screen.getByRole("radio", { name: "Strength" }));
+    await user.click(screen.getByRole("button", { name: /^Chest/ }));
+    expect(screen.getByRole("region", { name: "Chest" })).toHaveAttribute("aria-live", "polite");
+  });
+
   it("opens a lift's chart", async () => {
     const { user, uiStore } = await openProgress();
     await user.click(within(screen.getByRole("region", { name: "Your lifts" })).getByRole("button", { name: /^Bench press/ }));

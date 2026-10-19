@@ -24,7 +24,8 @@ export function HistoryScreen() {
   const openSheet = useUi((s) => s.openSheet);
   const days = useMemo(() => trainingDays(doc), [doc]);
   const [selected, setSelected] = useState(() => latestTrainingDay(doc, today));
-  const [month, setMonth] = useState(() => today.slice(0, 7));
+  // The month of the selected workout, so the grid and the summary below it agree (e.g. on the 1st).
+  const [month, setMonth] = useState(() => (selected ?? today).slice(0, 7));
   const summary = selected ? daySummary(doc, selected) : null;
 
   return (

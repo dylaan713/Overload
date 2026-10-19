@@ -80,6 +80,39 @@ describe("workout sheet", () => {
     await waitFor(() => expect(stored(kv).sessions[2]!.blocks[1]!.sets[0]).toEqual(logged));
   });
 
+  it("Save lands on the set being fixed even after an Undo shifts positions (review minor 3)", async () => {
+    const { sheet, user, kv } = await openWorkout();
+    await user.click(within(sheet).getByRole("button", { name: /Bench press/ }));
+    const list = await within(sheet).findByRole("list", { name: "Sets" });
+    let t = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => t);
+    const row = within(list).getAllByRole("listitem")[0]!; // the warm-up
+    fireEvent.pointerDown(row, { pointerId: 1, clientX: 300, clientY: 10 });
+    for (let i = 1; i <= 5; i++) {
+      t += 100;
+      fireEvent.pointerMove(row, { pointerId: 1, clientX: 300 - (260 * i) / 5, clientY: 10 });
+    }
+    t += 100;
+    fireEvent.pointerUp(row, { pointerId: 1, clientX: 40, clientY: 10 });
+    await waitFor(() => expect(stored(kv).sessions[2]!.blocks[0]!.sets).toHaveLength(2));
+    vi.restoreAllMocks();
+    await user.click(within(sheet).getByRole("button", { name: /185 × 7/ }));
+    const reps = await within(sheet).findByLabelText("Reps");
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(stored(kv).sessions[2]!.blocks[0]!.sets).toHaveLength(3));
+    await user.clear(reps);
+    await user.type(reps, "9");
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(stored(kv).sessions[2]!.blocks[0]!.sets.map((s) => `${s.weight}x${s.reps}`)).toEqual(["95x5", "185x8", "185x9"]));
+  });
+
+  it("shows bodyweight sets as reps, not 0 × reps", async () => {
+    const pull = ex("pull", { name: "Pull-up", equipment: "bodyweight", loadKind: "bodyweight" });
+    const d = doc({ exercises: [...exercises, pull], sessions: [day(DATE, [["pull", sets(0, [10, 9])]])] });
+    const { sheet } = await openWorkout(d);
+    expect(within(sheet).getByRole("button", { name: /Pull-up.*10 reps, 9 reps/ })).toBeInTheDocument();
+  });
+
   it("has a Repeat this workout button", async () => {
     const { sheet } = await openWorkout();
     expect(within(sheet).getByRole("button", { name: "Repeat this workout" })).toBeInTheDocument();

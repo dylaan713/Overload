@@ -71,6 +71,18 @@ describe("History tab", () => {
     expect(uiStore.getState()).toMatchObject({ sheet: "workout", sheetArg: "2026-10-16" });
   });
 
+  it("opens on the month of the latest workout (review minor 5)", async () => {
+    const r = await renderWithStore(<Shell />, { doc: training, today: "2026-11-01", now: () => Date.parse("2026-11-01T12:00:00") });
+    await r.user.click(screen.getByRole("tab", { name: "History" }));
+    expect(screen.getByRole("heading", { name: "October 2026" })).toBeInTheDocument();
+  });
+
+  it("names days without a workout on the grid cell itself (review minor 6)", async () => {
+    await openHistory();
+    const cell = screen.getAllByRole("gridcell").find((c) => c.textContent === "15")!;
+    expect(cell).toHaveAttribute("aria-label", "Thursday, October 15, no workout");
+  });
+
   it("says so when there's nothing yet", async () => {
     await openHistory(doc({}));
     expect(screen.getByText("No workouts logged yet")).toBeInTheDocument();

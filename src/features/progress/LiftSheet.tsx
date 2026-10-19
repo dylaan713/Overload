@@ -39,7 +39,9 @@ function LiftView({ exerciseId }: { exerciseId: string }) {
   const best = all.reduce<SetEntry | null>((b, { set }) => (!b || score(set) > score(b) ? set : b), null);
   const lastDate = all.at(-1)?.date;
   const lastSets = all.filter((x) => x.date === lastDate).map((x) => x.set);
-  const top = lastSets.reduce<SetEntry | null>((b, s) => (!b || s.weight > b.weight || (s.weight === b.weight && s.reps > b.reps) ? s : b), null);
+  // The day's hardest set: heaviest, or for assisted lifts the least assistance.
+  const sign = ex.loadKind === "assisted" ? -1 : 1;
+  const top = lastSets.reduce<SetEntry | null>((b, s) => (!b || sign * (s.weight - b.weight) > 0 || (s.weight === b.weight && s.reps > b.reps) ? s : b), null);
 
   return (
     <>

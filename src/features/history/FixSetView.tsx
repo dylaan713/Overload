@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { DIFFICULTIES, DIFFICULTY_LABEL, difficultyOf, rirFor, type Difficulty } from "../../domain/difficulty";
-import type { SetRef } from "../../domain/log";
+import { blockFor } from "../../domain/log";
 import type { SetEntry } from "../../domain/types";
-import { useApp } from "../../state/context";
+import { useApp, useAppStore } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { ListGroup, ListItem } from "../../ui/ListRow";
 import { NumberField } from "../../ui/NumberField";
@@ -12,8 +12,9 @@ import logStyles from "../log/Log.module.css";
 import styles from "./History.module.css";
 
 /** Fix one past set: weight, reps, warm-up or difficulty. Save goes back to the exercise's sets. */
-function FixSet({ setRef, set }: { setRef: SetRef; set: SetEntry }) {
+function FixSet({ date, exerciseId, set }: { date: string; exerciseId: string; set: SetEntry }) {
   const nav = useSheetNav();
+  const app = useAppStore();
   const unit = useApp((s) => s.doc.settings.unit);
   const editSet = useApp((s) => s.editSet);
   const [weight, setWeight] = useState<number | null>(set.weight);
@@ -25,7 +26,11 @@ function FixSet({ setRef, set }: { setRef: SetRef; set: SetEntry }) {
   async function save() {
     if (!ready) return;
     const rir = warmup ? null : difficulty ? rirFor(difficulty) : null;
-    if (await editSet(setRef, { weight: weight!, reps: reps!, warmup, rir })) nav.pop();
+    // By the set itself, found now: a remove or Undo since this opened may have moved it.
+    const block = blockFor(app.getState().doc, date, exerciseId);
+    const index = block ? block.sets.indexOf(set) : -1;
+    if (!block || index < 0) return nav.pop();
+    if (await editSet({ day: date, blockId: block.id, index }, { weight: weight!, reps: reps!, warmup, rir })) nav.pop();
   }
 
   return (
@@ -52,8 +57,8 @@ function FixSet({ setRef, set }: { setRef: SetRef; set: SetEntry }) {
   );
 }
 
-export const fixSetView = (setRef: SetRef, set: SetEntry, label: string): SheetView => ({
-  id: `fix-${setRef.blockId}-${setRef.index}`,
+export const fixSetView = (date: string, exerciseId: string, set: SetEntry, label: string): SheetView => ({
+  id: `fix-${date}-${exerciseId}-${label}`,
   title: label === "W" ? "Warm-up" : `Set ${label}`,
-  render: () => <FixSet setRef={setRef} set={set} />,
+  render: () => <FixSet date={date} exerciseId={exerciseId} set={set} />,
 });

@@ -88,7 +88,12 @@ export function Calendar({ month, days, today, selected, onSelect, onMonth }: {
           {weeksOf(month).map((week, i) => (
             <div key={i} role="row" className={styles.row}>
               {week.map((d, j) => (
-                <span key={d ?? `blank-${j}`} role="gridcell" className={styles.cell}>
+                <span
+                  key={d ?? `blank-${j}`}
+                  role="gridcell"
+                  className={styles.cell}
+                  aria-label={d && !days.has(d) ? `${dayLabel(d)}, no workout` : undefined}
+                >
                   {d && (days.has(d) ? (
                     <button
                       type="button"
@@ -103,7 +108,7 @@ export function Calendar({ month, days, today, selected, onSelect, onMonth }: {
                       <span data-dot className={styles.dot} aria-hidden="true" />
                     </button>
                   ) : (
-                    <span className={styles.day} data-today={d === today || undefined} aria-label={`${dayLabel(d)}, no workout`}>
+                    <span className={styles.day} data-today={d === today || undefined}>
                       {Number(d.slice(8))}
                     </span>
                   ))}

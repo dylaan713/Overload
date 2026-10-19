@@ -6,7 +6,7 @@ const H = 20;
 
 /** A lift's 8 weeks at a glance. Decorative: the row's text says the same thing. */
 export function Sparkline({ points, trend }: { points: SeriesPoint[]; trend: Trend | null }) {
-  if (points.length < 2) return <span className={styles.spark} aria-hidden="true" />;
+  if (points.length < 2 || trend === null) return <span className={styles.spark} aria-hidden="true" />;
   const values = points.map((p) => p.value);
   const lo = Math.min(...values);
   const span = Math.max(...values) - lo || 1;

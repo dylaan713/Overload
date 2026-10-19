@@ -131,7 +131,7 @@ function MusclePanel({ muscle, view, week, strength, unit, onLift }: {
     return <ListItem><p className={styles.panelLine} aria-live="polite">{weekLine(muscle, week)}</p></ListItem>;
   }
   return (
-    <section aria-label={name} className={styles.panel}>
+    <section aria-label={name} aria-live="polite" className={styles.panel}>
       {strength.lifts.length === 0 ? (
         <ListItem><p className={styles.panelLine}>{name} · no lift with enough sessions yet</p></ListItem>
       ) : (

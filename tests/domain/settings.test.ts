@@ -17,7 +17,7 @@ describe("defaultSettings", () => {
       volume: { low: 6, high: 12 },
     });
     expect(s.styles.hypertrophy).toEqual({
-      compound: { repLow: 6, repHigh: 10, sets: 3, rirLow: 0, rirHigh: 2, restSeconds: 120, warmupSets: 2 },
+      compound: { repLow: 6, repHigh: 10, sets: 3, rirLow: 1, rirHigh: 2, restSeconds: 120, warmupSets: 2 },
       isolation: { repLow: 10, repHigh: 15, sets: 3, rirLow: 0, rirHigh: 2, restSeconds: 90, warmupSets: 1 },
       volume: { low: 10, high: 20 },
     });

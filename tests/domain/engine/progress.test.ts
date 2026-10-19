@@ -14,9 +14,9 @@ const one = (date: string, w: number, r: number[], rir?: number | null) => day(d
 describe("targetsFor: progression", () => {
   it("first time: no weight, the range and target effort", () => {
     const t = run(bar, []);
-    expect(t).toMatchObject({ rule: "first-time", weight: null, reason: "First time: pick a weight you can lift for 6–10 reps with 0–2 left." });
+    expect(t).toMatchObject({ rule: "first-time", weight: null, reason: "First time: pick a weight you can lift for 6–10 reps with 1–2 left." });
     expect(reps(t)).toEqual([6, 6, 6]);
-    expect(t.sets[0]).toEqual({ reps: 6, rirLow: 0, rirHigh: 2 });
+    expect(t.sets[0]).toEqual({ reps: 6, rirLow: 1, rirHigh: 2 });
   });
 
   it("earn: top of the range on every set moves up one step", () => {
@@ -59,6 +59,7 @@ describe("targetsFor: progression", () => {
     expect(run(bar, [one("2026-10-01", 225, [8, 7, 7], 2)])).toMatchObject({ rule: "build-reps", weight: 225 });
     expect(reps(run(bar, [one("2026-10-01", 225, [8, 7, 7], 2)]))).toEqual([8, 8, 7]);
     expect(reps(run(bar, [one("2026-10-01", 225, [8, 7, 7], 3)]))).toEqual([8, 9, 7]);
+    expect(reps(run(bar, [one("2026-10-01", 225, [8, 7, 7], 4)]))).toEqual([8, 9, 7]); // Easy is too easy
     expect(reps(run(bar, [one("2026-10-01", 225, [8, 8])]))).toEqual([9, 8, 8]);
   });
 

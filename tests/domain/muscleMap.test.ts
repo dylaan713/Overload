@@ -30,15 +30,21 @@ describe("weekMap", () => {
     expect(Object.keys(m).sort()).toEqual([...MUSCLES].sort());
   });
   it("grades sets against the style's range", () => {
-    expect(m.biceps).toEqual({ state: "under-half", sets: 4, low: 10, high: 20 });
+    expect(m.biceps).toEqual({ state: "under-half", sets: 4, low: 10, high: 20, stalled: false });
     expect(m.triceps.state).toBe("almost");
     expect(m["side-delts"]).toMatchObject({ state: "almost", sets: 9.5 });
     expect(m.chest.state).toBe("in");
     expect(m.quads.state).toBe("in");
     expect(m.hamstrings.state).toBe("over");
   });
+  it("marks a muscle stalled when its counted lifts are flat or falling", () => {
+    const four = ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"];
+    const flat = doc({ style: "hypertrophy", exercises: [ex("squat", { primary: ["quads"] })], sessions: four.map((date) => day(date, [["squat", sets(185, Array(24).fill(8))]])) });
+    expect(weekMap(flat, TODAY).quads.stalled).toBe(true);
+  });
+
   it("shows untrained muscles as none", () => {
-    expect(m.calves).toEqual({ state: "none", sets: 0, low: 10, high: 20 });
+    expect(m.calves).toEqual({ state: "none", sets: 0, low: 10, high: 20, stalled: false });
     expect(m.abs.state).toBe("none");
   });
 });
@@ -75,14 +81,15 @@ describe("strengthMap", () => {
 
 describe("weekLine", () => {
   it("says how many sets to add when short", () => {
-    expect(weekLine("side-delts", { state: "under-half", sets: 2, low: 10, high: 20 })).toBe("Side delts · 2 of 10–20 sets this week · add 8");
-    expect(weekLine("chest", { state: "almost", sets: 9.5, low: 10, high: 20 })).toBe("Chest · 9.5 of 10–20 sets this week · add 1");
+    expect(weekLine("side-delts", { state: "under-half", sets: 2, low: 10, high: 20, stalled: false })).toBe("Side delts · 2 of 10–20 sets this week · add 8");
+    expect(weekLine("chest", { state: "almost", sets: 9.5, low: 10, high: 20, stalled: false })).toBe("Chest · 9.5 of 10–20 sets this week · add 1");
   });
-  it("suggests fewer when over", () => {
-    expect(weekLine("quads", { state: "over", sets: 24, low: 10, high: 20 })).toBe("Quads · 24, above 20 — consider fewer next week");
+  it("only suggests fewer when over and the muscle's lifts aren't improving", () => {
+    expect(weekLine("quads", { state: "over", sets: 24, low: 10, high: 20, stalled: true })).toBe("Quads · 24, above 20 and not improving — try fewer next week");
+    expect(weekLine("quads", { state: "over", sets: 24, low: 10, high: 20, stalled: false })).toBe("Quads · 24, above 20 · fine while lifts improve");
   });
   it("just states the count when in range or none", () => {
-    expect(weekLine("chest", { state: "in", sets: 12, low: 10, high: 20 })).toBe("Chest · 12 of 10–20 sets this week");
-    expect(weekLine("abs", { state: "none", sets: 0, low: 10, high: 20 })).toBe("Abs · 0 of 10–20 sets this week · add 10");
+    expect(weekLine("chest", { state: "in", sets: 12, low: 10, high: 20, stalled: false })).toBe("Chest · 12 of 10–20 sets this week");
+    expect(weekLine("abs", { state: "none", sets: 0, low: 10, high: 20, stalled: false })).toBe("Abs · 0 of 10–20 sets this week · add 10");
   });
 });

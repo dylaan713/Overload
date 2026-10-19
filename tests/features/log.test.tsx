@@ -42,7 +42,7 @@ describe("log screen", () => {
     const t = coachFor(d, "row", TODAY, false).targets;
     expect(screen.getByRole("heading", { name: "Seated cable row" })).toBeInTheDocument();
     expect(target()).toHaveTextContent(`${t.weight} lb × ${t.sets[0]!.reps}`);
-    expect(target()).toHaveTextContent("Moderate–All out");
+    expect(target()).toHaveTextContent("Moderate–Hard");
     expect(lastTime()).toHaveTextContent("130 lb × 10");
     expect(lastTime()).toHaveTextContent("10 · 10 · 9");
     expect(screen.getByText(t.reason)).toBeInTheDocument();

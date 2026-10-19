@@ -8,7 +8,9 @@ export const STYLE_DEFAULTS: Record<Style, StyleRules> = {
     volume: { low: 6, high: 12 },
   },
   hypertrophy: {
-    compound: { repLow: 6, repHigh: 10, sets: 3, rirLow: 0, rirHigh: 2, restSeconds: 120, warmupSets: 2 },
+    // Compounds stop short of failure (Moderate–Hard): failure adds no growth over 1–3 reps left and costs more
+    // recovery on heavy lifts (Refalo 2023). 2 is the easiest the difficulty words can express below Easy.
+    compound: { repLow: 6, repHigh: 10, sets: 3, rirLow: 1, rirHigh: 2, restSeconds: 120, warmupSets: 2 },
     isolation: { repLow: 10, repHigh: 15, sets: 3, rirLow: 0, rirHigh: 2, restSeconds: 90, warmupSets: 1 },
     volume: { low: 10, high: 20 },
   },

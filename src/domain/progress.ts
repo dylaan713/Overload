@@ -2,6 +2,7 @@ import { addDays, daysBetween, weekStart } from "./dates";
 import { MUSCLE_LABEL } from "./library/muscles";
 import { phaseOf } from "./settings";
 import type { Exercise, Muscle, SetEntry, StoreDoc } from "./types";
+import { setCredit } from "./volume";
 
 export const WINDOW_DAYS = 56;
 export const MIN_SESSIONS = 3;
@@ -118,7 +119,7 @@ function avgWeeklySets(doc: StoreDoc, muscle: Muscle, today: string): number | n
     for (const b of s.blocks) {
       const ex = exercises.get(b.exerciseId);
       if (!ex) continue;
-      const n = working(b.sets).length;
+      const n = b.test ? 0 : b.sets.reduce((a, x) => a + setCredit(x), 0);
       if (ex.primary.includes(muscle)) total += n;
       else if (ex.secondary.includes(muscle)) total += n / 2;
     }

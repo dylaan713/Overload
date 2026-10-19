@@ -25,8 +25,9 @@ const keyOf = (s: SetEntry) => {
  * Today's sets for one exercise: tap one to fix it, swipe it left to remove it. Removal is by the set itself,
  * not its position, so two quick swipes can't hit a row that moved up in between.
  */
-export function SetList({ block, editingIndex, onEdit, onRemove }: {
+export function SetList({ block, label = "Sets today", editingIndex, onEdit, onRemove }: {
   block: Block | undefined;
+  label?: string;
   editingIndex?: number | null;
   onEdit?: (index: number) => void;
   /** Resolves false when the set wasn't removed, so the row comes back. */
@@ -35,7 +36,7 @@ export function SetList({ block, editingIndex, onEdit, onRemove }: {
   if (!block?.sets.length) return null;
   const labels = setLabels(block);
   return (
-    <ol className={styles.sets} aria-label="Sets today">
+    <ol className={styles.sets} aria-label={label}>
       {block.sets.map((s, i) => (
         <SetRow
           key={keyOf(s)}

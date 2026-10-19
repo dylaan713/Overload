@@ -3,6 +3,7 @@ import { themePreference } from "../domain/theme";
 import { LogScreen } from "../features/log/LogScreen";
 import { NextExerciseSheet } from "../features/log/NextExerciseView";
 import { HistoryScreen } from "../features/history/HistoryScreen";
+import { WorkoutSheet } from "../features/history/WorkoutSheet";
 import { LiftSheet } from "../features/progress/LiftSheet";
 import { ProgressScreen } from "../features/progress/ProgressScreen";
 import { settingsView } from "../features/settings/SettingsRoot";
@@ -102,6 +103,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
       {sheet === "settings" && <SheetStack root={settingsRoot()} onClose={closeSheet} />}
       {sheet === "next-exercise" && <NextExerciseSheet search={sheetSearch} onClose={closeSheet} />}
       {sheet === "lift" && sheetArg && <LiftSheet exerciseId={sheetArg} onClose={closeSheet} />}
+      {sheet === "workout" && sheetArg && <WorkoutSheet date={sheetArg} onClose={closeSheet} />}
       {saveError && (
         <div className={styles.alerts}>
           <Banner tone="error" role="alert">

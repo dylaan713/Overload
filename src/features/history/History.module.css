@@ -88,3 +88,16 @@
   border-radius: 50%;
   background: currentColor;
 }
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actions > * {
+  flex: 1;
+}
+
+.repeat {
+  margin-top: 0.5rem;
+}

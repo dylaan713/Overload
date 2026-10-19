@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { themePreference } from "../domain/theme";
 import { LogScreen } from "../features/log/LogScreen";
 import { NextExerciseSheet } from "../features/log/NextExerciseView";
-import { HistoryPlaceholder, ProgressPlaceholder } from "../features/placeholders";
+import { HistoryPlaceholder } from "../features/placeholders";
+import { ProgressScreen } from "../features/progress/ProgressScreen";
 import { settingsView } from "../features/settings/SettingsRoot";
 import { useApp, useUi, useUiStore } from "../state/context";
 import type { Tab } from "../state/uiStore";
@@ -16,7 +17,7 @@ import { applyTheme } from "./theme";
 import styles from "./Shell.module.css";
 
 const TITLES: Record<Tab, string> = { log: "Log", progress: "Progress", history: "History" };
-const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogScreen, progress: ProgressPlaceholder, history: HistoryPlaceholder };
+const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogScreen, progress: ProgressScreen, history: HistoryPlaceholder };
 
 /** The app frame: scrolling content under floating chrome, the Settings sheet, toasts and save errors. */
 export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => SheetView }) {

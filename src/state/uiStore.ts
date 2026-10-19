@@ -5,7 +5,7 @@ import type { SetRef } from "../domain/log";
 
 export const UI_KEY = "overload.v2.ui";
 export type Tab = "log" | "progress" | "history";
-export type SheetId = "settings" | "next-exercise";
+export type SheetId = "settings" | "next-exercise" | "lift" | "workout";
 export interface Toast {
   id: string;
   text: string;
@@ -40,13 +40,15 @@ export interface UiState {
   sheet: SheetId | null;
   /** The sheet opens with its search focused (the Log has nothing on it yet). */
   sheetSearch: boolean;
+  /** What the sheet is about: an exercise id for "lift", a date for "workout". */
+  sheetArg: string | null;
   toast: Toast | null;
   log: LogUi;
   /** Where focus goes once the sheet has closed: what opened it, or the Log's entry row after a pick. */
   focusAfterSheet: HTMLElement | "entry" | null;
   now(): number;
   setTab(tab: Tab): void;
-  openSheet(sheet: SheetId, opts?: { search?: boolean }): void;
+  openSheet(sheet: SheetId, opts?: { search?: boolean; arg?: string }): void;
   closeSheet(): void;
   /** Sends focus to the Log's weight field when the open sheet closes (e.g. after picking an exercise). */
   focusEntryAfterSheet(): void;
@@ -113,6 +115,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       tab: "log",
       sheet: null,
       sheetSearch: false,
+      sheetArg: null,
       toast: null,
       log: EMPTY_LOG,
       focusAfterSheet: null,
@@ -123,7 +126,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         set({ tab });
         void write();
       },
-      openSheet: (sheet, opts = {}) => set({ sheet, sheetSearch: opts.search ?? false, focusAfterSheet: typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null }),
+      openSheet: (sheet, opts = {}) => set({ sheet, sheetSearch: opts.search ?? false, sheetArg: opts.arg ?? null, focusAfterSheet: typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null }),
       closeSheet: () => set({ sheet: null }),
       focusEntryAfterSheet: () => set({ focusAfterSheet: "entry" }),
 

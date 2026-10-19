@@ -11,7 +11,7 @@ describe("ui store", () => {
     await ui.getState().hydrate();
     expect(ui.getState().tab).toBe("log");
     ui.getState().setTab("progress");
-    await vi.waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 3, tab: "progress" }));
+    await vi.waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 4, tab: "progress" }));
     const again = createUiStore(kv);
     await again.getState().hydrate();
     expect(again.getState().tab).toBe("progress");
@@ -57,5 +57,47 @@ describe("ui store", () => {
     await expect(ui.getState().hydrate()).resolves.toBeUndefined();
     expect(() => ui.getState().setTab("history")).not.toThrow();
     expect(ui.getState().tab).toBe("history");
+  });
+
+  describe("repeat queue (v4)", () => {
+    const draft = { day: "2026-10-19", exerciseId: "bench", weight: "185", reps: null, difficulty: null, warmup: false, editing: null, pending: null, test: false };
+
+    it("persists the queue as version 4", async () => {
+      const kv = createMemoryKV();
+      const ui = createUiStore(kv);
+      await ui.getState().hydrate();
+      ui.getState().setQueue("2026-10-19", ["fly", "ohe"]);
+      await ui.getState().flush();
+      expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 4, log: { queue: { day: "2026-10-19", ids: ["fly", "ohe"] } } });
+      const again = createUiStore(kv);
+      await again.getState().hydrate();
+      expect(again.getState().log.queue).toEqual({ day: "2026-10-19", ids: ["fly", "ohe"] });
+    });
+
+    it("upgrades a v3 state, keeping the draft", async () => {
+      const ui = createUiStore(createMemoryKV({ [UI_KEY]: JSON.stringify({ version: 3, tab: "log", log: { draft, startedAt: null, last: null } }) }));
+      await ui.getState().hydrate();
+      expect(ui.getState().log.draft).toEqual(draft);
+      expect(ui.getState().log.queue).toBeNull();
+    });
+
+    it("drops a queue from another day than the draft, and a malformed one", async () => {
+      const stale = createUiStore(createMemoryKV({ [UI_KEY]: JSON.stringify({ version: 4, tab: "log", log: { draft, startedAt: null, last: null, queue: { day: "2026-10-18", ids: ["fly"] } } }) }));
+      await stale.getState().hydrate();
+      expect(stale.getState().log.queue).toBeNull();
+      const bad = createUiStore(createMemoryKV({ [UI_KEY]: JSON.stringify({ version: 4, tab: "log", log: { draft, startedAt: null, last: null, queue: { day: "2026-10-19", ids: [3] } } }) }));
+      await bad.getState().hydrate();
+      expect(bad.getState().log.queue).toBeNull();
+      expect(bad.getState().log.draft).toEqual(draft);
+    });
+
+    it("unqueue removes one exercise and clears an empty queue", () => {
+      const ui = createUiStore(createMemoryKV());
+      ui.getState().setQueue("2026-10-19", ["fly", "ohe"]);
+      ui.getState().unqueue("fly");
+      expect(ui.getState().log.queue).toEqual({ day: "2026-10-19", ids: ["ohe"] });
+      ui.getState().unqueue("ohe");
+      expect(ui.getState().log.queue).toBeNull();
+    });
   });
 });

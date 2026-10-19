@@ -31,6 +31,8 @@ export interface LogUi {
   draft: LogDraft | null;
   startedAt: number | null; // first set of the Log's day, for the workout clock
   last: { day: string; at: number } | null; // the latest logged set
+  /** Exercises left from a repeated workout, in order; only meaningful on its day. */
+  queue: { day: string; ids: string[] } | null;
 }
 
 export interface UiState {
@@ -58,6 +60,10 @@ export interface UiState {
   /** Stops fixing a set and brings back what was being typed for the next one. */
   endEdit(): void;
   markLogged(day: string, at: number): void;
+  /** Lines up a past workout's exercises for the Log's day. */
+  setQueue(day: string, ids: string[]): void;
+  /** Drops an exercise from the queue (after it's picked). */
+  unqueue(exerciseId: string): void;
   /** Writes any pending change now. */
   flush(): Promise<void>;
   hydrate(): Promise<void>;
@@ -68,7 +74,7 @@ export type UiStore = StoreApi<UiState>;
 const TABS: readonly Tab[] = ["log", "progress", "history"];
 const TOAST_MS = 6000;
 export const DRAFT_DEBOUNCE_MS = 250;
-const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null };
+const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null, queue: null };
 
 const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: null, reps: null, difficulty: null, warmup: false, editing: null, pending: null, test: false });
 
@@ -92,7 +98,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       saveTimer = null;
       if (!hydrated) return Promise.resolve();
       const { tab, log } = get();
-      return kv.set(UI_KEY, JSON.stringify({ version: 3, tab, log })).catch(() => {});
+      return kv.set(UI_KEY, JSON.stringify({ version: 4, tab, log })).catch(() => {});
     };
     const schedule = () => {
       if (saveTimer) clearTimeout(saveTimer);
@@ -162,6 +168,15 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         const { log } = get();
         setLog({ ...log, startedAt: log.last?.day === day && log.startedAt != null ? log.startedAt : at, last: { day, at } });
       },
+      setQueue(day, ids) {
+        setLog({ ...get().log, queue: ids.length ? { day, ids } : null });
+      },
+      unqueue(exerciseId) {
+        const { log } = get();
+        if (!log.queue) return;
+        const ids = log.queue.ids.filter((id) => id !== exerciseId);
+        setLog({ ...log, queue: ids.length ? { ...log.queue, ids } : null });
+      },
       flush: () => write(),
 
       async hydrate() {
@@ -169,12 +184,12 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         try {
           const raw = await kv.get(UI_KEY);
           const saved = raw ? (JSON.parse(raw) as { version?: number; tab?: unknown; log?: unknown }) : null;
-          if (!touched.tab && (saved?.version === 1 || saved?.version === 2 || saved?.version === 3) && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
-          if (saved?.version === 2 || saved?.version === 3) {
+          if (!touched.tab && typeof saved?.version === "number" && saved.version >= 1 && saved.version <= 4 && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
+          if (saved?.version === 2 || saved?.version === 3 || saved?.version === 4) {
             const stored = readLog(saved.log, saved.version);
             const mine = get().log;
             const newer = (mine.last?.at ?? -Infinity) > (stored.last?.at ?? -Infinity) ? mine : stored;
-            set({ log: { draft: touched.draft ? mine.draft : stored.draft, startedAt: newer.startedAt, last: newer.last } });
+            set({ log: { draft: touched.draft ? mine.draft : stored.draft, startedAt: newer.startedAt, last: newer.last, queue: mine.queue ?? stored.queue } });
           }
         } catch {
           // Transient state only: start on the defaults.
@@ -207,11 +222,19 @@ function readDraft(v: unknown, version: number): LogDraft | null {
   return { ...upgrade(draft), pending: draft.pending && upgrade(draft.pending) };
 }
 
+/** A queue is kept only if well-formed and, when there's a draft, from the draft's day. */
+function readQueue(v: unknown, draft: LogDraft | null): LogUi["queue"] {
+  if (!isObj(v) || !str(v.day) || !Array.isArray(v.ids) || !v.ids.every(str) || v.ids.length === 0) return null;
+  if (draft && draft.day !== v.day) return null;
+  return { day: v.day as string, ids: v.ids as string[] };
+}
+
 /** Stored UI state is untrusted: any malformed field falls back to empty instead of crashing the Log. */
 function readLog(v: unknown, version: number): LogUi {
   if (!isObj(v)) return EMPTY_LOG;
   const last = isObj(v.last) && str(v.last.day) && num(v.last.at) ? { day: v.last.day as string, at: v.last.at as number } : null;
-  return { draft: readDraft(v.draft, version), startedAt: num(v.startedAt) ? (v.startedAt as number) : null, last };
+  const draft = readDraft(v.draft, version);
+  return { draft, startedAt: num(v.startedAt) ? (v.startedAt as number) : null, last, queue: version >= 4 ? readQueue(v.queue, draft) : null };
 }
 
 /** Writes pending UI state the moment the page is hidden or unloaded (iOS may kill it right after). */

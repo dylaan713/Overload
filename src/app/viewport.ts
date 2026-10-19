@@ -26,8 +26,6 @@ export function measureViewport(root: HTMLElement = document.documentElement): v
     const gap = bottomGap(screenHeight, fixedBottom);
     root.style.setProperty("--app-gap", `${gap}px`);
     root.toggleAttribute("data-app-gap", gap > 0);
-    // TEMP diagnostics for the black-bar fix; remove once confirmed on the phone.
-    root.dataset.viewportDebug = `screen ${screenHeight} · fixed ${Math.round(fixedBottom)} · inner ${innerHeight} · gap ${gap}`;
   };
   update();
   addEventListener("resize", update);

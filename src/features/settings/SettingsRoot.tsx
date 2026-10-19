@@ -210,8 +210,6 @@ function DataSection() {
             <p className={styles.caption}>Your workouts from the previous version, as a file.</p>
           </>
         )}
-        {/* TEMP: black-bar fix diagnostics (app/viewport.ts); remove once confirmed on the phone. */}
-        {document.documentElement.dataset.viewportDebug && <p className={styles.caption}>{document.documentElement.dataset.viewportDebug}</p>}
       </ListItem>
     </ListGroup>
   );

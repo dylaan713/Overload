@@ -69,6 +69,16 @@ describe("Progress tab", () => {
     expect(screen.queryByText(/Stronger on/)).toBeNull();
   });
 
+  it("names what the muscle map shows instead of repeating \"Muscles\"", async () => {
+    const { user } = await openProgress();
+    await user.click(screen.getByRole("radio", { name: "Muscles" }));
+    expect(screen.queryByRole("heading", { name: "Muscles" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Sets this week" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Sets" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Strength" }));
+    expect(screen.getByRole("heading", { name: "Strength, last 8 weeks" })).toBeInTheDocument();
+  });
+
   it("tells this week's sets for a tapped muscle", async () => {
     const { user } = await openProgress();
     await user.click(screen.getByRole("radio", { name: "Muscles" }));

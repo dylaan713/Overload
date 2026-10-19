@@ -61,12 +61,12 @@ export function ProgressScreen() {
       </div>
 
       {section === "muscles" ? (
-        <ListGroup title="Muscles">
+        <ListGroup title={view === "week" ? "Sets this week" : "Strength, last 8 weeks"}>
           <ListItem>
             <Segmented<View>
               label="Muscle map"
               value={view}
-              options={[{ value: "week", label: "This week" }, { value: "strength", label: "Strength" }]}
+              options={[{ value: "week", label: "Sets" }, { value: "strength", label: "Strength" }]}
               onChange={setView}
             />
             <MuscleFigure tones={tones} labels={labels} selected={muscle} onSelect={setMuscle} />

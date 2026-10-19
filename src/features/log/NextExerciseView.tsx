@@ -28,11 +28,16 @@ export function NextExerciseView({ onPick, search = false }: { onPick: (exercise
   const [query, setQuery] = useState("");
 
   const queue = useUi((s) => s.log.queue);
+  const inHand = useUi((s) => (s.log.draft?.day === day ? s.log.draft.exerciseId : null));
   const upNext = useMemo(() => {
     if (!queue || queue.day !== day) return [];
     const byId = new Map(doc.exercises.map((e) => [e.id, e]));
-    return queue.ids.map((id) => byId.get(id)).filter((e): e is Exercise => !!e && !e.archived);
-  }, [queue, day, doc]);
+    const logged = new Set(doc.sessions.filter((s) => s.date === day).flatMap((s) => s.blocks.filter((b) => b.sets.length).map((b) => b.exerciseId)));
+    return queue.ids
+      .filter((id) => id !== inHand && !logged.has(id))
+      .map((id) => byId.get(id))
+      .filter((e): e is Exercise => !!e && !e.archived);
+  }, [queue, day, doc, inHand]);
   const volume = useMemo(() => weeklyVolume(doc, day), [doc, day]);
   const short = volume.filter((r) => r.status === "under").sort((a, b) => b.low - b.sets - (a.low - a.sets));
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);

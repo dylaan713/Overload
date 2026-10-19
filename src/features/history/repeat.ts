@@ -20,12 +20,9 @@ export function repeatWorkout(app: AppStore, ui: UiStore, date: string): void {
   }
   const d = s.log.draft;
   const free = !d || d.day !== day || !d.exerciseId || (d.weight === null && d.reps === null);
-  if (free) {
-    s.setDraft(freshDraft(doc, day, ids[0]!));
-    s.setQueue(day, ids.slice(1));
-  } else {
-    s.setQueue(day, ids);
-  }
+  // The whole workout stays queued until each exercise is picked; Up next hides the one in hand and any logged.
+  if (free) s.setDraft(freshDraft(doc, day, ids[0]!));
+  s.setQueue(day, ids);
   s.closeSheet();
   s.setTab("log");
   if (skipped > 0) s.showToast({ text: `Skipped ${plural(skipped, "archived exercise")}` });

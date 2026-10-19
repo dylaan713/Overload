@@ -44,11 +44,27 @@ describe("Repeat this workout", () => {
     const r = await setup();
     let { sheet } = await upNext(r);
     await r.user.click(within(within(sheet).getByRole("region", { name: "Up next" })).getByRole("button", { name: /^Incline press/ }));
-    expect(r.uiStore.getState().log.queue!.ids).toEqual(["fly", "ohe", "pushdown", "lateral"]);
+    expect(r.uiStore.getState().log.queue!.ids).toEqual(["bench", "fly", "ohe", "pushdown", "lateral"]);
     await screen.findByRole("heading", { level: 2, name: "Incline press" });
     ({ sheet } = await upNext(r));
     await r.user.click(within(sheet).getByRole("button", { name: /^Row/ }));
-    expect(r.uiStore.getState().log.queue!.ids).toEqual(["fly", "ohe", "pushdown", "lateral"]);
+    expect(r.uiStore.getState().log.queue!.ids).toEqual(["bench", "fly", "ohe", "pushdown", "lateral"]);
+  });
+
+  it("keeps the first exercise queued when another is picked first (review I4)", async () => {
+    const r = await setup();
+    const { sheet } = await upNext(r);
+    await r.user.click(within(within(sheet).getByRole("region", { name: "Up next" })).getByRole("button", { name: /^Lateral raise/ }));
+    await screen.findByRole("heading", { level: 2, name: "Lateral raise" });
+    const { rows } = await upNext(r);
+    expect(rows.map((t) => names.find((n) => t.startsWith(n)))).toEqual(["Bench press", "Incline press", "Chest fly", "Overhead extension", "Pushdown"]);
+  });
+
+  it("Up next leaves out the exercise in hand and ones already logged today", async () => {
+    const r = await setup();
+    await r.app.getState().logSet({ day: TODAY, exerciseId: "incline", set: { weight: 60, reps: 10, warmup: false, rir: 1 }, test: false });
+    const { rows } = await upNext(r);
+    expect(rows.map((t) => names.find((n) => t.startsWith(n)))).toEqual(["Chest fly", "Overhead extension", "Pushdown", "Lateral raise"]);
   });
 
   it("never overwrites what's typed on the Log", async () => {

@@ -28,12 +28,13 @@ function LiftView({ exerciseId }: { exerciseId: string }) {
   const today = useApp((s) => s.today)();
   const [range, setRange] = useState<Range>("3mo");
   const ex = doc.exercises.find((e) => e.id === exerciseId);
-  const points = useMemo(() => liftSeries(doc, exerciseId, addDays(today, -(DAYS[range] - 1)), today), [doc, exerciseId, today, range]);
   const all = useMemo(() => workingSets(doc, exerciseId, today), [doc, exerciseId, today]);
+  // One measure for the whole screen (chart values, its label, Best set), chosen from all of the lift's history.
+  const metric = ex ? metricOf(ex, all.map((x) => x.set)) : "e1rm";
+  const points = useMemo(() => liftSeries(doc, exerciseId, addDays(today, -(DAYS[range] - 1)), today, metric), [doc, exerciseId, today, range, metric]);
   const stuck = useMemo(() => attentionFor(doc, today, exerciseId), [doc, today, exerciseId]);
   if (!ex) return <EmptyState text="This exercise is gone." />;
 
-  const metric = metricOf(ex, all.map((x) => x.set));
   const score = (s: SetEntry) => (metric === "reps" ? s.reps : sessionE1rm([s]));
   const best = all.reduce<SetEntry | null>((b, { set }) => (!b || score(set) > score(b) ? set : b), null);
   const lastDate = all.at(-1)?.date;

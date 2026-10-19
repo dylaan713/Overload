@@ -39,7 +39,7 @@ describe("Progress tab", () => {
   it("answers the headline question", async () => {
     await openProgress();
     expect(screen.getByText("Stronger on 1 of 2 lifts")).toBeInTheDocument();
-    expect(screen.getByText("Average est. 1RM +2%")).toBeInTheDocument();
+    expect(screen.getByText("Average est. 1RM −1%")).toBeInTheDocument();
   });
 
   it("lists lifts by sessions with their change", async () => {
@@ -48,7 +48,7 @@ describe("Progress tab", () => {
     const rows = within(lifts).getAllByRole("button");
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringMatching(/^Bench press.*\+13 lb/),
-      expect.stringMatching(/^Squat.*−12 lb/),
+      expect.stringMatching(/^Squat.*−24 lb/),
       expect.stringMatching(/^Curl.*Not enough data yet/),
     ]);
   });

@@ -75,6 +75,18 @@ describe("lift chart", () => {
     expect(within(sheet).getByRole("region", { name: "Why it's stuck" })).toHaveTextContent("Chest gets 0.5 of 6+ sets a week. Add sets.");
   });
 
+  it("the chart's values and its label always use the same measure (review I3)", async () => {
+    const dips = doc({
+      exercises: [ex("dip", { name: "Dip", equipment: "bodyweight", loadKind: "bodyweight" })],
+      sessions: [day("2026-06-01", [["dip", sets(0, [12])]]), day("2026-10-10", [["dip", sets(25, [12])]]), day("2026-10-15", [["dip", sets(25, [13])]])],
+    });
+    const r = await renderWithStore(<Shell />, { doc: dips, today: TODAY, now: () => Date.parse(`${TODAY}T12:00:00`) });
+    r.uiStore.getState().openSheet("lift", { arg: "dip" });
+    const sheet = await screen.findByRole("dialog");
+    await r.user.click(within(sheet).getByRole("radio", { name: "4 wk" }));
+    expect(within(sheet).getByRole("slider", { name: "Reps" })).toHaveAttribute("aria-valuetext", "Oct 15 · 13 reps");
+  });
+
   it("says when a range has nothing to draw", async () => {
     const { sheet, user } = await openLift("dip");
     await user.click(within(sheet).getByRole("radio", { name: "4 wk" }));

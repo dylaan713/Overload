@@ -5,6 +5,8 @@ import type { Exercise, Muscle, SetEntry, StoreDoc } from "./types";
 
 export const WINDOW_DAYS = 56;
 export const MIN_SESSIONS = 3;
+/** A lift is judged only once its sessions span two weeks: three sessions in one week say nothing about progress. */
+export const MIN_SPAN_DAYS = 14;
 const NEAR_FAILURE = 2; // reps-left is only trusted at Moderate (2) or harder
 const REP_CAP = 12;
 const ATTENTION_MAX = 2;
@@ -18,6 +20,8 @@ export interface LiftProgress {
   name: string;
   metric: Metric;
   sessions: number; // in the window
+  /** false for assisted lifts: less assistance is progress even as reps fall, so they're shown but not scored. */
+  counts: boolean;
   points: SeriesPoint[]; // in the window, oldest first
   change: number | null; // in the user's unit (e1rm) or reps; null under MIN_SESSIONS
   pct: number | null;
@@ -48,7 +52,8 @@ export function sessionE1rm(sets: SetEntry[]): number {
 /** Bands, assisted lifts and unloaded bodyweight work are tracked by reps; anything with load by est. 1RM. */
 export function metricOf(ex: Exercise, sets: SetEntry[]): Metric {
   if (ex.equipment === "band" || ex.loadKind === "assisted") return "reps";
-  if (ex.loadKind === "bodyweight" && working(sets).every((s) => s.weight === 0)) return "reps";
+  // Any unloaded session: est. 1RM on added load would read it as zero, so track the lift by reps.
+  if (ex.loadKind === "bodyweight" && working(sets).some((s) => s.weight === 0)) return "reps";
   return "e1rm";
 }
 
@@ -75,12 +80,12 @@ function setsByDate(doc: StoreDoc, exerciseId: string, from: string, to: string)
 const hasTest = (doc: StoreDoc, exerciseId: string, date: string) =>
   doc.sessions.some((s) => s.date === date && s.blocks.some((b) => b.exerciseId === exerciseId && b.test));
 
-/** One point per day with working sets, oldest first. The metric is chosen from the sets in range. */
-export function liftSeries(doc: StoreDoc, exerciseId: string, from: string, to: string): SeriesPoint[] {
+/** One point per day with working sets, oldest first. The metric is chosen from the sets in range unless given. */
+export function liftSeries(doc: StoreDoc, exerciseId: string, from: string, to: string, metricIn?: Metric): SeriesPoint[] {
   const ex = doc.exercises.find((e) => e.id === exerciseId);
   if (!ex) return [];
   const byDate = setsByDate(doc, exerciseId, from, to);
-  const metric = metricOf(ex, [...byDate.values()].flat());
+  const metric = metricIn ?? metricOf(ex, [...byDate.values()].flat());
   const earliest = [...doc.settings.phases].sort((a, b) => a.startDate.localeCompare(b.startDate))[0]?.id;
   let prevPhase: string | null = null;
   return [...byDate.entries()]
@@ -129,7 +134,7 @@ function attentionReason(doc: StoreDoc, ex: Exercise, l: LiftProgress, from: str
   const rated = sets.filter((s) => s.rir !== null);
   const avgRir = rated.length ? rated.reduce((a, s) => a + s.rir!, 0) / rated.length : null;
   if (avgRir !== null && avgRir >= 3) return { short: "Mostly Easy sets: push closer to failure", reason: "Most sets were Easy. Take them closer to failure." };
-  if (l.trend === "down" && avgRir !== null && avgRir <= 0.5) {
+  if (l.trend === "down" && l.metric === "e1rm" && avgRir !== null && avgRir <= 0.5) {
     return {
       short: "All out and dropping: take the lighter week",
       reason: "Every set was All out and it's dropping. Recovery is the limit; take the lighter week when the Log offers it.",
@@ -168,26 +173,33 @@ export function progressSummary(doc: StoreDoc, today: string): ProgressSummary {
   const lifts: LiftProgress[] = [];
   for (const ex of doc.exercises) {
     if (ex.archived) continue;
-    const points = liftSeries(doc, ex.id, from, today);
-    if (points.length === 0) continue;
     const metric = metricOf(ex, [...setsByDate(doc, ex.id, from, today).values()].flat());
+    const points = liftSeries(doc, ex.id, from, today, metric);
+    if (points.length === 0) continue;
+    const counts = ex.loadKind !== "assisted";
     let change: number | null = null;
     let pct: number | null = null;
     let trend: Trend | null = null;
-    const start = points.length >= MIN_SESSIONS ? Math.max(points[0]!.value, points[1]!.value) : 0;
+    const judged = counts && points.length >= MIN_SESSIONS && daysBetween(points[0]!.date, points.at(-1)!.date) >= MIN_SPAN_DAYS;
+    // Best of the first two vs best of the last two damps one bad day; with three sessions they'd share the middle one.
+    const ends = points.length >= 4 ? 2 : 1;
+    const start = judged ? Math.max(...points.slice(0, ends).map((p) => p.value)) : 0;
     if (start > 0) {
-      const end = Math.max(points.at(-1)!.value, points.at(-2)!.value);
+      const end = Math.max(...points.slice(-ends).map((p) => p.value));
       change = Math.round(end - start);
       pct = Math.round(((end - start) / start) * 1000) / 10;
       trend = trendOf(pct);
     }
-    lifts.push({ exerciseId: ex.id, name: ex.name, metric, sessions: points.length, points, change, pct, trend });
+    lifts.push({ exerciseId: ex.id, name: ex.name, metric, sessions: points.length, counts, points, change, pct, trend });
   }
   lifts.sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name));
 
   const counted = lifts.filter((l) => l.trend !== null);
   const stronger = counted.filter((l) => l.trend === "up" || l.trend === "up-a-lot").length;
-  const avgPct = counted.length ? Math.round(counted.reduce((a, l) => a + l.pct!, 0) / counted.length) : null;
+  // "Average est. 1RM" means it: loaded external lifts only (added-load bodyweight percentages run huge, reps aren't 1RM).
+  const kinds = new Map(doc.exercises.map((e) => [e.id, e.loadKind]));
+  const loaded = counted.filter((l) => l.metric === "e1rm" && kinds.get(l.exerciseId) === "external");
+  const avgPct = loaded.length ? Math.round(loaded.reduce((a, l) => a + l.pct!, 0) / loaded.length) : null;
 
   const attention = counted
     .filter((l) => l.trend === "down" || l.trend === "flat")

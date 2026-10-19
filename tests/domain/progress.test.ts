@@ -47,8 +47,11 @@ describe("metricOf", () => {
     expect(metricOf(ex("a", { loadKind: "assisted" }), sets(40, [8]))).toBe("reps");
     expect(metricOf(ex("p", { equipment: "bodyweight", loadKind: "bodyweight" }), sets(0, [8, 8]))).toBe("reps");
   });
+  it("uses reps for bodyweight work when any session was unloaded, so an unloaded day never scores 0", () => {
+    expect(metricOf(ex("p", { equipment: "bodyweight", loadKind: "bodyweight" }), [...sets(0, [8]), ...sets(25, [6])])).toBe("reps");
+  });
   it("uses est. 1RM for loaded work", () => {
-    expect(metricOf(ex("p", { equipment: "bodyweight", loadKind: "bodyweight" }), [...sets(0, [8]), ...sets(25, [6])])).toBe("e1rm");
+    expect(metricOf(ex("p", { equipment: "bodyweight", loadKind: "bodyweight" }), sets(25, [6]))).toBe("e1rm");
     expect(metricOf(ex("bench"), sets(135, [8]))).toBe("e1rm");
   });
 });
@@ -170,19 +173,14 @@ describe("attention", () => {
     expect(build(() => [["bench", sets(135, [8, 8], [1, 1])]])[0]!.reason).toMatch(/^Chest gets [\d.]+ of 10\+ sets a week\. Add sets\.$/);
   });
   it("averages only full weeks since the first workout, so a new account isn't told to add sets", () => {
-    // First workout Thu Oct 1 (its week is partial), then 10 chest sets in each full week since: in range.
+    // First workout Sun Sep 27, then 10 chest sets in each of the 3 full weeks since (≈ 10 a week): in range.
     const sessions = [
-      day("2026-10-01", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
+      day("2026-09-27", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
       day("2026-10-05", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
       day("2026-10-12", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
     ];
     const out = progressSummary(doc({ exercises: [ex("bench")], style: "hypertrophy", sessions }), TODAY).attention;
     expect(out[0]!.reason).toBe("No gain in 3 weeks. The Log changes the target when a lift stalls; follow it.");
-  });
-  it("doesn't judge weekly sets before one full week is logged", () => {
-    const sessions = ["2026-10-12", "2026-10-14", "2026-10-16"].map((date) => day(date, [["bench", sets(135, [8], [1])]]));
-    const out = progressSummary(doc({ exercises: [ex("bench")], style: "hypertrophy", sessions }), TODAY).attention;
-    expect(out[0]!.reason).toBe("No gain in 1 week. The Log changes the target when a lift stalls; follow it.");
   });
   it("calls out mostly unrated sets", () => {
     // 24 sets a session keeps chest inside its weekly range, so only the missing ratings are left to call out.
@@ -204,5 +202,54 @@ describe("attention", () => {
       ["d", sets(135, [8], [1])],
     ], exs);
     expect(out.map((x) => x.exerciseId)).toEqual(["b", "c"]);
+  });
+});
+
+describe("review fixes", () => {
+  const b = ex("bench");
+  it("doesn't judge a brand-new account's first week", () => {
+    const d = doc({ exercises: [b], sessions: ["2026-10-12", "2026-10-14", "2026-10-16"].map((date) => day(date, [["bench", sets(135, [8], [1])]])) });
+    const s = progressSummary(d, TODAY);
+    expect(s).toMatchObject({ counted: 0, stronger: 0, attention: [] });
+    expect(s.lifts[0]).toMatchObject({ sessions: 3, trend: null, change: null });
+  });
+  it("compares first with last when there are only 3 sessions", () => {
+    const d = doc({ exercises: [b], sessions: [["2026-09-20", 150], ["2026-10-01", 153], ["2026-10-12", 156]].map(([date, w]) => day(date as string, [["bench", sets(w as number, [8], [1])]])) });
+    const l = progressSummary(d, TODAY).lifts[0]!;
+    expect(l.change).toBe(sessionE1rm(sets(156, [8], [1])) - sessionE1rm(sets(150, [8], [1])));
+    expect(l.trend).toBe("up");
+  });
+  it("never reads unloaded bodyweight sessions as a drop to zero", () => {
+    const dip = ex("dip", { equipment: "bodyweight", loadKind: "bodyweight" });
+    const d = doc({ exercises: [dip], sessions: [day("2026-09-01", [["dip", sets(25, [8], [1])]]), day("2026-09-15", [["dip", sets(25, [8], [1])]]), day("2026-10-01", [["dip", sets(0, [12], [1])]]), day("2026-10-15", [["dip", sets(0, [12], [1])]])] });
+    const l = progressSummary(d, TODAY).lifts[0]!;
+    expect(l.metric).toBe("reps");
+    expect(l.trend).not.toBe("down");
+  });
+  it("leaves assisted lifts out of the headline and attention", () => {
+    const pull = ex("pull", { equipment: "machine", loadKind: "assisted" });
+    const d = doc({ exercises: [pull], sessions: [["2026-09-01", 50, 10], ["2026-09-15", 45, 9], ["2026-10-01", 40, 8], ["2026-10-15", 30, 7]].map(([date, w, r]) => day(date as string, [["pull", sets(w as number, [r as number], [0])]])) });
+    const s = progressSummary(d, TODAY);
+    expect(s).toMatchObject({ counted: 0, attention: [] });
+    expect(s.lifts[0]).toMatchObject({ counts: false, trend: null });
+  });
+  it("averages est. 1RM only over loaded barbell-style lifts", () => {
+    const dip = ex("dip", { equipment: "bodyweight", loadKind: "bodyweight" });
+    const four = ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"];
+    const d = doc({ exercises: [b, dip], sessions: four.map((date, i) => day(date, [["bench", sets(i < 2 ? 150 : 160, [8], [1])], ["dip", sets(i < 2 ? 10 : 25, [8], [1])]])) });
+    const s = progressSummary(d, TODAY);
+    const bench = s.lifts.find((l) => l.exerciseId === "bench")!;
+    expect(s.counted).toBe(2);
+    expect(s.avgPct).toBe(Math.round(bench.pct!));
+  });
+  it("only blames All out on lifts measured by est. 1RM", () => {
+    const band = ex("band", { equipment: "band" });
+    const d = doc({ exercises: [band], sessions: ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"].map((date, i) => day(date, [["band", sets(0, Array(12).fill(20 - i * 3), Array(12).fill(0))]])) });
+    expect(progressSummary(d, TODAY).attention[0]!.short).not.toMatch(/All out/);
+  });
+  it("lets the caller fix the metric for a series", () => {
+    const dip = ex("dip", { equipment: "bodyweight", loadKind: "bodyweight" });
+    const d = doc({ exercises: [dip], sessions: [day("2026-10-15", [["dip", sets(25, [8])]])] });
+    expect(liftSeries(d, "dip", "2026-08-25", TODAY, "reps")[0]!.value).toBe(8);
   });
 });

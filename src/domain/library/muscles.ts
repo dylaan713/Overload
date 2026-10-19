@@ -17,3 +17,37 @@ export const REGION_OF: Record<Muscle, Region> = {
   quads: "Legs", hamstrings: "Legs", glutes: "Legs", adductors: "Legs", abductors: "Legs", calves: "Legs",
   abs: "Core", obliques: "Core",
 };
+
+/** Words people search with, per muscle (label words included). A search word matches the start of any of these. */
+const MUSCLE_TERMS: Record<Muscle, string[]> = {
+  chest: ["chest", "pecs", "pectorals"],
+  "front-delts": ["front delts", "anterior", "shoulders"],
+  "side-delts": ["side delts", "lateral", "shoulders"],
+  "rear-delts": ["rear delts", "posterior", "shoulders"],
+  lats: ["lats", "latissimus", "back"],
+  "upper-back": ["upper back", "rhomboids"],
+  traps: ["traps", "trapezius", "back"],
+  "lower-back": ["lower back", "erectors"],
+  biceps: ["biceps", "arms"],
+  triceps: ["triceps", "arms"],
+  forearms: ["forearms", "grip", "arms"],
+  abs: ["abs", "abdominals", "core"],
+  obliques: ["obliques", "core"],
+  quads: ["quads", "quadriceps", "thighs", "legs"],
+  hamstrings: ["hamstrings", "hams", "legs"],
+  glutes: ["glutes", "butt", "legs"],
+  adductors: ["adductors", "inner thighs", "legs"],
+  abductors: ["abductors", "outer thighs", "legs"],
+  calves: ["calves", "calf", "legs"],
+};
+
+const MUSCLE_WORDS = Object.fromEntries(
+  Object.entries(MUSCLE_TERMS).map(([m, terms]) => [m, terms.flatMap((t) => t.split(" "))]),
+) as Record<Muscle, string[]>;
+
+/** Muscles a search word names: "bicep" → biceps, "delt" → all three delts. Under 3 letters names none. */
+export function musclesForWord(word: string): Muscle[] {
+  const w = word.toLowerCase();
+  if (w.length < 3) return [];
+  return (Object.keys(MUSCLE_WORDS) as Muscle[]).filter((m) => MUSCLE_WORDS[m].some((t) => t.startsWith(w)));
+}

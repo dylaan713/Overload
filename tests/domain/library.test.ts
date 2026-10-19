@@ -65,6 +65,41 @@ describe("searchLibrary", () => {
     expect(searchLibrary("")).toHaveLength(LIBRARY.length);
   });
 
+  it("finds exercises by the muscle they mainly work, singular or plural", () => {
+    for (const q of ["biceps", "bicep", "Bicep"]) {
+      const movements = new Set(searchLibrary(q).map((e) => e.movement));
+      for (const m of ["Curl", "Hammer curl", "Bayesian curl", "Preacher curl"]) expect(movements).toContain(m);
+      expect(searchLibrary(q).every((e) => e.primary.includes("biceps"))).toBe(true);
+    }
+  });
+
+  it("understands common gym words for muscles", () => {
+    const works = (q: string, m: string) => {
+      const r = searchLibrary(q);
+      expect(r.length).toBeGreaterThan(0);
+      expect(r.every((e) => e.primary.some((p) => p === m || REGION_OF[p] === m))).toBe(true);
+    };
+    works("pecs", "chest");
+    works("lats", "lats");
+    works("quads", "quads");
+    works("hams", "hamstrings");
+    works("calf", "calves");
+    works("delts", "Shoulders");
+    works("arms", "Arms");
+    works("legs", "Legs");
+  });
+
+  it("needs every word to match, so muscles narrow a name and vice versa", () => {
+    expect(searchLibrary("rear delt").every((e) => e.primary.includes("rear-delts"))).toBe(true);
+    expect(searchLibrary("biceps cable").map((e) => e.id)).toContain("bayesian-curl.cable");
+    expect(searchLibrary("biceps cable").every((e) => e.equipment === "cable")).toBe(true);
+    expect(searchLibrary("front squat").every((e) => /front squat/i.test(e.name))).toBe(true);
+  });
+
+  it("doesn't treat one or two letters as a muscle", () => {
+    expect(searchLibrary("ca").every((e) => /ca/i.test([e.name, e.movement, ...e.aliases].join(" ")))).toBe(true);
+  });
+
   it("sorts by movement, then name", () => {
     const r = searchLibrary("press");
     for (let i = 1; i < r.length; i++) {

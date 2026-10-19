@@ -1,15 +1,24 @@
 import type { Equipment, Exercise, LiftClass, LoadKind, Muscle } from "../types";
 import { EQUIPMENT_LABEL, LIBRARY, type LibraryExercise } from "./catalog";
+import { musclesForWord } from "./muscles";
 
 export { LIBRARY, type LibraryExercise } from "./catalog";
 
-/** Case-insensitive; every whitespace-separated token must appear in the name, movement or an alias. */
+/**
+ * Case-insensitive; every whitespace-separated token must appear in one of `texts` or name a muscle the
+ * exercise mainly works ("bicep", "pecs", "delt"), so "biceps cable" finds cable curls.
+ */
+export function matchesSearch(query: string, texts: string[], primary: Muscle[]): boolean {
+  const hay = texts.join("\n").toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((t) => hay.includes(t) || musclesForWord(t).some((m) => primary.includes(m)));
+}
+
 export function searchLibrary(query: string): LibraryExercise[] {
-  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-  return LIBRARY.filter((e) => {
-    const hay = [e.name, e.movement, ...e.aliases].join("\n").toLowerCase();
-    return tokens.every((t) => hay.includes(t));
-  }).sort((a, b) => a.movement.localeCompare(b.movement) || a.name.localeCompare(b.name));
+  return LIBRARY.filter((e) => matchesSearch(query, [e.name, e.movement, ...e.aliases], e.primary)).sort((a, b) => a.movement.localeCompare(b.movement) || a.name.localeCompare(b.name));
 }
 
 // Library fields are copied, so a later library update never rewrites a user's history.

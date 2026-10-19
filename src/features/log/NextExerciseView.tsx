@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { capitalize } from "../../app/format";
 import { groupByRegion } from "../../domain/exercises";
-import { equipmentLabel } from "../../domain/library";
+import { equipmentLabel, matchesSearch } from "../../domain/library";
 import { MUSCLE_LABEL } from "../../domain/library/muscles";
 import { logDayFor } from "../../domain/log";
 import { weeklyVolume } from "../../domain/volume";
@@ -40,8 +40,7 @@ export function NextExerciseView({ onPick, search = false }: { onPick: (exercise
   }, [queue, day, doc, inHand]);
   const volume = useMemo(() => weeklyVolume(doc, day), [doc, day]);
   const short = volume.filter((r) => r.status === "under").sort((a, b) => b.low - b.sets - (a.low - a.sets));
-  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const mine = doc.exercises.filter((e) => !e.archived && tokens.every((t) => e.name.toLowerCase().includes(t)));
+  const mine = doc.exercises.filter((e) => !e.archived && matchesSearch(query, [e.name], e.primary));
   const groups = groupByRegion(mine);
 
   return (

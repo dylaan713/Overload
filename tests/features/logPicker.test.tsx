@@ -81,6 +81,13 @@ describe("next-exercise picker", () => {
     expect(within(screen.getByRole("dialog")).queryByRole("button", { name: /Seated cable row/ })).toBeNull();
   });
 
+  it("search finds my exercises by the muscle they mainly work", async () => {
+    const { user } = await openPicker(doc({ exercises: [row, curl] }));
+    await user.type(screen.getByRole("searchbox", { name: "Search your exercises" }), "bicep");
+    expect(screen.getByRole("button", { name: /^Curl/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).queryByRole("button", { name: /Seated cable row/ })).toBeNull();
+  });
+
   it("picking closes the sheet and makes the exercise current", async () => {
     const { user } = await openPicker(doc({ exercises: [row, curl] }));
     await user.click(screen.getByRole("button", { name: /^Curl/ }));

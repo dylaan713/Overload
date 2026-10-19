@@ -15,6 +15,15 @@
   --accent-soft: rgba(63, 208, 201, 0.14);
   --warn-soft: rgba(233, 180, 76, 0.14);
   --danger-soft: rgba(255, 122, 122, 0.14);
+  /* Muscle map: every status tone is ≥ 3:1 on surface; none/base are the "nothing here" plates. */
+  --map-none: #2a3040;
+  --map-base: #222836;
+  --map-l1: #24857f;
+  --map-l2: #2faea7;
+  --map-l3: #3fd0c9;
+  --map-over: #b5f2ee;
+  --map-down: #e9b44c;
+  --map-flat: #8b95a9;
   --font-body: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --radius: 16px;
@@ -66,6 +75,14 @@
   --accent-soft: rgba(8, 107, 102, 0.12);
   --warn-soft: rgba(122, 79, 0, 0.12);
   --danger-soft: rgba(179, 38, 30, 0.1);
+  --map-none: #e4e0d6;
+  --map-base: #eeebe3;
+  --map-l1: #5a9e99;
+  --map-l2: #2a7f79;
+  --map-l3: #086b66;
+  --map-over: #033f3c;
+  --map-down: #9a6400;
+  --map-flat: #6b7280;
   --material: rgba(255, 255, 255, 0.72);
   --scrim: rgba(21, 24, 31, 0.32);
 }
@@ -87,6 +104,14 @@
     --accent-soft: rgba(8, 107, 102, 0.12);
     --warn-soft: rgba(122, 79, 0, 0.12);
     --danger-soft: rgba(179, 38, 30, 0.1);
+    --map-none: #e4e0d6;
+    --map-base: #eeebe3;
+    --map-l1: #5a9e99;
+    --map-l2: #2a7f79;
+    --map-l3: #086b66;
+    --map-over: #033f3c;
+    --map-down: #9a6400;
+    --map-flat: #6b7280;
     --material: rgba(255, 255, 255, 0.72);
     --scrim: rgba(21, 24, 31, 0.32);
   }

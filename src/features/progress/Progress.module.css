@@ -1,0 +1,57 @@
+.figure {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.75rem 0 0.25rem;
+}
+
+.view {
+  margin: 0;
+  flex: 1;
+  max-width: 9rem;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.caption {
+  margin-top: 0.25rem;
+  text-align: center;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.plate {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transition: fill var(--dur-fast) var(--ease-out);
+}
+
+.muscle {
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.muscle:active .plate {
+  opacity: 0.8;
+}
+
+.muscle[data-selected] .plate,
+.muscle:focus-visible .plate {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plate {
+    transition: none;
+  }
+}

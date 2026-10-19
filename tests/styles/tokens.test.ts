@@ -42,6 +42,25 @@ describe.each([
   });
 });
 
+// Muscle-map fills are graphics, not text: WCAG 1.4.11 asks 3:1 against the panel. "none" and "base" mean nothing here.
+const MAP_TONES = ["map-l1", "map-l2", "map-l3", "map-over", "map-down", "map-flat"] as const;
+
+describe.each([
+  ["dark", dark],
+  ["light", light],
+] as const)("%s muscle-map tones", (_name, t) => {
+  for (const tone of MAP_TONES) {
+    it(`${tone} on surface is at least 3:1`, () => {
+      expect(t[tone], tone).toBeDefined();
+      expect(contrast(t[tone]!, t["surface"]!)).toBeGreaterThanOrEqual(3);
+    });
+  }
+  it("defines none and base", () => {
+    expect(t["map-none"]).toBeDefined();
+    expect(t["map-base"]).toBeDefined();
+  });
+});
+
 describe("tokens file consistency", () => {
   it("the prefers-color-scheme: light block repeats the explicit light values exactly", () => {
     expect(lightMedia).toEqual(light);

@@ -1,0 +1,178 @@
+import { describe, it, expect } from "vitest";
+import { convertUnits } from "../../src/domain/settings";
+import { liftSeries, metricOf, progressSummary, sessionE1rm, trendOf } from "../../src/domain/progress";
+import type { SetEntry } from "../../src/domain/types";
+import { day, doc, ex, sets, warm } from "../helpers/build";
+
+const TODAY = "2026-10-19"; // window: 2026-08-25 .. 2026-10-19
+
+const rated = (weight: number, reps: number, rir: number | null): SetEntry => ({ weight, reps, warmup: false, rir: rir as SetEntry["rir"] });
+
+describe("sessionE1rm", () => {
+  it("adds reps-left only for Moderate, Hard and All out", () => {
+    expect(sessionE1rm([rated(185, 8, 0)])).toBe(234);
+    expect(sessionE1rm([rated(185, 8, 1)])).toBe(241);
+    expect(sessionE1rm([rated(185, 8, 2)])).toBe(247);
+  });
+  it("never lets an Easy or unrated set count for more than the reps done", () => {
+    expect(sessionE1rm([rated(185, 8, 4)])).toBe(234);
+    expect(sessionE1rm([rated(185, 8, null)])).toBe(234);
+  });
+  it("takes the best set of the day", () => {
+    expect(sessionE1rm([rated(185, 8, 4), rated(185, 6, 1)])).toBe(234);
+  });
+  it("caps effective reps at 12 when no set qualifies", () => {
+    expect(sessionE1rm([rated(100, 11, 2)])).toBe(140);
+  });
+  it("ignores warm-ups and zero-weight sets", () => {
+    expect(sessionE1rm([warm(300, 5), rated(100, 10, 0)])).toBe(133);
+    expect(sessionE1rm([rated(0, 10, 0)])).toBe(0);
+  });
+});
+
+describe("trendOf", () => {
+  it("uses ±2% for flat and +5% for up a lot", () => {
+    expect(trendOf(-2.01)).toBe("down");
+    expect(trendOf(-2)).toBe("flat");
+    expect(trendOf(2)).toBe("flat");
+    expect(trendOf(2.01)).toBe("up");
+    expect(trendOf(4.99)).toBe("up");
+    expect(trendOf(5)).toBe("up-a-lot");
+  });
+});
+
+describe("metricOf", () => {
+  it("uses reps for bands, assisted lifts and unweighted bodyweight work", () => {
+    expect(metricOf(ex("b", { equipment: "band" }), sets(0, [10]))).toBe("reps");
+    expect(metricOf(ex("a", { loadKind: "assisted" }), sets(40, [8]))).toBe("reps");
+    expect(metricOf(ex("p", { equipment: "bodyweight", loadKind: "bodyweight" }), sets(0, [8, 8]))).toBe("reps");
+  });
+  it("uses est. 1RM for loaded work", () => {
+    expect(metricOf(ex("p", { equipment: "bodyweight", loadKind: "bodyweight" }), [...sets(0, [8]), ...sets(25, [6])])).toBe("e1rm");
+    expect(metricOf(ex("bench"), sets(135, [8]))).toBe("e1rm");
+  });
+});
+
+describe("liftSeries", () => {
+  const d = doc({
+    exercises: [ex("bench")],
+    phases: [
+      { id: "p1", style: "hypertrophy", startDate: "2026-01-01" },
+      { id: "p2", style: "strength", startDate: "2026-10-01" },
+    ],
+    sessions: [
+      day("2026-09-20", [["bench", [warm(95, 5), ...sets(135, [8, 8])]]]),
+      day("2026-09-10", [["bench", sets(130, [8])]]),
+      day("2026-10-05", [["bench", sets(185, [3]), true]]),
+      day("2026-10-25", [["bench", sets(200, [8])]]), // future
+      day("2026-08-01", [["bench", sets(100, [8])]]), // before window
+    ],
+  });
+  const pts = liftSeries(d, "bench", "2026-08-25", TODAY);
+
+  it("gives one point per day with working sets, oldest first, inside the window", () => {
+    expect(pts.map((p) => p.date)).toEqual(["2026-09-10", "2026-09-20", "2026-10-05"]);
+    expect(pts[1]!.value).toBe(171); // 135 × 8, warm-up ignored
+  });
+  it("includes test days and marks them", () => {
+    expect(pts[2]).toMatchObject({ test: true, value: 204 });
+    expect(pts[0]!.test).toBe(false);
+  });
+  it("marks the first point of a new phase", () => {
+    expect(pts.map((p) => p.phaseStart)).toEqual([false, false, true]);
+  });
+  it("uses best reps for a reps metric, with reps-left only near failure", () => {
+    const b = doc({
+      exercises: [ex("band", { equipment: "band" })],
+      sessions: [day("2026-10-01", [["band", [rated(0, 15, 4), rated(0, 12, 2)]]])],
+    });
+    expect(liftSeries(b, "band", "2026-08-25", TODAY)[0]!.value).toBe(15);
+  });
+});
+
+describe("progressSummary", () => {
+  const rising = (w: number) => sets(w, [8, 8]);
+  const d = doc({
+    exercises: [ex("bench"), ex("curl", { class: "isolation", primary: ["biceps"] }), ex("squat", { primary: ["quads"] }), ex("old", { archived: true }), ex("aaa")],
+    sessions: [
+      day("2026-09-01", [["bench", rising(135)], ["squat", sets(225, [5])], ["old", rising(50)], ["aaa", rising(100)]]),
+      day("2026-09-15", [["bench", rising(135)], ["squat", sets(215, [5])], ["old", rising(50)], ["curl", sets(40, [10])], ["aaa", rising(100)]]),
+      day("2026-10-01", [["bench", rising(140)], ["squat", sets(205, [5])], ["old", rising(50)], ["aaa", rising(100)]]),
+      day("2026-10-15", [["bench", rising(145)], ["old", rising(50)], ["curl", sets(40, [10])], ["aaa", rising(100)]]),
+    ],
+  });
+  const s = progressSummary(d, TODAY);
+
+  it("counts lifts with at least 3 sessions and says how many got stronger", () => {
+    expect(s.counted).toBe(3); // bench, squat, aaa
+    expect(s.stronger).toBe(1); // bench
+  });
+  it("leaves archived lifts out and orders by sessions, then name", () => {
+    expect(s.lifts.map((l) => l.exerciseId)).toEqual(["aaa", "bench", "squat", "curl"]);
+  });
+  it("has no change for lifts under 3 sessions", () => {
+    const curl = s.lifts.find((l) => l.exerciseId === "curl")!;
+    expect(curl).toMatchObject({ sessions: 2, change: null, pct: null, trend: null });
+  });
+  it("compares the best of the first two sessions with the best of the last two", () => {
+    const bench = s.lifts.find((l) => l.exerciseId === "bench")!;
+    expect(bench.change).toBe(184 - 171); // max(171,171) → max(177,184)
+    expect(bench.trend).toBe("up-a-lot");
+  });
+  it("averages the percentage over counted lifts", () => {
+    const pcts = s.lifts.filter((l) => l.pct !== null).map((l) => l.pct!);
+    expect(s.avgPct).toBe(Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length));
+  });
+  it("is empty and NaN-free for a new account", () => {
+    expect(progressSummary(doc({}), TODAY)).toEqual({ stronger: 0, counted: 0, avgPct: null, lifts: [], attention: [] });
+  });
+  it("reports change in the current unit after a unit switch", () => {
+    const lb = progressSummary(d, TODAY).lifts.find((l) => l.exerciseId === "bench")!.change!;
+    const kg = progressSummary(convertUnits(d, "kg").doc, TODAY).lifts.find((l) => l.exerciseId === "bench")!.change!;
+    expect(Math.abs(kg - lb * 0.4536)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("attention", () => {
+  const four = ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"];
+  const build = (blocks: (i: number) => [string, SetEntry[]][], exercises = [ex("bench")]) =>
+    progressSummary(doc({ exercises, style: "hypertrophy", sessions: four.map((date, i) => day(date, blocks(i))) }), TODAY).attention;
+
+  it("is empty when every counted lift is going up", () => {
+    expect(build((i) => [["bench", sets(135 + i * 10, [8, 8], [1, 1])]])).toEqual([]);
+  });
+  it("calls out mostly Easy sets first", () => {
+    expect(build(() => [["bench", sets(135, [8, 8], [4, 4])]])).toEqual([
+      { exerciseId: "bench", name: "bench", reason: "Most sets were Easy. Take them closer to failure." },
+    ]);
+  });
+  it("calls out a drop while every set is All out", () => {
+    expect(build((i) => [["bench", sets(185 - i * 10, [8, 8], [0, 0])]])[0]!.reason).toBe(
+      "Every set was All out and it's dropping. Recovery is the limit; take the lighter week when the Log offers it.",
+    );
+  });
+  it("calls out a main muscle under its weekly range", () => {
+    expect(build(() => [["bench", sets(135, [8, 8], [1, 1])]])[0]!.reason).toMatch(/^Chest gets [\d.]+ of 10\+ sets a week\. Add sets\.$/);
+  });
+  it("calls out mostly unrated sets", () => {
+    // 24 sets a session keeps chest inside its weekly range, so only the missing ratings are left to call out.
+    expect(build(() => [["bench", sets(135, Array(24).fill(8))]])[0]!.reason).toBe(
+      "Most sets have no difficulty, so coaching can't judge them. Tap one after each set.",
+    );
+  });
+  it("falls back to the stall sentence", () => {
+    const enough = (): [string, SetEntry[]][] => [["bench", sets(135, Array(24).fill(8), Array(24).fill(1))]];
+    expect(build(enough)[0]!.reason).toBe("No gain in 8 weeks. The Log changes the target when a lift stalls; follow it.");
+  });
+  it("lists at most 3, drops before flats, then by percentage", () => {
+    const names = ["a", "b", "c", "d"];
+    const exs = names.map((n) => ex(n));
+    const out = build((i) => [
+      ["a", sets(135, [8], [1])],
+      ["b", sets(200 - i * 20, [8], [1])],
+      ["c", sets(200 - i * 5, [8], [1])],
+      ["d", sets(135, [8], [1])],
+    ], exs);
+    expect(out.map((x) => x.exerciseId)).toEqual(["b", "c", "a"]);
+  });
+});

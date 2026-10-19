@@ -7,7 +7,7 @@ export const WINDOW_DAYS = 56;
 export const MIN_SESSIONS = 3;
 const NEAR_FAILURE = 2; // reps-left is only trusted at Moderate (2) or harder
 const REP_CAP = 12;
-const ATTENTION_MAX = 3;
+const ATTENTION_MAX = 2;
 const VOLUME_WEEKS = 4;
 
 export type Metric = "e1rm" | "reps";
@@ -23,7 +23,7 @@ export interface LiftProgress {
   pct: number | null;
   trend: Trend | null;
 }
-export interface Attention { exerciseId: string; name: string; reason: string }
+export interface Attention { exerciseId: string; name: string; short: string; reason: string }
 export interface ProgressSummary { stronger: number; counted: number; avgPct: number | null; lifts: LiftProgress[]; attention: Attention[] }
 
 const working = (sets: SetEntry[]) => sets.filter((s) => !s.warmup);
@@ -123,22 +123,43 @@ function avgWeeklySets(doc: StoreDoc, muscle: Muscle, today: string): number | n
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 
-/** One sentence on why a flat or falling lift isn't moving, most actionable cause first. */
-function attentionReason(doc: StoreDoc, ex: Exercise, l: LiftProgress, from: string, today: string): string {
+/** Why a flat or falling lift isn't moving, most actionable cause first: one line for the list, a sentence for its chart. */
+function attentionReason(doc: StoreDoc, ex: Exercise, l: LiftProgress, from: string, today: string): Pick<Attention, "short" | "reason"> {
   const sets = [...setsByDate(doc, ex.id, from, today).values()].flat();
   const rated = sets.filter((s) => s.rir !== null);
   const avgRir = rated.length ? rated.reduce((a, s) => a + s.rir!, 0) / rated.length : null;
-  if (avgRir !== null && avgRir >= 3) return "Most sets were Easy. Take them closer to failure.";
+  if (avgRir !== null && avgRir >= 3) return { short: "Mostly Easy sets: push closer to failure", reason: "Most sets were Easy. Take them closer to failure." };
   if (l.trend === "down" && avgRir !== null && avgRir <= 0.5) {
-    return "Every set was All out and it's dropping. Recovery is the limit; take the lighter week when the Log offers it.";
+    return {
+      short: "All out and dropping: take the lighter week",
+      reason: "Every set was All out and it's dropping. Recovery is the limit; take the lighter week when the Log offers it.",
+    };
   }
   const muscle = ex.primary[0]!;
   const { low } = doc.settings.styles[phaseOf(doc.settings, today).style].volume;
   const weekly = avgWeeklySets(doc, muscle, today);
-  if (weekly !== null && weekly < low) return `${MUSCLE_LABEL[muscle]} gets ${fmt(weekly)} of ${low}+ sets a week. Add sets.`;
-  if (rated.length * 2 < sets.length) return "Most sets have no difficulty, so coaching can't judge them. Tap one after each set.";
+  if (weekly !== null && weekly < low) {
+    const label = MUSCLE_LABEL[muscle];
+    return { short: `${label} short on sets: ${fmt(weekly)} of ${low}+ a week`, reason: `${label} gets ${fmt(weekly)} of ${low}+ sets a week. Add sets.` };
+  }
+  if (rated.length * 2 < sets.length) {
+    return { short: "Most sets unrated: tap a difficulty", reason: "Most sets have no difficulty, so coaching can't judge them. Tap one after each set." };
+  }
   const weeks = Math.max(1, Math.round(daysBetween(l.points[0]!.date, today) / 7));
-  return `No gain in ${weeks} ${weeks === 1 ? "week" : "weeks"}. The Log changes the target when a lift stalls; follow it.`;
+  const span = `${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+  return { short: `No gain in ${span}: follow the Log's target`, reason: `No gain in ${span}. The Log changes the target when a lift stalls; follow it.` };
+}
+
+/** Why one lift is flat or falling over the last 8 weeks, or null when it's going up or has too little data. */
+export function attentionFor(doc: StoreDoc, today: string, exerciseId: string): Attention | null {
+  const l = progressSummary(doc, today).lifts.find((x) => x.exerciseId === exerciseId);
+  return l ? explain(doc, l, today) : null;
+}
+
+function explain(doc: StoreDoc, l: LiftProgress, today: string): Attention | null {
+  const ex = doc.exercises.find((e) => e.id === l.exerciseId);
+  if (!ex || (l.trend !== "down" && l.trend !== "flat")) return null;
+  return { exerciseId: l.exerciseId, name: l.name, ...attentionReason(doc, ex, l, addDays(today, -(WINDOW_DAYS - 1)), today) };
 }
 
 /** The last 8 weeks: which lifts are getting stronger, by how much, and which need attention. */
@@ -168,12 +189,11 @@ export function progressSummary(doc: StoreDoc, today: string): ProgressSummary {
   const stronger = counted.filter((l) => l.trend === "up" || l.trend === "up-a-lot").length;
   const avgPct = counted.length ? Math.round(counted.reduce((a, l) => a + l.pct!, 0) / counted.length) : null;
 
-  const exercises = new Map(doc.exercises.map((e) => [e.id, e]));
   const attention = counted
     .filter((l) => l.trend === "down" || l.trend === "flat")
     .sort((a, b) => (a.trend === b.trend ? 0 : a.trend === "down" ? -1 : 1) || a.pct! - b.pct! || a.name.localeCompare(b.name))
     .slice(0, ATTENTION_MAX)
-    .map((l) => ({ exerciseId: l.exerciseId, name: l.name, reason: attentionReason(doc, exercises.get(l.exerciseId)!, l, from, today) }));
+    .map((l) => explain(doc, l, today)!);
 
   return { stronger, counted: counted.length, avgPct, lifts, attention };
 }

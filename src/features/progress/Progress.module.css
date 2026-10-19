@@ -8,7 +8,7 @@
 .view {
   margin: 0;
   flex: 1;
-  max-width: 9rem;
+  max-width: 7.5rem;
 }
 
 .svg {
@@ -65,7 +65,7 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.25rem 0.75rem;
+  gap: 0.25rem 0.5rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -156,4 +156,13 @@
   color: var(--muted);
   font-size: var(--text-md);
   font-variant-numeric: tabular-nums;
+}
+
+.sections {
+  margin-bottom: 1rem;
+}
+
+.why {
+  margin: 0;
+  font-size: var(--text-base);
 }

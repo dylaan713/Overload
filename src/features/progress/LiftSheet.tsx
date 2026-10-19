@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { addDays } from "../../domain/dates";
-import { liftSeries, metricOf, sessionE1rm } from "../../domain/progress";
+import { attentionFor, liftSeries, metricOf, sessionE1rm } from "../../domain/progress";
 import type { SetEntry, StoreDoc } from "../../domain/types";
 import { useApp } from "../../state/context";
 import { EmptyState } from "../../ui/EmptyState";
@@ -30,6 +30,7 @@ function LiftView({ exerciseId }: { exerciseId: string }) {
   const ex = doc.exercises.find((e) => e.id === exerciseId);
   const points = useMemo(() => liftSeries(doc, exerciseId, addDays(today, -(DAYS[range] - 1)), today), [doc, exerciseId, today, range]);
   const all = useMemo(() => workingSets(doc, exerciseId, today), [doc, exerciseId, today]);
+  const stuck = useMemo(() => attentionFor(doc, today, exerciseId), [doc, today, exerciseId]);
   if (!ex) return <EmptyState text="This exercise is gone." />;
 
   const metric = metricOf(ex, all.map((x) => x.set));
@@ -41,6 +42,11 @@ function LiftView({ exerciseId }: { exerciseId: string }) {
 
   return (
     <>
+      {stuck && (
+        <ListGroup title="Why it's stuck">
+          <ListItem><p className={styles.why}>{stuck.reason}</p></ListItem>
+        </ListGroup>
+      )}
       <ListGroup title={metric === "reps" ? "Reps" : "Est. 1RM"}>
         <ListItem>
           <Segmented<Range>

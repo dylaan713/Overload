@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { convertUnits } from "../../src/domain/settings";
-import { liftSeries, metricOf, progressSummary, sessionE1rm, trendOf } from "../../src/domain/progress";
+import { attentionFor, liftSeries, metricOf, progressSummary, sessionE1rm, trendOf } from "../../src/domain/progress";
 import type { SetEntry } from "../../src/domain/types";
 import { day, doc, ex, sets, warm } from "../helpers/build";
 
@@ -134,6 +134,21 @@ describe("progressSummary", () => {
 });
 
 describe("attention", () => {
+  it("pairs each reason with a one-line version", () => {
+    const four2 = ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"];
+    const shortOf = (blocks: (i: number) => [string, SetEntry[]][]) =>
+      progressSummary(doc({ exercises: [ex("bench")], style: "hypertrophy", sessions: four2.map((date, i) => day(date, blocks(i))) }), TODAY).attention[0]!.short;
+    expect(shortOf((i) => [["bench", sets(185 - i * 10, [8, 8], [0, 0])]])).toBe("All out and dropping: take the lighter week");
+    expect(shortOf(() => [["bench", sets(135, [8, 8], [1, 1])]])).toMatch(/^Chest short on sets: [\d.]+ of 10\+ a week$/);
+    expect(shortOf(() => [["bench", sets(135, Array(24).fill(8))]])).toBe("Most sets unrated: tap a difficulty");
+    expect(shortOf(() => [["bench", sets(135, Array(24).fill(8), Array(24).fill(1))]])).toBe("No gain in 7 weeks: follow the Log's target");
+  });
+  it("explains any flat or falling lift on its own, not just the listed ones", () => {
+    const d = doc({ exercises: [ex("bench")], style: "hypertrophy", sessions: ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"].map((date) => day(date, [["bench", sets(135, [8, 8], [4, 4])]])) });
+    expect(attentionFor(d, TODAY, "bench")?.reason).toBe("Most sets were Easy. Take them closer to failure.");
+    expect(attentionFor(d, TODAY, "nope")).toBeNull();
+  });
+
   const four = ["2026-09-01", "2026-09-15", "2026-10-01", "2026-10-15"];
   const build = (blocks: (i: number) => [string, SetEntry[]][], exercises = [ex("bench")]) =>
     progressSummary(doc({ exercises, style: "hypertrophy", sessions: four.map((date, i) => day(date, blocks(i))) }), TODAY).attention;
@@ -143,7 +158,7 @@ describe("attention", () => {
   });
   it("calls out mostly Easy sets first", () => {
     expect(build(() => [["bench", sets(135, [8, 8], [4, 4])]])).toEqual([
-      { exerciseId: "bench", name: "bench", reason: "Most sets were Easy. Take them closer to failure." },
+      { exerciseId: "bench", name: "bench", short: "Mostly Easy sets: push closer to failure", reason: "Most sets were Easy. Take them closer to failure." },
     ]);
   });
   it("calls out a drop while every set is All out", () => {
@@ -179,7 +194,7 @@ describe("attention", () => {
     const enough = (): [string, SetEntry[]][] => [["bench", sets(135, Array(24).fill(8), Array(24).fill(1))]];
     expect(build(enough)[0]!.reason).toBe("No gain in 7 weeks. The Log changes the target when a lift stalls; follow it.");
   });
-  it("lists at most 3, drops before flats, then by percentage", () => {
+  it("lists at most 2, drops before flats, then by percentage", () => {
     const names = ["a", "b", "c", "d"];
     const exs = names.map((n) => ex(n));
     const out = build((i) => [
@@ -188,6 +203,6 @@ describe("attention", () => {
       ["c", sets(200 - i * 5, [8], [1])],
       ["d", sets(135, [8], [1])],
     ], exs);
-    expect(out.map((x) => x.exerciseId)).toEqual(["b", "c", "a"]);
+    expect(out.map((x) => x.exerciseId)).toEqual(["b", "c"]);
   });
 });

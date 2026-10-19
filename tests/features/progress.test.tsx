@@ -28,9 +28,10 @@ async function openProgress(d = training) {
 }
 
 describe("Progress tab", () => {
-  it("shows one plain line and the figure on a new account", async () => {
-    await openProgress(doc({}));
+  it("shows one plain line on a new account, and the figure under Muscles", async () => {
+    const { user } = await openProgress(doc({}));
     expect(screen.getByText("Log a few sessions to see progress here")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Muscles" }));
     expect(screen.getByRole("button", { name: /^Chest/ })).toBeInTheDocument();
     expect(screen.queryByText(/Stronger on/)).toBeNull();
   });
@@ -56,17 +57,28 @@ describe("Progress tab", () => {
     await openProgress();
     const group = screen.getByRole("region", { name: "Needs attention" });
     expect(within(group).getByText("Squat")).toBeInTheDocument();
-    expect(within(group).getByText(/^Quads gets 0\.3 of 10\+ sets a week\. Add sets\.$/)).toBeInTheDocument();
+    expect(within(group).getByText(/^Quads short on sets: 0\.3 of 10\+ a week$/)).toBeInTheDocument();
+  });
+
+  it("opens on Lifts, with the muscle map one switch away", async () => {
+    const { user } = await openProgress();
+    expect(screen.getByRole("radio", { name: "Lifts" })).toBeChecked();
+    expect(screen.queryByRole("button", { name: /^Chest/ })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Muscles" }));
+    expect(screen.getByRole("button", { name: /^Chest/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Stronger on/)).toBeNull();
   });
 
   it("tells this week's sets for a tapped muscle", async () => {
     const { user } = await openProgress();
+    await user.click(screen.getByRole("radio", { name: "Muscles" }));
     await user.click(screen.getByRole("button", { name: /^Side delts/ }));
     expect(screen.getByText("Side delts · 0 of 10–20 sets this week · add 10")).toBeInTheDocument();
   });
 
   it("switches to strength, with its own legend and the muscle's lifts", async () => {
     const { user } = await openProgress();
+    await user.click(screen.getByRole("radio", { name: "Muscles" }));
     expect(screen.getByText("Under half")).toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "Strength" }));
     for (const word of ["Down", "Flat", "Up", "Up a lot", "No data"]) expect(screen.getByText(word)).toBeInTheDocument();
@@ -75,6 +87,13 @@ describe("Progress tab", () => {
     const panel = screen.getByRole("region", { name: "Chest" });
     expect(within(panel).getByText("Bench press")).toBeInTheDocument();
     expect(within(panel).getByText("+13 lb")).toBeInTheDocument();
+  });
+
+  it("gives the full reason on the stuck lift's chart", async () => {
+    const { user } = await openProgress();
+    await user.click(within(screen.getByRole("region", { name: "Needs attention" })).getByRole("button", { name: /^Squat/ }));
+    const why = within(await screen.findByRole("dialog")).getByRole("region", { name: "Why it's stuck" });
+    expect(why).toHaveTextContent("Quads gets 0.3 of 10+ sets a week. Add sets.");
   });
 
   it("opens a lift's chart", async () => {

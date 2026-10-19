@@ -13,6 +13,7 @@ import { MuscleFigure, type Tone } from "./MuscleFigure";
 import { Sparkline } from "./Sparkline";
 import styles from "./Progress.module.css";
 
+type Section = "lifts" | "muscles";
 type View = "week" | "strength";
 
 const WEEK_TONE: Record<WeekCell["state"], Tone> = { none: "none", "under-half": "l1", almost: "l2", in: "l3", over: "over" };
@@ -30,6 +31,7 @@ export function ProgressScreen() {
   const doc = useApp((s) => s.doc);
   const today = useApp((s) => s.today)();
   const openSheet = useUi((s) => s.openSheet);
+  const [section, setSection] = useState<Section>("lifts");
   const [view, setView] = useState<View>("week");
   const [muscle, setMuscle] = useState<Muscle | null>(null);
 
@@ -49,25 +51,34 @@ export function ProgressScreen() {
 
   return (
     <div className={styles.screen}>
-      <ListGroup title="Muscles">
-        <ListItem>
-          <Segmented<View>
-            label="Muscle map"
-            value={view}
-            options={[{ value: "week", label: "This week" }, { value: "strength", label: "Strength" }]}
-            onChange={setView}
-          />
-          <MuscleFigure tones={tones} labels={labels} selected={muscle} onSelect={setMuscle} />
-          <ul className={styles.legend} aria-label="Legend">
-            {LEGEND[view].map(([tone, word]) => (
-              <li key={word}><span className={styles.swatch} style={{ background: `var(--map-${tone})` }} aria-hidden="true" />{word}</li>
-            ))}
-          </ul>
-        </ListItem>
-        {muscle && <MusclePanel muscle={muscle} view={view} week={week[muscle]} strength={strength[muscle]} unit={unit} onLift={openLift} />}
-      </ListGroup>
+      <div className={styles.sections}>
+        <Segmented<Section>
+          label="Progress view"
+          value={section}
+          options={[{ value: "lifts", label: "Lifts" }, { value: "muscles", label: "Muscles" }]}
+          onChange={setSection}
+        />
+      </div>
 
-      {summary.counted === 0 ? (
+      {section === "muscles" ? (
+        <ListGroup title="Muscles">
+          <ListItem>
+            <Segmented<View>
+              label="Muscle map"
+              value={view}
+              options={[{ value: "week", label: "This week" }, { value: "strength", label: "Strength" }]}
+              onChange={setView}
+            />
+            <MuscleFigure tones={tones} labels={labels} selected={muscle} onSelect={setMuscle} />
+            <ul className={styles.legend} aria-label="Legend">
+              {LEGEND[view].map(([tone, word]) => (
+                <li key={word}><span className={styles.swatch} style={{ background: `var(--map-${tone})` }} aria-hidden="true" />{word}</li>
+              ))}
+            </ul>
+          </ListItem>
+          {muscle && <MusclePanel muscle={muscle} view={view} week={week[muscle]} strength={strength[muscle]} unit={unit} onLift={openLift} />}
+        </ListGroup>
+      ) : summary.counted === 0 ? (
         <EmptyState text="Log a few sessions to see progress here" />
       ) : (
         <>
@@ -79,13 +90,13 @@ export function ProgressScreen() {
           </ListGroup>
           {summary.attention.length > 0 && (
             <ListGroup title="Needs attention">
-              {summary.attention.map((a) => <ListRow key={a.exerciseId} label={a.name} subtitle={a.reason} onPress={() => openLift(a.exerciseId)} />)}
+              {summary.attention.map((a) => <ListRow key={a.exerciseId} label={a.name} subtitle={a.short} onPress={() => openLift(a.exerciseId)} />)}
             </ListGroup>
           )}
         </>
       )}
 
-      {summary.lifts.length > 0 && (
+      {section === "lifts" && summary.lifts.length > 0 && (
         <ListGroup title="Your lifts">
           {summary.lifts.map((l) => <LiftRow key={l.exerciseId} lift={l} unit={unit} onPress={() => openLift(l.exerciseId)} />)}
         </ListGroup>

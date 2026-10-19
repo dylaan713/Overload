@@ -69,6 +69,12 @@ describe("lift chart", () => {
     expect(chart).toHaveAttribute("aria-valuetext", "Sep 10 · 234 lb · Test day");
   });
 
+  it("explains why a flat lift is stuck", async () => {
+    const { sheet } = await openLift();
+    // Over 8 weeks bench is flat (best of first two 246, last two 246) on 2 chest sets in the last 4 full weeks, strength phase (6+).
+    expect(within(sheet).getByRole("region", { name: "Why it's stuck" })).toHaveTextContent("Chest gets 0.5 of 6+ sets a week. Add sets.");
+  });
+
   it("says when a range has nothing to draw", async () => {
     const { sheet, user } = await openLift("dip");
     await user.click(within(sheet).getByRole("radio", { name: "4 wk" }));

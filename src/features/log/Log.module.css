@@ -76,7 +76,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) - var(--app-gap, 0px));
   z-index: 2;
   max-width: 720px;
   margin: 0 auto;

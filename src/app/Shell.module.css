@@ -2,6 +2,7 @@
 .page {
   position: fixed;
   inset: 0;
+  bottom: calc(-1 * var(--app-gap, 0px)); /* down to the screen edge on iOS home-screen apps (app/viewport.ts) */
   overflow: hidden;
   background: var(--bg);
   transform-origin: 50% 0;

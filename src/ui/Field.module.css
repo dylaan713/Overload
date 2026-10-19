@@ -9,7 +9,16 @@
   border-radius: var(--radius-sm);
   color: var(--text);
   font-size: max(16px, var(--text-base)); /* never under 16px: iOS zooms on focus below that */
+  min-width: 0;
 }
+/* iOS gives date inputs an intrinsic width that ignores width: 100% and runs off narrow screens. */
+.control[type="date"] {
+  display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 42px;
+}
+.control[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .control[aria-invalid="true"] { border-color: var(--danger); }
 .error { font-size: var(--text-xs); color: var(--danger); }
 .withSuffix { display: flex; align-items: center; gap: 8px; }

@@ -5,12 +5,11 @@
   bottom: 0;
   z-index: 10;
   padding-bottom: env(safe-area-inset-bottom);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.bar[data-scrolled] {
+  /* Always material, down to the screen's bottom edge: a bare bar reads as floating above the home indicator. */
   background: var(--material);
   -webkit-backdrop-filter: var(--material-blur);
   backdrop-filter: var(--material-blur);
+  border-top: 0.5px solid var(--line);
 }
 /* Scroll-edge effect above the bar while content is underneath. */
 .bar[data-scrolled]::before {

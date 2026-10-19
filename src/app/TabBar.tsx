@@ -12,7 +12,7 @@ const TABS: { id: Tab; label: string; Icon: LucideIcon }[] = [
 export const tabId = (t: Tab) => `tab-${t}`;
 export const panelId = "tab-panel";
 
-/** iOS bottom tab bar, above the home indicator. Material only while content scrolls under it. */
+/** iOS bottom tab bar, above the home indicator. Material always; the scroll-edge fade only while content scrolls under it. */
 export function TabBar({ tab, onChange, scrolled }: { tab: Tab; onChange: (t: Tab) => void; scrolled: boolean }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   function onKeyDown(e: KeyboardEvent, i: number) {

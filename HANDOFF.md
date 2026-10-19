@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-19 (Plan C wave 2): Tasks 4–6 done — geometric muscle figure + map tones (3:1 tested), Progress tab (This week/Strength map, headline, Needs attention, lift list with sparklines), lift chart sheet (4 wk/3 mo/1 yr, phase marks, test-day dots, drag/arrow-key readout). Fix: "add sets" averages only full weeks since the first workout; stall line states real weeks. 518 tests, typecheck, lint, build green; browser check 390 light / 320 dark.
+Next: Dylan's go for wave 3 (History calendar, workout sheet with fix/remove, Repeat).
+
 State Update 2026-10-19 (Plan C wave 1): spec + plan written and approved (`docs/superpowers/specs/2026-10-19-progress-history-cutover-design.md`, `docs/superpowers/plans/2026-10-19-progress-history-cutover.md`; native execution). Tasks 1–3 done: Progress math (8-week trends; difficulty trusted only at Moderate or harder; Needs-attention reasons), muscle-map states, History day summaries + Repeat queue (UI state v4). 484 tests, typecheck, lint, build green. Rulings: `.superpowers/sdd/2026-10-19-progress-history-cutover/progress.md`.
 Next: Dylan's go for wave 2 (muscle figure, Progress screen, lift chart).
 

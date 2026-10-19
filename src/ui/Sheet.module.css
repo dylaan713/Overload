@@ -8,16 +8,16 @@
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  background: var(--material);
-  -webkit-backdrop-filter: var(--material-blur);
-  backdrop-filter: var(--material-blur);
+  /* Opaque, no backdrop blur: on iOS a pushed view paints late, and through a blurred sheet that showed the
+     page behind for a moment (and the blur made every frame of the slide expensive). */
+  background: var(--bg);
   border-radius: var(--radius) var(--radius) 0 0;
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.28);
   outline: none;
   will-change: transform;
 }
-/* The handle owns vertical drags; the body keeps native scrolling. */
-.handle { touch-action: none; cursor: grab; flex-shrink: 0; }
+/* The handle owns vertical drags; the body keeps native scrolling. Material tint, without the blur. */
+.handle { touch-action: none; cursor: grab; flex-shrink: 0; background: var(--material); border-radius: inherit; }
 .grabber { width: 36px; height: 5px; margin: 6px auto 0; border-radius: 3px; background: var(--line); }
 .header {
   display: grid;

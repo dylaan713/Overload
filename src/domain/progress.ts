@@ -1,4 +1,4 @@
-import { addDays, weekStart } from "./dates";
+import { addDays, daysBetween, weekStart } from "./dates";
 import { MUSCLE_LABEL } from "./library/muscles";
 import { phaseOf } from "./settings";
 import type { Exercise, Muscle, SetEntry, StoreDoc } from "./types";
@@ -94,10 +94,18 @@ export function liftSeries(doc: StoreDoc, exerciseId: string, from: string, to: 
     });
 }
 
-/** Average weekly sets for a muscle over the last complete weeks (primary 1, secondary ½), so Monday isn't "short". */
-function avgWeeklySets(doc: StoreDoc, muscle: Muscle, today: string): number {
+/**
+ * Average weekly sets for a muscle (primary 1, secondary ½) over the last full weeks, counting only full weeks since
+ * the first workout: weeks before it would read as zero. null until one full week is logged.
+ */
+function avgWeeklySets(doc: StoreDoc, muscle: Muscle, today: string): number | null {
+  const first = doc.sessions.filter((s) => s.blocks.some((b) => b.sets.length)).map((s) => s.date).sort()[0];
+  if (!first) return null;
+  const firstFull = weekStart(first) === first ? first : addDays(weekStart(first), 7);
   const to = addDays(weekStart(today), -1);
-  const from = addDays(weekStart(today), -7 * VOLUME_WEEKS);
+  const from = [addDays(weekStart(today), -7 * VOLUME_WEEKS), firstFull].sort().at(-1)!;
+  const weeks = Math.round((daysBetween(from, to) + 1) / 7);
+  if (weeks <= 0) return null;
   const exercises = new Map(doc.exercises.map((e) => [e.id, e]));
   let total = 0;
   for (const s of doc.sessions) {
@@ -110,7 +118,7 @@ function avgWeeklySets(doc: StoreDoc, muscle: Muscle, today: string): number {
       else if (ex.secondary.includes(muscle)) total += n / 2;
     }
   }
-  return total / VOLUME_WEEKS;
+  return total / weeks;
 }
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
@@ -127,9 +135,10 @@ function attentionReason(doc: StoreDoc, ex: Exercise, l: LiftProgress, from: str
   const muscle = ex.primary[0]!;
   const { low } = doc.settings.styles[phaseOf(doc.settings, today).style].volume;
   const weekly = avgWeeklySets(doc, muscle, today);
-  if (weekly < low) return `${MUSCLE_LABEL[muscle]} gets ${fmt(weekly)} of ${low}+ sets a week. Add sets.`;
+  if (weekly !== null && weekly < low) return `${MUSCLE_LABEL[muscle]} gets ${fmt(weekly)} of ${low}+ sets a week. Add sets.`;
   if (rated.length * 2 < sets.length) return "Most sets have no difficulty, so coaching can't judge them. Tap one after each set.";
-  return "No gain in 8 weeks. The Log changes the target when a lift stalls; follow it.";
+  const weeks = Math.max(1, Math.round(daysBetween(l.points[0]!.date, today) / 7));
+  return `No gain in ${weeks} ${weeks === 1 ? "week" : "weeks"}. The Log changes the target when a lift stalls; follow it.`;
 }
 
 /** The last 8 weeks: which lifts are getting stronger, by how much, and which need attention. */

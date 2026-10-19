@@ -154,6 +154,21 @@ describe("attention", () => {
   it("calls out a main muscle under its weekly range", () => {
     expect(build(() => [["bench", sets(135, [8, 8], [1, 1])]])[0]!.reason).toMatch(/^Chest gets [\d.]+ of 10\+ sets a week\. Add sets\.$/);
   });
+  it("averages only full weeks since the first workout, so a new account isn't told to add sets", () => {
+    // First workout Thu Oct 1 (its week is partial), then 10 chest sets in each full week since: in range.
+    const sessions = [
+      day("2026-10-01", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
+      day("2026-10-05", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
+      day("2026-10-12", [["bench", sets(135, Array(10).fill(8), Array(10).fill(1))]]),
+    ];
+    const out = progressSummary(doc({ exercises: [ex("bench")], style: "hypertrophy", sessions }), TODAY).attention;
+    expect(out[0]!.reason).toBe("No gain in 3 weeks. The Log changes the target when a lift stalls; follow it.");
+  });
+  it("doesn't judge weekly sets before one full week is logged", () => {
+    const sessions = ["2026-10-12", "2026-10-14", "2026-10-16"].map((date) => day(date, [["bench", sets(135, [8], [1])]]));
+    const out = progressSummary(doc({ exercises: [ex("bench")], style: "hypertrophy", sessions }), TODAY).attention;
+    expect(out[0]!.reason).toBe("No gain in 1 week. The Log changes the target when a lift stalls; follow it.");
+  });
   it("calls out mostly unrated sets", () => {
     // 24 sets a session keeps chest inside its weekly range, so only the missing ratings are left to call out.
     expect(build(() => [["bench", sets(135, Array(24).fill(8))]])[0]!.reason).toBe(
@@ -162,7 +177,7 @@ describe("attention", () => {
   });
   it("falls back to the stall sentence", () => {
     const enough = (): [string, SetEntry[]][] => [["bench", sets(135, Array(24).fill(8), Array(24).fill(1))]];
-    expect(build(enough)[0]!.reason).toBe("No gain in 8 weeks. The Log changes the target when a lift stalls; follow it.");
+    expect(build(enough)[0]!.reason).toBe("No gain in 7 weeks. The Log changes the target when a lift stalls; follow it.");
   });
   it("lists at most 3, drops before flats, then by percentage", () => {
     const names = ["a", "b", "c", "d"];

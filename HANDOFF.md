@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-19 (pre-merge fixes): fixed the review's known minors (wrong set after Undo while fixing, bodyweight "0 × 10", calendar month on the 1st, sparkline without data, assisted Last time, two VoiceOver gaps). Note: after any future deploy the app may reload itself a few seconds after opening (service worker autoUpdate); typed drafts are saved first. 568 tests, typecheck, lint, build green.
+Next: merge `rewrite` into `main` and push (Dylan said yes); then Dylan opens the app twice on the phone and re-adds it to the home screen for the new icon.
+
 State Update 2026-10-19 (audit fixes): an exercise-science audit agent reviewed the engine (sound on progression and intensity). Fixed items 1–4 with tests: effective-set volume (Easy ½, test singles 0), lighter week halves the volume range, "over 20" warns only when lifts stall, hypertrophy compounds aim Moderate–Hard. 561 tests, typecheck, lint, build green.
 Next: Dylan's yes → merge `rewrite` into `main` and push. Deferred from the audit: lengthened-position tags + hints (with deadlift/squat tagging), frequency info, cardio log, faster rep targets.
 

@@ -13,12 +13,12 @@ export default defineConfig({
     maskable: {
       sizes: [512],
       padding: 0,
-      resizeOptions: { background: '#1C1B19' },
+      resizeOptions: { background: '#0e1118' },
     },
     apple: {
       sizes: [180],
       padding: 0,
-      resizeOptions: { background: '#1C1B19' },
+      resizeOptions: { background: '#0e1118' },
     },
   },
 })

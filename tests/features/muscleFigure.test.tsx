@@ -36,7 +36,7 @@ describe("MuscleFigure", () => {
     const { container } = render(<MuscleFigure tones={{ ...tones, quads: "l3" }} labels={labels} selected={null} onSelect={() => {}} />);
     const quads = container.querySelectorAll('[data-muscle="quads"] polygon:not([data-hit])');
     expect(quads.length).toBeGreaterThan(0);
-    for (const p of quads) expect(p.getAttribute("fill")).toBe("var(--map-l3)");
+    for (const p of Array.from(quads)) expect(p.getAttribute("fill")).toBe("var(--map-l3)");
   });
 
   it("gives small muscles a larger invisible hit area", () => {

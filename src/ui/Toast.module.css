@@ -2,7 +2,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px - var(--app-gap, 0px));
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 8px);
   z-index: 50; /* above the sheet layer (40): Undo must stay reachable from inside Settings */
   display: flex;
   justify-content: center;

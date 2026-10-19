@@ -57,6 +57,8 @@
   --scrim: rgba(4, 6, 10, 0.5);
 
   --tabbar-h: 56px;
+  /* Bottom inset inside the app's own area: iOS home-screen apps can end above the home indicator (app/viewport.ts). */
+  --safe-bottom: max(0px, env(safe-area-inset-bottom) - var(--app-gap, 0px));
 }
 
 :root[data-theme="light"] {

@@ -2,7 +2,6 @@
 .page {
   position: fixed;
   inset: 0;
-  bottom: calc(-1 * var(--app-gap, 0px)); /* down to the screen edge on iOS home-screen apps (app/viewport.ts) */
   overflow: hidden;
   background: var(--bg);
   transform-origin: 50% 0;
@@ -10,8 +9,9 @@
 .page[data-sheet] {
   transform: translateY(calc(10px * (1 - var(--sheet-progress, 1)))) scale(calc(0.94 + 0.06 * var(--sheet-progress, 1)));
   border-radius: calc(var(--radius) * (1 - var(--sheet-progress, 1)));
+  /* Black around the scaled card. Not the body background: iOS paints that below a short home-screen app too. */
+  box-shadow: 0 0 0 100vmax #000;
 }
-:global(body):has(.page[data-sheet]) { background: #000; }
 @media (prefers-reduced-motion: reduce) {
   /* No travel or scaling: the sheet's scrim dims the page instead. */
   .page[data-sheet] { transform: none; border-radius: 0; }
@@ -21,7 +21,7 @@
   inset: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  padding: calc(52px + env(safe-area-inset-top)) 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px);
+  padding: calc(52px + env(safe-area-inset-top)) 16px calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
   max-width: 720px;
   margin: 0 auto;
 }

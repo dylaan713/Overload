@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-19 (phone feedback): fixed on `rewrite` (not pushed): Started date field width; iOS home-screen bottom gap measured as `--app-gap` (app/viewport.ts) so the sheet and page reach the screen edge (black bar, floating tabs) + tab bar always has material; library and Next-exercise search find exercises by primary muscle ("bicep", pecs, delts…); Progress muscles heading names the map ("Sets this week" / "Strength, last 8 weeks", Sets · Strength). Style rules lag not reproduced in Chrome (no dropped frames at 4× CPU); needs phone detail. 577 tests, typecheck, lint, build green.
+Next: Dylan's yes → push `rewrite` to `main`; on the phone check the bottom edge and date field, screenshot the TEMP readout under Settings › Data & backup, then remove the readout; pin down the Style rules lag.
+
 State Update 2026-10-19 (pre-merge fixes): fixed the review's known minors (wrong set after Undo while fixing, bodyweight "0 × 10", calendar month on the 1st, sparkline without data, assisted Last time, two VoiceOver gaps). Note: after any future deploy the app may reload itself a few seconds after opening (service worker autoUpdate); typed drafts are saved first. 568 tests, typecheck, lint, build green.
 Next: merge `rewrite` into `main` and push (Dylan said yes); then Dylan opens the app twice on the phone and re-adds it to the home screen for the new icon.
 

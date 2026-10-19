@@ -5,6 +5,9 @@ Last updated 2026-10-09 (rewrite branch).
 Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
 
 ## Next
+State Update 2026-10-19 (Plan C wave 3): Tasks 7–9 done — History calendar (swipe between months), workout sheet (view/fix/remove past sets with Undo), Repeat this workout (first exercise on the Log, rest in "Up next"). Also from Dylan's wave-2 feedback: Progress split Lifts·Muscles, one-line reasons (max 2), full reason on the lift chart, readable empty plates in light mode. Browser walk found and fixed a clipped Saturday column at 320px. 541 tests, typecheck, lint, build green.
+Next: Dylan's go for wave 4 (pick 1 of 3 icon concepts, then cutover + final review; merge to main only on his yes).
+
 State Update 2026-10-19 (Plan C wave 2): Tasks 4–6 done — geometric muscle figure + map tones (3:1 tested), Progress tab (This week/Strength map, headline, Needs attention, lift list with sparklines), lift chart sheet (4 wk/3 mo/1 yr, phase marks, test-day dots, drag/arrow-key readout). Fix: "add sets" averages only full weeks since the first workout; stall line states real weeks. 518 tests, typecheck, lint, build green; browser check 390 light / 320 dark.
 Next: Dylan's go for wave 3 (History calendar, workout sheet with fix/remove, Repeat).
 

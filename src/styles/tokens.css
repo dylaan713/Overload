@@ -16,8 +16,8 @@
   --warn-soft: rgba(233, 180, 76, 0.14);
   --danger-soft: rgba(255, 122, 122, 0.14);
   /* Muscle map: every status tone is ≥ 3:1 on surface; none/base are the "nothing here" plates. */
-  --map-none: #2a3040;
-  --map-base: #222836;
+  --map-none: #3a4255;
+  --map-base: #2e3546;
   --map-l1: #24857f;
   --map-l2: #2faea7;
   --map-l3: #3fd0c9;
@@ -75,8 +75,8 @@
   --accent-soft: rgba(8, 107, 102, 0.12);
   --warn-soft: rgba(122, 79, 0, 0.12);
   --danger-soft: rgba(179, 38, 30, 0.1);
-  --map-none: #e4e0d6;
-  --map-base: #eeebe3;
+  --map-none: #c4beb1;
+  --map-base: #d9d4c8;
   --map-l1: #5a9e99;
   --map-l2: #2a7f79;
   --map-l3: #086b66;
@@ -104,8 +104,8 @@
     --accent-soft: rgba(8, 107, 102, 0.12);
     --warn-soft: rgba(122, 79, 0, 0.12);
     --danger-soft: rgba(179, 38, 30, 0.1);
-    --map-none: #e4e0d6;
-    --map-base: #eeebe3;
+    --map-none: #c4beb1;
+    --map-base: #d9d4c8;
     --map-l1: #5a9e99;
     --map-l2: #2a7f79;
     --map-l3: #086b66;

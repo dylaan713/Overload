@@ -55,9 +55,10 @@ describe.each([
       expect(contrast(t[tone]!, t["surface"]!)).toBeGreaterThanOrEqual(3);
     });
   }
-  it("defines none and base", () => {
-    expect(t["map-none"]).toBeDefined();
-    expect(t["map-base"]).toBeDefined();
+  it("keeps the empty figure visible: none ≥ 1.7:1 and base ≥ 1.4:1 on surface, and none apart from base", () => {
+    expect(contrast(t["map-none"]!, t["surface"]!)).toBeGreaterThanOrEqual(1.7);
+    expect(contrast(t["map-base"]!, t["surface"]!)).toBeGreaterThanOrEqual(1.4);
+    expect(contrast(t["map-none"]!, t["map-base"]!)).toBeGreaterThanOrEqual(1.2);
   });
 });
 

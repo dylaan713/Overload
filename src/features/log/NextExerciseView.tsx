@@ -6,7 +6,7 @@ import { MUSCLE_LABEL } from "../../domain/library/muscles";
 import { logDayFor } from "../../domain/log";
 import { weeklyVolume } from "../../domain/volume";
 import type { Exercise } from "../../domain/types";
-import { useApp, useAppStore, useUiStore } from "../../state/context";
+import { useApp, useAppStore, useUi, useUiStore } from "../../state/context";
 import { Input } from "../../ui/Field";
 import { ListGroup, ListItem, ListRow } from "../../ui/ListRow";
 import { SheetStack, useSheetNav, type SheetView } from "../../ui/SheetStack";
@@ -27,6 +27,12 @@ export function NextExerciseView({ onPick, search = false }: { onPick: (exercise
   const nav = useSheetNav();
   const [query, setQuery] = useState("");
 
+  const queue = useUi((s) => s.log.queue);
+  const upNext = useMemo(() => {
+    if (!queue || queue.day !== day) return [];
+    const byId = new Map(doc.exercises.map((e) => [e.id, e]));
+    return queue.ids.map((id) => byId.get(id)).filter((e): e is Exercise => !!e && !e.archived);
+  }, [queue, day, doc]);
   const volume = useMemo(() => weeklyVolume(doc, day), [doc, day]);
   const short = volume.filter((r) => r.status === "under").sort((a, b) => b.low - b.sets - (a.low - a.sets));
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -35,6 +41,11 @@ export function NextExerciseView({ onPick, search = false }: { onPick: (exercise
 
   return (
     <div className={styles.picker}>
+      {upNext.length > 0 && (
+        <ListGroup title="Up next">
+          {upNext.map((e) => <ListRow key={e.id} label={e.name} subtitle={subtitle(e)} onPress={() => onPick(e.id)} />)}
+        </ListGroup>
+      )}
       {/* Nothing trained lately: no muscles to be short or on track. */}
       {volume.length > 0 && <ListGroup title="Still short this week">
         {short.length === 0 ? (
@@ -95,10 +106,11 @@ export function NextExerciseSheet({ search = false, onClose }: { search?: boolea
   // Read the stores at pick time: an exercise added from the library a moment ago must be seen.
   const [pick] = useState(() => (exerciseId: string) => {
     const { doc, today } = app.getState();
-    const { log, now, setDraft, focusEntryAfterSheet } = ui.getState();
+    const { log, now, setDraft, focusEntryAfterSheet, unqueue } = ui.getState();
     const day = logDayFor(doc, today(), now(), log.last);
     // Re-picking the exercise already in hand keeps what's typed.
     if (log.draft?.day !== day || log.draft.exerciseId !== exerciseId) setDraft(freshDraft(doc, day, exerciseId));
+    unqueue(exerciseId);
     focusEntryAfterSheet();
     close.current?.();
   });

@@ -4,10 +4,11 @@ import { LogScreen } from "../features/log/LogScreen";
 import { NextExerciseSheet } from "../features/log/NextExerciseView";
 import { HistoryScreen } from "../features/history/HistoryScreen";
 import { WorkoutSheet } from "../features/history/WorkoutSheet";
+import { repeatWorkout } from "../features/history/repeat";
 import { LiftSheet } from "../features/progress/LiftSheet";
 import { ProgressScreen } from "../features/progress/ProgressScreen";
 import { settingsView } from "../features/settings/SettingsRoot";
-import { useApp, useUi, useUiStore } from "../state/context";
+import { useApp, useAppStore, useUi, useUiStore } from "../state/context";
 import type { Tab } from "../state/uiStore";
 import { Button } from "../ui/Button";
 import { SheetStack, type SheetView } from "../ui/SheetStack";
@@ -24,6 +25,7 @@ const PANELS: Record<Tab, () => React.JSX.Element> = { log: LogScreen, progress:
 /** The app frame: scrolling content under floating chrome, the Settings sheet, toasts and save errors. */
 export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => SheetView }) {
   const ui = useUiStore();
+  const appStore = useAppStore();
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
   const sheet = useUi((s) => s.sheet);
@@ -103,7 +105,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
       {sheet === "settings" && <SheetStack root={settingsRoot()} onClose={closeSheet} />}
       {sheet === "next-exercise" && <NextExerciseSheet search={sheetSearch} onClose={closeSheet} />}
       {sheet === "lift" && sheetArg && <LiftSheet exerciseId={sheetArg} onClose={closeSheet} />}
-      {sheet === "workout" && sheetArg && <WorkoutSheet date={sheetArg} onClose={closeSheet} />}
+      {sheet === "workout" && sheetArg && <WorkoutSheet date={sheetArg} onClose={closeSheet} onRepeat={(d) => repeatWorkout(appStore, ui, d)} />}
       {saveError && (
         <div className={styles.alerts}>
           <Banner tone="error" role="alert">

@@ -10,8 +10,8 @@
     "isolatedModules": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["node", "vite/client"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/client"],
     "jsx": "react-jsx"
   },
-  "include": ["src/domain", "src/data", "src/dev", "src/ui", "src/state", "src/app", "src/features", "src/next", "tests"]
+  "include": ["src/main.tsx", "src/domain", "src/data", "src/ui", "src/state", "src/app", "src/features", "tests"]
 }

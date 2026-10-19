@@ -151,3 +151,9 @@
 .chevron {
   color: var(--muted);
 }
+
+.detail {
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
+}

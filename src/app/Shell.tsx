@@ -3,6 +3,7 @@ import { themePreference } from "../domain/theme";
 import { LogScreen } from "../features/log/LogScreen";
 import { NextExerciseSheet } from "../features/log/NextExerciseView";
 import { HistoryPlaceholder } from "../features/placeholders";
+import { LiftSheet } from "../features/progress/LiftSheet";
 import { ProgressScreen } from "../features/progress/ProgressScreen";
 import { settingsView } from "../features/settings/SettingsRoot";
 import { useApp, useUi, useUiStore } from "../state/context";
@@ -26,6 +27,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
   const setTab = useUi((s) => s.setTab);
   const sheet = useUi((s) => s.sheet);
   const sheetSearch = useUi((s) => s.sheetSearch);
+  const sheetArg = useUi((s) => s.sheetArg);
   const openSheet = useUi((s) => s.openSheet);
   const closeSheet = useUi((s) => s.closeSheet);
   const toast = useUi((s) => s.toast);
@@ -99,6 +101,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
       </div>
       {sheet === "settings" && <SheetStack root={settingsRoot()} onClose={closeSheet} />}
       {sheet === "next-exercise" && <NextExerciseSheet search={sheetSearch} onClose={closeSheet} />}
+      {sheet === "lift" && sheetArg && <LiftSheet exerciseId={sheetArg} onClose={closeSheet} />}
       {saveError && (
         <div className={styles.alerts}>
           <Banner tone="error" role="alert">

@@ -61,9 +61,20 @@ export function SheetStack({ root, onClose, closeRef: outerClose }: {
   const sections = useRef<(HTMLElement | null)[]>([]);
   const openers = useRef<(HTMLElement | null)[]>([]); // openers[i] pushed view i + 1
 
-  const width = () => box.current?.offsetWidth || window.innerWidth;
+  // Measured when the stack changes, on resize and when a swipe starts. parentX and dim are read every
+  // frame, and asking the DOM for a width in there forces a layout on each of them.
+  const span = useRef(0);
+  const measure = () => {
+    span.current = box.current?.offsetWidth ?? 0;
+  };
+  const width = () => span.current || window.innerWidth;
   const parentX = useTransform(() => -PARALLAX * (width() - x.get()));
   const dim = useTransform(() => 0.18 * (1 - Math.min(1, x.get() / width())));
+
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   // The root view can ask for focus too (after the Sheet has focused itself on open).
   useEffect(() => {
@@ -72,6 +83,7 @@ export function SheetStack({ root, onClose, closeRef: outerClose }: {
 
   // A push renders the new view off to the right first, then springs it in (before paint: no flash).
   useLayoutEffect(() => {
+    measure();
     const grew = views.length > lastLength.current;
     lastLength.current = views.length;
     const top = views.length - 1;
@@ -148,6 +160,7 @@ export function SheetStack({ root, onClose, closeRef: outerClose }: {
     value: x,
     canStart: (e) => views.length > 1 && e.clientX - (box.current?.getBoundingClientRect().left ?? 0) < EDGE,
     onStart() {
+      measure();
       anim.current?.stop();
       pending.current = 0;
     },
@@ -196,6 +209,8 @@ export function SheetStack({ root, onClose, closeRef: outerClose }: {
                 aria-label={v.title}
                 className={styles.view}
                 hidden={!isTop && !isParent}
+                // Only the two views that can move are worth a compositor layer.
+                data-moving={isTop || isParent ? "" : undefined}
                 inert={!isTop}
                 aria-hidden={!isTop || undefined}
                 style={isTop ? { x, opacity: reduced ? fade : 1 } : isParent ? { x: reduced ? 0 : parentX } : undefined}

@@ -59,6 +59,17 @@ describe("SheetStack", () => {
   });
 });
 
+describe("compositor layers", () => {
+  it("only the top view and the one behind it are marked as moving", async () => {
+    const { container } = render(<SheetStack root={root} onClose={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Open 2" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open 3" }));
+    const views = Array.from(container.querySelectorAll("section"));
+    expect(views).toHaveLength(3);
+    expect(views.map((v) => v.hasAttribute("data-moving"))).toEqual([false, true, true]);
+  });
+});
+
 describe("SheetStack focus (wave 2 review)", () => {
   it("a push moves focus into the new view; Back returns it to the opener", async () => {
     render(<SheetStack root={root} onClose={() => {}} />);

@@ -1,7 +1,7 @@
 .group {
   display: flex;
-  padding: 2px;
-  gap: 2px;
+  padding: var(--s-1);
+  gap: var(--s-1);
   border-radius: var(--radius-sm);
   background: var(--surface2);
 }

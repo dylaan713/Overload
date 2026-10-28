@@ -98,7 +98,7 @@ describe("log draft", () => {
     const ui = createUiStore(createMemoryKV({ [UI_KEY]: JSON.stringify({ version: 1, tab: "history" }) }));
     await ui.getState().hydrate();
     expect(ui.getState().tab).toBe("history");
-    expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null, queue: null });
+    expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null, ended: null, queue: null });
   });
 
   it("a version-2 draft's empty fields become untouched (they logged the target then too)", async () => {
@@ -120,7 +120,7 @@ describe("log draft", () => {
     await ui.getState().hydrate();
     ui.getState().setDraft({ day: DAY, exerciseId: "row", reps: "" });
     await ui.getState().flush();
-    expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 4 });
+    expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 5 });
     expect((await reloaded(kv)).log.draft).toMatchObject({ weight: null, reps: "" });
   });
 
@@ -155,7 +155,7 @@ describe("log draft", () => {
   it("a malformed stored log is ignored, not crashed on (wave 1 review)", async () => {
     const ui = createUiStore(createMemoryKV({ [UI_KEY]: JSON.stringify({ version: 2, tab: "log", log: { draft: 5, startedAt: "x", last: { day: 1 } } }) }));
     await ui.getState().hydrate();
-    expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null, queue: null });
+    expect(ui.getState().log).toEqual({ draft: null, startedAt: null, last: null, ended: null, queue: null });
   });
 
   it("storage errors never throw", async () => {

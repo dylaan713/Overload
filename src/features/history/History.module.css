@@ -1,7 +1,7 @@
 .calendar {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--s-3);
 }
 
 .monthBar {
@@ -21,16 +21,21 @@
   touch-action: pan-y;
 }
 
+/* Three months side by side, the middle one on screen: the track is three panels wide and starts one
+   panel to the left. The width must be explicit — with `auto` the negative margin widens the track, and
+   each panel's basis is a share of the track, not of the viewport. */
+.track { display: flex; align-items: start; width: 300%; margin-left: -100%; }
 .grid {
+  flex: 0 0 calc(100% / 3);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--s-2);
 }
 
 .row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.25rem;
+  gap: var(--s-2);
 }
 
 .weekday {
@@ -92,7 +97,7 @@
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--s-3);
 }
 
 .actions > * {
@@ -100,5 +105,20 @@
 }
 
 .repeat {
-  margin-top: 0.5rem;
+  margin-top: var(--s-3);
 }
+
+/* A swipeable exercise row inside a grouped card: the inset separator sits above the row as it slides. */
+.exerciseRow + .exerciseRow::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 0.5px;
+  background: var(--line);
+}
+
+/* A destructive row at the end of a list, like iOS: red words on a card, not a slab of colour. */
+.destructive { color: var(--danger); background: var(--surface); border-radius: var(--radius-sm); min-height: 44px; }

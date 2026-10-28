@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, it, expect, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MotionGlobalConfig } from "motion/react";
 import { Sheet } from "../../src/ui/Sheet";
+import { sheetProgress } from "../../src/ui/sheetProgress";
 
 beforeAll(() => {
   MotionGlobalConfig.skipAnimations = false;
@@ -14,7 +15,7 @@ afterAll(() => {
 });
 
 const wait = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
-const progress = () => document.documentElement.style.getPropertyValue("--sheet-progress");
+const progress = () => String(sheetProgress.get()); // 0 = fully open, 1 = gone
 const handle = () => screen.getByTestId("sheet-handle");
 
 describe("sheet interruptions (real animations)", () => {

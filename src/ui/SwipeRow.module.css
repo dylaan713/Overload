@@ -1,0 +1,17 @@
+/* The host clips the row to itself; vertical pans stay the browser's, so the list still scrolls. */
+.host { position: relative; overflow: hidden; touch-action: pan-y; }
+/* Revealed as the row moves off it: the label arrives from the edge the row leaves towards. */
+.action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--s-5);
+  background: var(--danger);
+  color: var(--on-danger);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+/* Opaque, so the red only shows where the row has actually moved away. */
+.front { position: relative; background: var(--surface); }

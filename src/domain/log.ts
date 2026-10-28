@@ -16,6 +16,15 @@ export type RemovedSet = {
   set: SetEntry;
 };
 
+/** Everything needed to put a removed exercise back exactly where it was. */
+export type RemovedBlock = {
+  day: string;
+  session: Session | null; // the whole session when the removal emptied it
+  sessionIndex: number;
+  blockIndex: number;
+  block: Block;
+};
+
 /** A workout that runs past midnight stays one workout while sets keep coming. */
 export const LOG_DAY_GRACE_MS = 3 * 60 * 60 * 1000;
 
@@ -103,6 +112,35 @@ export function restoreSet(doc: StoreDoc, r: RemovedSet): StoreDoc {
     ...s,
     blocks: insertAt(s.blocks, Math.min(r.blockIndex, s.blocks.length), { ...r.block, sets: [r.set] }),
   }));
+}
+
+/** Removes an exercise and all its sets from a day; an emptied session goes too, as it does for one set. */
+export function removeBlock(doc: StoreDoc, day: string, blockId: string): { doc: StoreDoc; removed: RemovedBlock } | null {
+  const sessionIndex = doc.sessions.findIndex((s) => s.date === day);
+  const session = doc.sessions[sessionIndex];
+  const blockIndex = session ? session.blocks.findIndex((b) => b.id === blockId) : -1;
+  const block = session?.blocks[blockIndex];
+  if (!session || !block) return null;
+
+  const blocks = session.blocks.filter((b) => b.id !== blockId);
+  const sessions = blocks.length ? doc.sessions.map((s, i) => (i === sessionIndex ? { ...s, blocks } : s)) : doc.sessions.filter((_, i) => i !== sessionIndex);
+  return {
+    doc: { ...doc, sessions },
+    removed: { day, session: blocks.length ? null : session, sessionIndex, blockIndex, block },
+  };
+}
+
+/** Puts a removed exercise back at its position, recreating its session (same id) if it went. */
+export function restoreBlock(doc: StoreDoc, r: RemovedBlock): StoreDoc {
+  let d = doc;
+  if (!sessionOn(d, r.day)) {
+    const emptied = r.session ?? { id: `${r.block.id}-session`, date: r.day, name: "", blocks: [] };
+    d = { ...d, sessions: insertAt(d.sessions, Math.min(r.sessionIndex, d.sessions.length), { ...emptied, blocks: [] }) };
+  }
+  // The exercise may have been logged again since: never two blocks for one exercise, so its sets go back on top.
+  const existing = sessionOn(d, r.day)!.blocks.find((b) => b.id === r.block.id || b.exerciseId === r.block.exerciseId);
+  if (existing) return mapBlock(d, r.day, existing.id, (b) => ({ ...b, sets: [...r.block.sets, ...b.sets] }));
+  return mapSession(d, r.day, (s) => ({ ...s, blocks: insertAt(s.blocks, Math.min(r.blockIndex, s.blocks.length), r.block) }));
 }
 
 export const TEST_DAY_LOCKED = "Test day is chosen before your first working set";

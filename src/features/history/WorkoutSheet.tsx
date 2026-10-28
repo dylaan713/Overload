@@ -5,6 +5,7 @@ import { useApp, useAppStore, useUi } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/EmptyState";
 import { ListGroup, ListRow } from "../../ui/ListRow";
+import { SwipeRow } from "../../ui/SwipeRow";
 import { SheetStack, useSheetNav, type SheetView } from "../../ui/SheetStack";
 import { SetList, setLabels } from "../log/SetList";
 import { fixSetView } from "./FixSetView";
@@ -19,7 +20,7 @@ const setText = (s: Block["sets"][number]) => (s.weight > 0 ? `${s.weight} × ${
 const working = (b: Block) => b.sets.filter((s) => !s.warmup).map(setText).join(", ") || "Warm-ups only";
 
 /** One exercise's sets that day: tap to fix, swipe to remove (with Undo). */
-function BlockSets({ date, exerciseId }: { date: string; exerciseId: string }) {
+function BlockSets({ date, exerciseId, name, onRemoveExercise }: { date: string; exerciseId: string; name: string; onRemoveExercise: (block: Block, name: string) => Promise<boolean> }) {
   const nav = useSheetNav();
   const app = useAppStore();
   const block = useApp((s) => blockFor(s.doc, date, exerciseId));
@@ -42,12 +43,20 @@ function BlockSets({ date, exerciseId }: { date: string; exerciseId: string }) {
   }
 
   return (
-    <SetList
-      block={block}
-      label="Sets"
-      onEdit={(i) => nav.push(fixSetView(date, exerciseId, block.sets[i]!, labels[i]!))}
-      onRemove={remove}
-    />
+    <>
+      <SetList
+        block={block}
+        label="Sets"
+        onEdit={(i) => nav.push(fixSetView(date, exerciseId, block.sets[i]!, labels[i]!))}
+        onRemove={remove}
+      />
+      <div className={styles.repeat}>
+        {/* The same removal as swiping the exercise away, for anyone not using the gesture. */}
+        <Button variant="ghost" block className={styles.destructive} onClick={() => void onRemoveExercise(block, name).then((gone) => gone && nav.pop())}>
+          {`Remove ${name}`}
+        </Button>
+      </div>
+    </>
   );
 }
 
@@ -56,8 +65,20 @@ function Workout({ date, onRepeat }: { date: string; onRepeat: (date: string) =>
   const nav = useSheetNav();
   const session = useApp((s) => sessionOn(s.doc, date));
   const exercises = useApp((s) => s.doc.exercises);
+  const removeBlock = useApp((s) => s.removeBlock);
+  const restoreBlock = useApp((s) => s.restoreBlock);
+  const showToast = useUi((s) => s.showToast);
   const names = useMemo(() => new Map(exercises.map((e) => [e.id, e.name])), [exercises]);
   const blocks = session?.blocks.filter((b) => b.sets.length) ?? [];
+
+  /** The whole exercise, sets and all, with one Undo for the lot. */
+  async function removeExercise(block: Block, name: string): Promise<boolean> {
+    const removed = await removeBlock(date, block.id);
+    if (!removed) return false;
+    showToast({ text: `Removed ${name}`, action: { label: "Undo", onAction: () => void restoreBlock(removed) } });
+    return true;
+  }
+
   if (blocks.length === 0) return <EmptyState text="Nothing logged on this day." />;
   return (
     <>
@@ -65,12 +86,13 @@ function Workout({ date, onRepeat }: { date: string; onRepeat: (date: string) =>
         {blocks.map((b) => {
           const name = names.get(b.exerciseId) ?? "Exercise";
           return (
-            <ListRow
-              key={b.id}
-              label={name}
-              subtitle={working(b)}
-              onPress={() => nav.push({ id: `block-${b.id}`, title: name, render: () => <BlockSets date={date} exerciseId={b.exerciseId} /> })}
-            />
+            <SwipeRow key={b.id} className={styles.exerciseRow} onRemove={() => removeExercise(b, name)}>
+              <ListRow
+                label={name}
+                subtitle={working(b)}
+                onPress={() => nav.push({ id: `block-${b.id}`, title: name, render: () => <BlockSets date={date} exerciseId={b.exerciseId} name={name} onRemoveExercise={removeExercise} /> })}
+              />
+            </SwipeRow>
           );
         })}
       </ListGroup>

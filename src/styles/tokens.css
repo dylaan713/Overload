@@ -44,6 +44,17 @@
   --tracking-tight: -0.02em; /* 22-28px */
   --tracking-tighter: -0.03em; /* 40px+ */
 
+  /* Spacing scale. In rem, so the layout grows with the iOS text-size setting instead of staying put while
+     the words get bigger. 2 4 8 12 16 24 32px at the default size.
+     16px (--s-5) is the page's side gutter. */
+  --s-1: 0.125rem;
+  --s-2: 0.25rem;
+  --s-3: 0.5rem;
+  --s-4: 0.75rem;
+  --s-5: 1rem;
+  --s-6: 1.5rem;
+  --s-7: 2rem;
+
   /* Motion. CSS durations for press states, colour and opacity; anything touch-driven uses the springs in src/ui/motion.ts. */
   --dur-press: 90ms;
   --dur-fast: 180ms;
@@ -56,6 +67,7 @@
   --material-blur: saturate(180%) blur(20px);
   --scrim: rgba(4, 6, 10, 0.5);
 
+  --header-h: 52px;
   --tabbar-h: 56px;
   /* Bottom inset inside the app's own area: iOS home-screen apps can end above the home indicator (app/viewport.ts). */
   --safe-bottom: max(0px, env(safe-area-inset-bottom) - var(--app-gap, 0px));

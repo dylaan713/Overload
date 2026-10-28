@@ -23,6 +23,19 @@ const history = doc({
 
 afterEach(() => vi.restoreAllMocks());
 
+/** A left swipe past half, fast enough to commit (the clock is faked, so velocity is ours). */
+function swipeOut(row: Element) {
+  let t = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => t);
+  fireEvent.pointerDown(row, { pointerId: 1, clientX: 300, clientY: 10 });
+  for (let i = 1; i <= 5; i++) {
+    t += 100;
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 300 - (260 * i) / 5, clientY: 10 });
+  }
+  t += 100;
+  fireEvent.pointerUp(row, { pointerId: 1, clientX: 40, clientY: 10 });
+}
+
 async function openWorkout(d = history) {
   const r = await renderWithStore(<Shell />, { doc: d, today: TODAY, now: () => Date.parse(`${TODAY}T12:00:00`) });
   r.uiStore.getState().openSheet("workout", { arg: DATE });
@@ -58,6 +71,40 @@ describe("workout sheet", () => {
     expect(within(sheet).getByRole("button", { name: /Bench press.*195 × 8, 185 × 7/ })).toBeInTheDocument();
     const bench = progressSummary(app.getState().doc, TODAY).lifts.find((l) => l.exerciseId === "bench")!;
     expect(bench.points.at(-1)!.value).toBe(Math.round(195 * (1 + 9 / 30)));
+  });
+
+  it("swipes a whole exercise out of the workout, and Undo brings it back", async () => {
+    const { sheet, user, kv } = await openWorkout();
+    const row = within(sheet).getByRole("button", { name: /Bench press/ }).closest("[data-swipe-row]")!;
+    swipeOut(row);
+    await waitFor(() => expect(stored(kv).sessions[2]!.blocks.map((b) => b.exerciseId)).toEqual(["lateral"]));
+    expect(screen.getByRole("status")).toHaveTextContent("Removed Bench press");
+    vi.restoreAllMocks();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(stored(kv).sessions[2]!.blocks.map((b) => b.exerciseId)).toEqual(["bench", "lateral"]));
+    expect(stored(kv).sessions[2]!.blocks[0]!.sets).toHaveLength(3);
+  });
+
+  it("the last exercise takes the day with it; Undo brings the day back", async () => {
+    const oneLift = doc({ exercises, sessions: [day(DATE, [["bench", sets(185, [8])]])] });
+    const { sheet, user, kv } = await openWorkout(oneLift);
+    swipeOut(within(sheet).getByRole("button", { name: /Bench press/ }).closest("[data-swipe-row]")!);
+    await waitFor(() => expect(stored(kv).sessions).toHaveLength(0));
+    expect(within(sheet).getByText("Nothing logged on this day.")).toBeInTheDocument();
+    vi.restoreAllMocks();
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(stored(kv).sessions).toHaveLength(1));
+    expect(within(sheet).getByRole("button", { name: /Bench press/ })).toBeInTheDocument();
+  });
+
+  it("removes the exercise from its own view too, for anyone not swiping", async () => {
+    const { sheet, user, kv } = await openWorkout();
+    await user.click(within(sheet).getByRole("button", { name: /Bench press/ }));
+    await user.click(await within(sheet).findByRole("button", { name: "Remove Bench press" }));
+    await waitFor(() => expect(stored(kv).sessions[2]!.blocks.map((b) => b.exerciseId)).toEqual(["lateral"]));
+    // Back on the day, with the exercise gone and one Undo for the lot.
+    expect(within(sheet).getByRole("heading", { name: "Friday, Oct 16" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Removed Bench press");
   });
 
   it("removes a set by swipe, and Undo brings back the exact set", async () => {

@@ -98,6 +98,45 @@ describe("log screen", () => {
     expect(app.getState().doc.sessions.some((s) => s.date === TODAY)).toBe(false);
   });
 
+  it("End workout stops both clocks; logging again picks the workout back up", async () => {
+    const d = doc({ exercises: [row], sessions: [day(TODAY, [["row", sets(130, [10], [2])]])] });
+    const live = { startedAt: NOON - 3_600_000, last: { day: TODAY, at: NOON - 300_000 } };
+    const { user, uiStore } = await open(device(d, live));
+    expect(screen.getByText(/· 1:00$/)).toBeInTheDocument();
+    expect(screen.getByText(/last set 5:00 ago/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "End workout" }));
+    expect(uiStore.getState().log.ended).toEqual({ day: TODAY, at: NOON });
+    expect(screen.getByText(/· 1:00$/)).toBeInTheDocument(); // the length it was, kept
+    expect(screen.queryByText(/last set/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "End workout" })).toBeNull();
+
+    await user.click(screen.getByRole("radio", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Log set" }));
+    await waitFor(() => expect(uiStore.getState().log.ended).toBeNull());
+    expect(screen.getByRole("button", { name: "End workout" })).toBeInTheDocument();
+    expect(screen.getByText(/last set 0:00 ago/)).toBeInTheDocument();
+  });
+
+  it("there's nothing to end before the first set of the day", async () => {
+    await open(device(history()));
+    expect(screen.queryByRole("button", { name: "End workout" })).toBeNull();
+  });
+
+  it("an ended workout is still ended after a reload, and yesterday's end leaves today alone", async () => {
+    const d = doc({ exercises: [row], sessions: [day(TODAY, [["row", sets(130, [10], [2])]])] });
+    const log = { draft: null, startedAt: NOON - 3_600_000, last: { day: TODAY, at: NOON - 300_000 }, ended: { day: TODAY, at: NOON - 60_000 }, queue: null };
+    const kv = createMemoryKV({ [V2_KEY]: JSON.stringify(d), [UI_KEY]: JSON.stringify({ version: 5, tab: "log", log }) });
+    const first = await open(kv);
+    expect(screen.getByText(/· 0:59$/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "End workout" })).toBeNull();
+    first.unmount();
+
+    const stale = { ...log, ended: { day: "2026-10-17", at: NOON - 60_000 } };
+    await open(createMemoryKV({ [V2_KEY]: JSON.stringify(d), [UI_KEY]: JSON.stringify({ version: 5, tab: "log", log: stale }) }));
+    expect(screen.getByRole("button", { name: "End workout" })).toBeInTheDocument();
+  });
+
   it("a workout past midnight stays one workout for 3 hours (review focus 4)", async () => {
     const lastSet = Date.parse("2026-10-17T23:30:00");
     const d = doc({ exercises: [row], sessions: [day("2026-10-17", [["row", sets(130, [10])]])] });

@@ -65,6 +65,20 @@ describe("History tab", () => {
     expect(screen.getByRole("heading", { name: "October 2026" })).toBeInTheDocument();
   });
 
+  it("keeps the month either side mounted, out of reach, so a swipe pulls one in", async () => {
+    const { container, user } = await openHistory();
+    const labels = () => Array.from(container.querySelectorAll("[role=grid]")).map((g) => g.getAttribute("aria-label"));
+    const reachable = () => Array.from(container.querySelectorAll("[role=grid]")).map((g) => !g.hasAttribute("inert"));
+    expect(labels()).toEqual(["September 2026", "October 2026", "November 2026"]);
+    expect(reachable()).toEqual([false, true, false]);
+    // September's workout is mounted beside October, but only October's day is reachable.
+    expect(screen.queryByRole("button", { name: "Friday, September 18, workout" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Next month" }));
+    expect(labels()).toEqual(["October 2026", "November 2026", "December 2026"]);
+    expect(reachable()).toEqual([false, true, false]);
+  });
+
   it("opens the workout", async () => {
     const { user, uiStore } = await openHistory();
     await user.click(screen.getByRole("button", { name: /6 exercises/ }));

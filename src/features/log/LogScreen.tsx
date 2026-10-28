@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { aimLabel, difficultyOf } from "../../domain/difficulty";
 import { fatigueSuggestion } from "../../domain/engine/fatigue";
-import { blockFor, canTest, coachFor, logDayFor, prefill, sessionOn, setCount, withoutDay } from "../../domain/log";
+import { LOG_DAY_GRACE_MS, blockFor, canTest, coachFor, logDayFor, prefill, sessionOn, setCount, withoutDay } from "../../domain/log";
 import type { Block, SetEntry } from "../../domain/types";
 import { useApp, useAppStore, useUi, useUiStore } from "../../state/context";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/EmptyState";
+import { restSince, workoutClock } from "./clock";
 import { freshDraft } from "./draft";
 import { EntryRow } from "./EntryRow";
 import { FatigueCard } from "./FatigueCard";
@@ -25,13 +26,39 @@ function dayLabel(ymd: string) {
   return new Date(y!, m! - 1, d!).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-/** One clock for the screen's counters, ticking each second. */
-function useNow(now: () => number) {
+const SECOND = 1000;
+const MINUTE = 60_000;
+
+/**
+ * One clock for the screen. It ticks each second only while a counter is actually running; otherwise it
+ * keeps a slow beat so the date still rolls over. Either way it stops while the app is hidden, so a
+ * phone in a pocket isn't waking up for a clock nobody is looking at.
+ */
+function useNow(now: () => number, every: number) {
   const [t, setT] = useState(now);
   useEffect(() => {
-    const id = setInterval(() => setT(now()), 1000);
-    return () => clearInterval(id);
-  }, [now]);
+    const hidden = () => typeof document !== "undefined" && document.hidden;
+    let id: ReturnType<typeof setInterval> | null = null;
+    const tick = () => setT(now());
+    const start = () => {
+      id ??= setInterval(tick, every);
+    };
+    const stop = () => {
+      if (id) clearInterval(id);
+      id = null;
+    };
+    const onVisibility = () => {
+      if (hidden()) return stop();
+      tick(); // back on screen: catch up before resuming the beat
+      start();
+    };
+    if (!hidden()) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [now, every]);
   return t;
 }
 
@@ -55,7 +82,10 @@ export function LogScreen() {
   const setDraft = useUi((s) => s.setDraft);
   const markLogged = useUi((s) => s.markLogged);
   const openSheet = useUi((s) => s.openSheet);
-  const now = useNow(nowFn);
+  const endWorkout = useUi((s) => s.endWorkout);
+  // A live workout is one with a set logged, not ended, and still the Log's day. Only then does a second matter.
+  const live = log.ended == null && log.last != null && (log.last.day === today || nowFn() - log.last.at < LOG_DAY_GRACE_MS);
+  const now = useNow(nowFn, live ? SECOND : MINUTE);
   const saving = useRef(false);
   const screen = useRef<HTMLDivElement>(null);
   // Where focus goes after the next render: a set row by position, or the weight field.
@@ -94,11 +124,21 @@ export function LogScreen() {
   );
 
   const chips = session?.blocks.filter((b) => exists(b.exerciseId)) ?? [];
+
+  // Both clocks belong to the Log's day: yesterday's workout leaves no counter running on today's screen.
+  const clocks = { startedAt: log.startedAt, lastAt: log.last?.day === day ? log.last.at : null, endedAt: log.ended?.day === day ? log.ended.at : null, now };
+  const clock = session && clocks.lastAt != null ? workoutClock(clocks) : null;
+  const rest = restSince(clocks);
   const header = (
-    <p className={styles.dayLine}>
-      {dayLabel(day)}
-      {session && log.startedAt != null && log.last?.day === day && ` · ${hourMin(now - log.startedAt)}`}
-    </p>
+    <div className={styles.dayLine}>
+      <p className={styles.day}>
+        {dayLabel(day)}
+        {clock && ` · ${hourMin(clock.ms)}`}
+      </p>
+      {clock?.running && (
+        <Button variant="ghost" onClick={() => endWorkout(day, nowFn())}>End workout</Button>
+      )}
+    </div>
   );
 
   if (!exercise || !coach) {
@@ -212,7 +252,7 @@ export function LogScreen() {
       </div>
       <p className={styles.meta}>
         {`Set ${working + 1} of ${m}`}
-        {log.last?.day === day && ` · last set ${minSec(now - log.last.at)} ago`}
+        {rest != null && ` · last set ${minSec(rest)} ago`}
       </p>
 
       <div className={styles.compare}>

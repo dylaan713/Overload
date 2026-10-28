@@ -6,9 +6,10 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   background: var(--bg);
-  padding: 8px 16px 24px;
-  will-change: transform;
+  padding: var(--s-3) var(--s-5) var(--s-6);
   outline: none;
 }
+/* The top view and the one behind it; the rest are display:none and need no layer of their own. */
+.view[data-moving] { will-change: transform; }
 .view[hidden] { display: none; }
 .dim { position: absolute; inset: 0; background: #000; pointer-events: none; }

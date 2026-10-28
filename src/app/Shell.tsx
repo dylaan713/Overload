@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, useReducedMotionConfig, useTransform } from "motion/react";
 import { themePreference } from "../domain/theme";
 import { LogScreen } from "../features/log/LogScreen";
 import { NextExerciseSheet } from "../features/log/NextExerciseView";
@@ -12,6 +13,7 @@ import { useApp, useAppStore, useUi, useUiStore } from "../state/context";
 import type { Tab } from "../state/uiStore";
 import { Button } from "../ui/Button";
 import { SheetStack, type SheetView } from "../ui/SheetStack";
+import { sheetProgress } from "../ui/sheetProgress";
 import { ToastView } from "../ui/Toast";
 import { Banner } from "./Banner";
 import { Header } from "./Header";
@@ -46,6 +48,10 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
   const [underTop, setUnderTop] = useState(false);
   const [underBottom, setUnderBottom] = useState(false);
   const sheetOpen = sheet !== null;
+  const reduced = useReducedMotionConfig() ?? false;
+  // The page tucks back behind a sheet. Transform only: no layout, no paint, no document-wide style recalc.
+  const pageY = useTransform(sheetProgress, (p) => 10 * (1 - p));
+  const pageScale = useTransform(sheetProgress, (p) => 0.94 + 0.06 * p);
 
   useLayoutEffect(() => applyTheme(themePreference(theme)), [theme]);
 
@@ -91,7 +97,15 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
   const Panel = PANELS[tab];
   return (
     <>
-      <div data-page className={styles.page} inert={sheetOpen} data-sheet={sheetOpen || undefined}>
+      {/* The black the scaled page sits on. A static layer: as a 100vmax shadow it repainted every frame. */}
+      {sheetOpen && !reduced && <div data-backdrop className={styles.backdrop} aria-hidden="true" />}
+      <motion.div
+        data-page
+        className={styles.page}
+        inert={sheetOpen}
+        data-sheet={sheetOpen || undefined}
+        style={reduced ? undefined : { y: pageY, scale: pageScale }}
+      >
         <Header title={TITLES[tab]} compact={compact} scrolled={underTop} onSettings={() => openSheet("settings")} gearRef={gear} />
         <main ref={scroller} className={styles.content}>
           {/* The Log trades its large title for the workout's own header; VoiceOver still gets the heading. */}
@@ -101,7 +115,7 @@ export function Shell({ settingsRoot = settingsView }: { settingsRoot?: () => Sh
           </div>
         </main>
         <TabBar tab={tab} onChange={setTab} scrolled={underBottom} />
-      </div>
+      </motion.div>
       {sheet === "settings" && <SheetStack root={settingsRoot()} onClose={closeSheet} />}
       {sheet === "next-exercise" && <NextExerciseSheet search={sheetSearch} onClose={closeSheet} />}
       {sheet === "lift" && sheetArg && <LiftSheet exerciseId={sheetArg} onClose={closeSheet} />}

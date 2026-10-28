@@ -31,6 +31,8 @@ export interface LogUi {
   draft: LogDraft | null;
   startedAt: number | null; // first set of the Log's day, for the workout clock
   last: { day: string; at: number } | null; // the latest logged set
+  /** When the workout was ended by hand: the clock stops there and the rest counter goes. */
+  ended: { day: string; at: number } | null;
   /** Exercises left from a repeated workout, in order; only meaningful on its day. */
   queue: { day: string; ids: string[] } | null;
 }
@@ -62,6 +64,8 @@ export interface UiState {
   /** Stops fixing a set and brings back what was being typed for the next one. */
   endEdit(): void;
   markLogged(day: string, at: number): void;
+  /** Ends the day's workout: the clock freezes at this length. Logging another set starts it running again. */
+  endWorkout(day: string, at: number): void;
   /** Lines up a past workout's exercises for the Log's day. */
   setQueue(day: string, ids: string[]): void;
   /** Drops an exercise from the queue (after it's picked). */
@@ -76,7 +80,9 @@ export type UiStore = StoreApi<UiState>;
 const TABS: readonly Tab[] = ["log", "progress", "history"];
 const TOAST_MS = 6000;
 export const DRAFT_DEBOUNCE_MS = 250;
-const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null, queue: null };
+/** Bumped when LogUi gains a field; readLog keeps every earlier version readable. */
+const UI_VERSION = 5;
+const EMPTY_LOG: LogUi = { draft: null, startedAt: null, last: null, ended: null, queue: null };
 
 const newDraft = (day: string): LogDraft => ({ day, exerciseId: null, weight: null, reps: null, difficulty: null, warmup: false, editing: null, pending: null, test: false });
 
@@ -100,7 +106,7 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       saveTimer = null;
       if (!hydrated) return Promise.resolve();
       const { tab, log } = get();
-      return kv.set(UI_KEY, JSON.stringify({ version: 4, tab, log })).catch(() => {});
+      return kv.set(UI_KEY, JSON.stringify({ version: UI_VERSION, tab, log })).catch(() => {});
     };
     const schedule = () => {
       if (saveTimer) clearTimeout(saveTimer);
@@ -169,7 +175,11 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
       },
       markLogged(day, at) {
         const { log } = get();
-        setLog({ ...log, startedAt: log.last?.day === day && log.startedAt != null ? log.startedAt : at, last: { day, at } });
+        // A set logged after the workout was ended picks it back up, counting the gap in.
+        setLog({ ...log, startedAt: log.last?.day === day && log.startedAt != null ? log.startedAt : at, last: { day, at }, ended: null });
+      },
+      endWorkout(day, at) {
+        setLog({ ...get().log, ended: { day, at } });
       },
       setQueue(day, ids) {
         setLog({ ...get().log, queue: ids.length ? { day, ids } : null });
@@ -187,12 +197,12 @@ export function createUiStore(kv: KeyValueStore, opts: { now?: () => number } = 
         try {
           const raw = await kv.get(UI_KEY);
           const saved = raw ? (JSON.parse(raw) as { version?: number; tab?: unknown; log?: unknown }) : null;
-          if (!touched.tab && typeof saved?.version === "number" && saved.version >= 1 && saved.version <= 4 && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
-          if (saved?.version === 2 || saved?.version === 3 || saved?.version === 4) {
+          if (!touched.tab && typeof saved?.version === "number" && saved.version >= 1 && saved.version <= UI_VERSION && TABS.includes(saved.tab as Tab)) set({ tab: saved.tab as Tab });
+          if (typeof saved?.version === "number" && saved.version >= 2 && saved.version <= UI_VERSION) {
             const stored = readLog(saved.log, saved.version);
             const mine = get().log;
             const newer = (mine.last?.at ?? -Infinity) > (stored.last?.at ?? -Infinity) ? mine : stored;
-            set({ log: { draft: touched.draft ? mine.draft : stored.draft, startedAt: newer.startedAt, last: newer.last, queue: mine.queue ?? stored.queue } });
+            set({ log: { draft: touched.draft ? mine.draft : stored.draft, startedAt: newer.startedAt, last: newer.last, ended: newer.ended, queue: mine.queue ?? stored.queue } });
           }
         } catch {
           // Transient state only: start on the defaults.
@@ -235,9 +245,17 @@ function readQueue(v: unknown, draft: LogDraft | null): LogUi["queue"] {
 /** Stored UI state is untrusted: any malformed field falls back to empty instead of crashing the Log. */
 function readLog(v: unknown, version: number): LogUi {
   if (!isObj(v)) return EMPTY_LOG;
-  const last = isObj(v.last) && str(v.last.day) && num(v.last.at) ? { day: v.last.day as string, at: v.last.at as number } : null;
+  const stamp = (x: unknown) => (isObj(x) && str(x.day) && num(x.at) ? { day: x.day as string, at: x.at as number } : null);
+  const last = stamp(v.last);
   const draft = readDraft(v.draft, version);
-  return { draft, startedAt: num(v.startedAt) ? (v.startedAt as number) : null, last, queue: version >= 4 ? readQueue(v.queue, draft) : null };
+  return {
+    draft,
+    startedAt: num(v.startedAt) ? (v.startedAt as number) : null,
+    last,
+    // Version 4 and earlier had no end: an old workout reads as still running, and its clock stops at the day's end.
+    ended: version >= 5 ? stamp(v.ended) : null,
+    queue: version >= 4 ? readQueue(v.queue, draft) : null,
+  };
 }
 
 /** Writes pending UI state the moment the page is hidden or unloaded (iOS may kill it right after). */

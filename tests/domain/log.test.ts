@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { targetsFor } from "../../src/domain/engine/targets";
 import {
-  LOG_DAY_GRACE_MS, appendSet, blockFor, canTest, coachFor, logDayFor, prefill, removeSet, replaceSet, restoreSet, setTestFlag, withoutDay,
+  LOG_DAY_GRACE_MS, appendSet, blockFor, canTest, coachFor, logDayFor, prefill, removeBlock, removeSet, replaceSet, restoreBlock, restoreSet,
+  setTestFlag, withoutDay,
 } from "../../src/domain/log";
 import type { SetEntry, StoreDoc } from "../../src/domain/types";
 import { day, doc, ex, sets, warm } from "../helpers/build";
@@ -181,5 +182,51 @@ describe("prefill", () => {
     expect(prefill(tt, undefined, false)).toEqual({ weight: tt.ladder![0], reps: 1 });
     const block = { id: "b", exerciseId: "a", test: true, sets: [work(tt.ladder![0]!, 1)] };
     expect(prefill(tt, block, false)).toEqual({ weight: tt.ladder![1], reps: 1 });
+  });
+});
+
+describe("removeBlock / restoreBlock", () => {
+  const base = () =>
+    doc({
+      exercises: [ex("a"), ex("b")],
+      sessions: [day("2026-10-17", [["a", sets(100, [5])]]), day("2026-10-18", [["a", [warm(45, 8), ...sets(100, [5, 5])]], ["b", sets(30, [12])]])],
+    });
+
+  it("removes an exercise and all its sets, leaving the rest of the day alone", () => {
+    const r = removeBlock(base(), "2026-10-18", "b-2026-10-18-0")!;
+    expect(r.removed.block.sets).toHaveLength(3);
+    const blocks = r.doc.sessions.find((s) => s.date === "2026-10-18")!.blocks;
+    expect(blocks.map((b) => b.exerciseId)).toEqual(["b"]);
+    expect(r.doc.sessions.find((s) => s.date === "2026-10-17")!.blocks).toHaveLength(1);
+  });
+
+  it("puts it back where it was, sets and all", () => {
+    const d = base();
+    const r = removeBlock(d, "2026-10-18", "b-2026-10-18-0")!;
+    expect(restoreBlock(r.doc, r.removed)).toEqual(d);
+  });
+
+  it("the day's last exercise takes the session with it, and Undo rebuilds it with the same id", () => {
+    const d = base();
+    const r = removeBlock(d, "2026-10-17", "b-2026-10-17-0")!;
+    expect(r.doc.sessions.map((s) => s.date)).toEqual(["2026-10-18"]);
+    const back = restoreBlock(r.doc, r.removed);
+    expect(back.sessions.map((s) => s.date)).toEqual(["2026-10-17", "2026-10-18"]);
+    expect(back.sessions[0]!.id).toBe("s-2026-10-17");
+    expect(back).toEqual(d);
+  });
+
+  it("never leaves two blocks for one exercise: sets logged since keep theirs, the restored ones go on top", () => {
+    const r = removeBlock(base(), "2026-10-18", "b-2026-10-18-0")!;
+    const again = appendSet(r.doc, { day: "2026-10-18", exerciseId: "a", set: work(105, 5), test: false }, newId);
+    const back = restoreBlock(again, r.removed);
+    const blocks = back.sessions.find((s) => s.date === "2026-10-18")!.blocks;
+    expect(blocks.filter((b) => b.exerciseId === "a")).toHaveLength(1);
+    expect(blocks.find((b) => b.exerciseId === "a")!.sets.map((s) => s.weight)).toEqual([45, 100, 100, 105]);
+  });
+
+  it("is nothing to do for a day or a block that isn't there", () => {
+    expect(removeBlock(base(), "2026-10-18", "nope")).toBeNull();
+    expect(removeBlock(base(), "2026-10-20", "b-2026-10-18-0")).toBeNull();
   });
 });

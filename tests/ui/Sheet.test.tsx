@@ -5,8 +5,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Sheet } from "../../src/ui/Sheet";
 import { NumberField } from "../../src/ui/NumberField";
+import { sheetProgress } from "../../src/ui/sheetProgress";
 
-const progress = () => document.documentElement.style.getPropertyValue("--sheet-progress");
+const progress = () => String(sheetProgress.get()); // 0 = fully open, 1 = gone
 
 describe("Sheet", () => {
   it("is a labelled dialog that takes focus; modality comes from the caller's inert page, not aria-modal", () => {
@@ -65,11 +66,17 @@ describe("Sheet", () => {
     opener.remove();
   });
 
-  it("sets --sheet-progress while open and removes it on unmount", () => {
+  it("drives the page's progress while open and hands it back on unmount", async () => {
     const { unmount } = render(<Sheet title="Settings" onClose={() => {}}>x</Sheet>);
-    expect(progress()).not.toBe("");
+    await waitFor(() => expect(progress()).toBe("0")); // the page is fully tucked back
     unmount();
-    expect(progress()).toBe("");
+    expect(progress()).toBe("1"); // the page is itself again
+  });
+
+  it("writes nothing to :root while it moves (a per-frame custom property restyles the document)", async () => {
+    render(<Sheet title="Settings" onClose={() => {}}>x</Sheet>);
+    await waitFor(() => expect(progress()).toBe("0"));
+    expect(document.documentElement.style.getPropertyValue("--sheet-progress")).toBe("");
   });
 
   it("a value typed in a field commits when Done is pressed", async () => {

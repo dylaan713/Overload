@@ -1,11 +1,11 @@
 /* Entry row */
-.entry { display: flex; flex-direction: column; gap: 12px; }
-.inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.entry { display: flex; flex-direction: column; gap: var(--s-4); }
+.inputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
 .number { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-lg); }
 .toggle {
   align-self: flex-start;
   min-height: 44px;
-  padding: 0 16px;
+  padding: 0 var(--s-5);
   border-radius: 999px;
   border: 1px solid var(--line);
   background: transparent;
@@ -15,17 +15,19 @@
 }
 .toggle[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
 .toggle:active { opacity: 0.7; }
-.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
 .actions > :last-child { grid-column: 1 / -1; }
 
 /* Screen */
-.screen { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
-.dayLine { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
-.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+.screen { display: flex; flex-direction: column; gap: var(--s-4); padding-top: var(--s-2); }
+/* The date and the workout clock, with End workout beside what it ends. */
+.dayLine { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 2rem; margin-top: calc(var(--s-2) * -1); }
+.day { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chips { display: flex; gap: var(--s-3); overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--s-5) * -1); padding: 0 var(--s-5); }
 .chip {
   flex: none;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 0.875rem;
   border-radius: 999px;
   border: 0;
   background: var(--surface2);
@@ -37,9 +39,9 @@
 .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .chip:active { opacity: 0.7; }
 .name { font-size: var(--text-xl); font-weight: 700; line-height: var(--leading-snug); }
-.meta { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: -8px; }
-.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.box { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface); }
+.meta { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: calc(var(--s-3) * -1); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+.box { display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-4); border-radius: var(--radius-sm); background: var(--surface); }
 .boxLabel { font-size: var(--text-xs); color: var(--muted); }
 .boxValue { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-lg); }
 .boxNote { font-size: var(--text-xs); color: var(--muted); }
@@ -53,11 +55,11 @@
 .set {
   display: grid;
   grid-template-columns: 2ch 1fr auto;
-  gap: 12px;
+  gap: var(--s-4);
   align-items: center;
   width: 100%;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 var(--s-4);
   border: 0;
   background: var(--surface);
   color: var(--text);
@@ -80,31 +82,31 @@
   z-index: 2;
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px 16px 8px;
+  padding: var(--s-5) var(--s-5) var(--s-3);
   background: linear-gradient(to bottom, transparent, var(--bg) 16px);
 }
 /* Room so the last set can scroll clear of the dock */
-.screen:has(.dock) { padding-bottom: 72px; }
+.screen:has(.dock) { padding-bottom: 4.5rem; }
 /* Short screens have no room to spare over the entry row: the button follows the sets instead */
 @media (max-height: 700px) {
-  .dock { position: static; max-width: none; margin: 0; padding: 4px 0 0; background: none; }
+  .dock { position: static; max-width: none; margin: 0; padding: var(--s-2) 0 0; background: none; }
   .screen:has(.dock) { padding-bottom: 0; }
 }
 
-.why { font-size: var(--text-sm); color: var(--muted); text-align: center; margin-top: -4px; }
+.why { font-size: var(--text-sm); color: var(--muted); text-align: center; margin-top: calc(var(--s-2) * -1); }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Next-exercise picker */
-.picker { display: flex; flex-direction: column; gap: 16px; }
+.picker { display: flex; flex-direction: column; gap: var(--s-5); }
 .note { font-size: var(--text-sm); color: var(--muted); }
-.volume { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.volumeRow { display: grid; grid-template-columns: minmax(0, 7.5rem) 1fr auto; gap: 10px; align-items: center; font-size: var(--text-sm); }
+.volume { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
+.volumeRow { display: grid; grid-template-columns: minmax(0, 7.5rem) 1fr auto; gap: var(--s-4); align-items: center; font-size: var(--text-sm); }
 .bar { display: block; height: 6px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
 .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
 .volumeCount { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* Exercise options and suggestions */
-.titleRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.titleRow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
 .more { position: relative; }
 .menu {
   position: absolute;
@@ -112,7 +114,7 @@
   top: 100%;
   z-index: 5;
   min-width: 15rem;
-  padding: 8px;
+  padding: var(--s-3);
   border-radius: var(--radius-sm);
   background: var(--surface2);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
@@ -123,7 +125,7 @@
   justify-content: space-between;
   width: 100%;
   min-height: 44px;
-  padding: 0 8px;
+  padding: 0 var(--s-3);
   border: 0;
   background: transparent;
   color: var(--text);
@@ -134,4 +136,4 @@
 .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform var(--dur-press); }
 .switchRow[aria-checked="true"] .switch { background: var(--accent); }
 .switchRow[aria-checked="true"] .switch::after { transform: translateX(18px); }
-.card { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--accent); }
+.card { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-4); border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--accent); }

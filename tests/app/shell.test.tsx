@@ -8,6 +8,7 @@ import { V2_KEY } from "../../src/data/store";
 import { App, downloadRaw } from "../../src/app/App";
 import { ErrorBoundary } from "../../src/app/ErrorBoundary";
 import { Shell } from "../../src/app/Shell";
+import { sheetProgress } from "../../src/ui/sheetProgress";
 import { doc, ex } from "../helpers/build";
 import { blobText, captureDownloads } from "../helpers/blob";
 import { renderWithStore } from "../helpers/renderWithStore";
@@ -47,10 +48,12 @@ describe("settings sheet", () => {
     await user.click(gear);
     expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     expect(page()).toHaveAttribute("inert");
+    expect(document.querySelector("[data-backdrop]")).not.toBeNull(); // black behind the tucked-back page
     await user.click(screen.getByRole("button", { name: "Done" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(page()).not.toHaveAttribute("inert");
-    expect(document.documentElement.style.getPropertyValue("--sheet-progress")).toBe("");
+    expect(sheetProgress.get()).toBe(1); // the page is itself again
+    expect(document.querySelector("[data-backdrop]")).toBeNull(); // and the black behind it has gone
     await waitFor(() => expect(screen.getByRole("button", { name: "Settings" })).toHaveFocus());
   });
 });

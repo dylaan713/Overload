@@ -11,7 +11,7 @@ describe("ui store", () => {
     await ui.getState().hydrate();
     expect(ui.getState().tab).toBe("log");
     ui.getState().setTab("progress");
-    await vi.waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 4, tab: "progress" }));
+    await vi.waitFor(() => expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 5, tab: "progress" }));
     const again = createUiStore(kv);
     await again.getState().hydrate();
     expect(again.getState().tab).toBe("progress");
@@ -68,7 +68,7 @@ describe("ui store", () => {
       await ui.getState().hydrate();
       ui.getState().setQueue("2026-10-19", ["fly", "ohe"]);
       await ui.getState().flush();
-      expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 4, log: { queue: { day: "2026-10-19", ids: ["fly", "ohe"] } } });
+      expect(JSON.parse(kv.dump()[UI_KEY]!)).toMatchObject({ version: 5, log: { queue: { day: "2026-10-19", ids: ["fly", "ohe"] } } });
       const again = createUiStore(kv);
       await again.getState().hydrate();
       expect(again.getState().log.queue).toEqual({ day: "2026-10-19", ids: ["fly", "ohe"] });

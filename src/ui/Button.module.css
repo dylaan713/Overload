@@ -2,10 +2,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--s-3);
   min-height: 44px;
   min-width: 44px;
-  padding: 0 18px;
+  padding: 0 1.125rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-size: var(--text-md);
@@ -19,5 +19,5 @@
 .block { width: 100%; }
 .primary { background: var(--accent); color: var(--on-accent); }
 .secondary { background: transparent; color: var(--text); border-color: var(--line); }
-.ghost { background: transparent; color: var(--accent); padding: 0 10px; }
+.ghost { background: transparent; color: var(--accent); padding: 0 0.625rem; }
 .danger { background: var(--danger); color: var(--on-danger); }

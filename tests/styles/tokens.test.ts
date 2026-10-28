@@ -90,6 +90,25 @@ describe("typography floor", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("has one spacing scale, in rem, ascending", () => {
+    const steps = [...css.matchAll(/--s-(\d+):\s*([\d.]+)rem;/g)].map((m) => [Number(m[1]), Number(m[2])] as const);
+    expect(steps.map(([n]) => n)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(steps.map(([, v]) => v)).toEqual([...steps.map(([, v]) => v)].sort((a, b) => a - b));
+    // rem, so spacing grows with the iOS text-size setting instead of staying put while the words get bigger.
+    expect(css).not.toMatch(/--s-\d+:\s*[\d.]+px/);
+  });
+
+  it("CSS Modules space with the scale, not raw pixels", () => {
+    const raw = cssFiles("src")
+      .filter((f) => f.endsWith(".module.css"))
+      .flatMap((f) =>
+        [...readFileSync(f, "utf8").matchAll(/(?:padding|margin|gap|row-gap|column-gap)(?:-top|-bottom|-left|-right)?:\s*([^;}]+)/g)]
+          .filter((m) => /(?<![\w.-])\d*\.?\d+px/.test(m[1]!) && !/calc\(|env\(/.test(m[1]!))
+          .map((m) => `${f}: ${m[1]}`),
+      );
+    expect(raw).toEqual([]);
+  });
+
   it("CSS Modules use type tokens, not raw font sizes", () => {
     const raw = cssFiles("src")
       .filter((f) => f.endsWith(".module.css"))

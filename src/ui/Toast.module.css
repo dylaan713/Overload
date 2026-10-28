@@ -6,16 +6,16 @@
   z-index: 50; /* above the sheet layer (40): Undo must stay reachable from inside Settings */
   display: flex;
   justify-content: center;
-  padding: 0 16px;
+  padding: 0 var(--s-5);
   pointer-events: none;
 }
 .outer { width: 100%; max-width: 480px; pointer-events: auto; }
 .toast {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 4px 4px 4px 16px;
+  gap: var(--s-4);
+  min-height: var(--header-h);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-5);
   border-radius: var(--radius-sm);
   background: var(--surface2);
   color: var(--text);
@@ -26,7 +26,7 @@
 .action {
   min-height: 44px;
   min-width: 44px;
-  padding: 0 14px;
+  padding: 0 0.875rem;
   border: 0;
   border-radius: calc(var(--radius-sm) - 4px);
   background: transparent;

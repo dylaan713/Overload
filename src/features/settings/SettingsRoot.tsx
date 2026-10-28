@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { backupFilename, downloadText, oldDataFilename } from "../../app/download";
 import { capitalize, plural, shortDate } from "../../app/format";
+import { framesLine, resetFrames } from "../../app/frames";
 import { readFileText } from "../../app/readFile";
 import { exportBackup, parseBackup } from "../../data/backup";
 import { dumpLegacyRaw } from "../../data/boot";
@@ -163,6 +164,7 @@ function DataSection() {
   const input = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [incoming, setIncoming] = useState<StoreDoc | null>(null);
+  const [frames, setFrames] = useState(framesLine); // TEMP (wave 3)
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -178,6 +180,14 @@ function DataSection() {
 
   return (
     <ListGroup title="Data & backup" footer="Everything stays on this device. Export a backup to keep a copy.">
+      {/* TEMP (wave 3): how the animations actually run on the phone. Remove with src/app/frames.ts. */}
+      <ListItem>
+        <p className={styles.caption}>{frames}</p>
+        <div className={styles.actions}>
+          <Button variant="secondary" onClick={() => setFrames(framesLine())}>Read frames</Button>
+          <Button variant="secondary" onClick={() => { resetFrames(); setFrames(framesLine()); }}>Reset</Button>
+        </div>
+      </ListItem>
       <ListItem>
         <Button variant="secondary" block onClick={() => downloadText(backupFilename(), exportBackup(doc))}>Export backup</Button>
         <Button variant="secondary" block onClick={() => input.current?.click()}>Import backup</Button>

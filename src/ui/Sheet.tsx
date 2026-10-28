@@ -4,6 +4,7 @@ import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotionC
 import { Button } from "./Button";
 import { FLICK, commitOnRelease, rubberband, velocityFrom, type Sample } from "./gesture";
 import { FADE, SPRING } from "./motion";
+import { sheetProgress } from "./sheetProgress";
 import { useAxisDrag } from "./useAxisDrag";
 import styles from "./Sheet.module.css";
 
@@ -32,8 +33,10 @@ function scrollerOf(el: EventTarget | null, stop: Element): HTMLElement | null {
 /**
  * Modal bottom sheet. It slides up on mount and leaves downward along the same path, then calls onClose.
  * Dragging the grabber/header follows the finger 1:1 (rubber-banding upward) and can be grabbed mid-animation;
- * so does pulling the content down while it's scrolled to the top (iOS). Release decides by projected momentum. It writes --sheet-progress (0 open → 1 gone) so the page behind
- * can scale back and dim in step. The caller renders it only while open and marks the page inert.
+ * so does pulling the content down while it's scrolled to the top (iOS). Release decides by projected momentum.
+ * It drives `sheetProgress` (0 open → 1 gone) so the page behind can scale back in step, on the compositor.
+ * Its own height is measured once per gesture, never per frame. The caller renders it only while open and
+ * marks the page inert.
  * The inert page is what makes it modal: no aria-modal, because VoiceOver would then hide toasts and
  * alerts rendered beside the sheet (Undo, Dismiss).
  */
@@ -51,8 +54,13 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, closeRe
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  const height = () => ref.current?.offsetHeight || window.innerHeight;
-  const setProgress = (p: number) => document.documentElement.style.setProperty("--sheet-progress", String(clamp01(p)));
+  // Measured on mount, on resize and when a gesture starts: reading it per frame forces a layout every frame.
+  const box = useRef(0);
+  const measure = () => {
+    box.current = ref.current?.offsetHeight ?? 0;
+  };
+  const height = () => box.current || window.innerHeight;
+  const setProgress = (p: number) => sheetProgress.set(clamp01(p));
   useMotionValueEvent(y, "change", (v) => setProgress(v / height()));
   useMotionValueEvent(fade, "change", (v) => setProgress(1 - v));
   const scrimOpacity = useTransform(() => (reduced ? fade.get() : 1 - clamp01(y.get() / height())));
@@ -60,6 +68,8 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, closeRe
   useLayoutEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     ref.current?.focus();
+    measure();
+    window.addEventListener("resize", measure);
     setProgress(1);
     if (reduced) {
       fade.set(0);
@@ -70,7 +80,8 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, closeRe
     }
     return () => {
       anim.current?.stop();
-      document.documentElement.style.removeProperty("--sheet-progress");
+      window.removeEventListener("resize", measure);
+      sheetProgress.set(1); // the page is itself again
       opener?.focus();
     };
     // Mount-only: entering is a one-time animation.
@@ -97,6 +108,7 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, closeRe
 
   function dragStart() {
     // Grabbing a closing sheet cancels the close: it follows the finger from where it is.
+    measure();
     dragging.current = true;
     anim.current?.stop();
     closing.current = 0;

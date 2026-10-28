@@ -6,22 +6,23 @@
   background: var(--bg);
   transform-origin: 50% 0;
 }
-.page[data-sheet] {
-  transform: translateY(calc(10px * (1 - var(--sheet-progress, 1)))) scale(calc(0.94 + 0.06 * var(--sheet-progress, 1)));
-  border-radius: calc(var(--radius) * (1 - var(--sheet-progress, 1)));
-  /* Black around the scaled card. Not the body background: iOS paints that below a short home-screen app too. */
-  box-shadow: 0 0 0 100vmax #000;
-}
+/* The transform comes from the sheet's own motion value (Shell binds it), so a frame is one composited
+   transform: no border-radius interpolation and no viewport-sized shadow being repainted under it.
+   The radius is static while a sheet is up; on a phone it sits under the screen's own rounded corners. */
+.page[data-sheet] { border-radius: var(--radius); }
 @media (prefers-reduced-motion: reduce) {
-  /* No travel or scaling: the sheet's scrim dims the page instead. */
-  .page[data-sheet] { transform: none; border-radius: 0; }
+  /* The page doesn't move or scale, so there's no card to round and no black behind it to show. */
+  .page[data-sheet] { border-radius: 0; }
 }
+/* Black around the scaled card. Painted once. Not the body background: iOS paints that below a short
+   home-screen app too. */
+.backdrop { position: fixed; inset: 0; background: #000; }
 .content {
   position: absolute;
   inset: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  padding: calc(52px + env(safe-area-inset-top)) 16px calc(var(--tabbar-h) + var(--safe-bottom) + 24px);
+  padding: calc(var(--header-h) + env(safe-area-inset-top)) var(--s-5) calc(var(--tabbar-h) + var(--safe-bottom) + var(--s-6));
   max-width: 720px;
   margin: 0 auto;
 }
@@ -30,7 +31,7 @@
   font-weight: 700;
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
-  margin: 4px 0 16px;
+  margin: var(--s-2) 0 var(--s-5);
 }
 .srOnly {
   position: absolute;

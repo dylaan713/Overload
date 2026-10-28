@@ -7,7 +7,8 @@ import { decideFatigue as decideFatigueIn } from "../domain/engine/fatigue";
 import { deleteExerciseCascade, libraryState } from "../domain/exercises";
 import { customExercise, customLoadKind, exerciseFromLibrary, type LibraryExercise } from "../domain/library";
 import {
-  appendSet, removeSet as removeSetIn, replaceSet, restoreSet as restoreSetIn, setTestFlag, type RemovedSet, type SetRef,
+  appendSet, removeBlock as removeBlockIn, removeSet as removeSetIn, replaceSet, restoreBlock as restoreBlockIn, restoreSet as restoreSetIn, setTestFlag,
+  type RemovedBlock, type RemovedSet, type SetRef,
 } from "../domain/log";
 import { convertUnits, setPhaseStart as setPhaseStartIn, startPhase as startPhaseIn } from "../domain/settings";
 import type { Exercise, SetEntry, Settings, StoreDoc, Style, Unit } from "../domain/types";
@@ -41,6 +42,9 @@ export interface AppState {
   /** The removed set (for Undo), or null if there was nothing to remove or the save failed. */
   removeSet(ref: SetRef): Promise<RemovedSet | null>;
   restoreSet(removed: RemovedSet): Promise<boolean>;
+  /** Removes a whole exercise from a day. Returns what was removed, for Undo. */
+  removeBlock(day: string, blockId: string): Promise<RemovedBlock | null>;
+  restoreBlock(removed: RemovedBlock): Promise<boolean>;
   /** The refusal message, or null. */
   setBlockTest(day: string, exerciseId: string, test: boolean): Promise<string | null>;
   decideFatigue(weekStart: string, status: "accepted" | "dismissed"): Promise<boolean>;
@@ -173,6 +177,12 @@ export function createAppStore(kv: KeyValueStore, opts: { today?: () => string; 
         return (await commit((d) => removeSetIn(d, ref)?.doc ?? d)) ? r.removed : null;
       },
       restoreSet: (removed) => commit((d) => restoreSetIn(d, removed)),
+      async removeBlock(day, blockId) {
+        const r = removeBlockIn(get().doc, day, blockId);
+        if (!r) return null;
+        return (await commit((d) => removeBlockIn(d, day, blockId)?.doc ?? d)) ? r.removed : null;
+      },
+      restoreBlock: (removed) => commit((d) => restoreBlockIn(d, removed)),
       async setBlockTest(day, exerciseId, test) {
         const r = setTestFlag(get().doc, day, exerciseId, test);
         if ("error" in r) return r.error;

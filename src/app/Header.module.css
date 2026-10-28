@@ -7,14 +7,20 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  height: calc(52px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 8px 0;
+  height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) var(--s-3) 0;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .header[data-scrolled] {
   background: var(--material);
   -webkit-backdrop-filter: var(--material-blur);
   backdrop-filter: var(--material-blur);
+}
+/* As on the tab bar: no blur to re-sample while the page moves behind a sheet. */
+[data-sheet] .header[data-scrolled] {
+  background: var(--bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 /* Scroll-edge effect: a soft fade where content meets the bar, instead of a hard divider. */
 .header[data-scrolled]::after {

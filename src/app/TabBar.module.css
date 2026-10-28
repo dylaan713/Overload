@@ -17,6 +17,13 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* A sheet is up: the page behind is being transformed, and re-sampling a blur on every frame of that is
+   the most expensive thing on the screen. The bar keeps its material, without the blur. */
+[data-sheet] .bar {
+  background: var(--bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 /* Scroll-edge effect above the bar while content is underneath. */
 .bar[data-scrolled]::before {
   content: "";
@@ -34,7 +41,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--s-1);
   min-height: 44px;
   border: 0;
   background: transparent;

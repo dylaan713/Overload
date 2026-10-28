@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Sheet } from "../../src/ui/Sheet";
 import { NumberField } from "../../src/ui/NumberField";
@@ -184,6 +184,42 @@ describe("Sheet", () => {
       await new Promise((r) => setTimeout(r, 50));
       expect(onClose).not.toHaveBeenCalled();
       expect(progress()).toBe("0");
+      vi.restoreAllMocks();
+    });
+
+    // A finger drifts a pixel or two while tapping. iOS hands a touch sequence no click once one of its
+    // moves has been default-prevented, so preventing before the gesture is a drag silently eats the tap.
+    it("leaves a tap's small drift alone, so the tap keeps its click", async () => {
+      const onClose = vi.fn();
+      const onPress = vi.fn();
+      render(<Sheet title="Settings" onClose={onClose}><button onClick={onPress}>Save</button></Sheet>);
+      await waitFor(() => expect(progress()).toBe("0"));
+      slow();
+      const save = screen.getByRole("button", { name: "Save" });
+      fireEvent.touchStart(save, { touches: [{ clientX: 100, clientY: 100 }] });
+      const drift = createEvent.touchMove(save, { touches: [{ clientX: 101, clientY: 103 }] });
+      fireEvent(save, drift);
+      expect(drift.defaultPrevented).toBe(false);
+      fireEvent.touchEnd(save, { touches: [], changedTouches: [{ clientX: 101, clientY: 103 }] });
+      // jsdom dispatches a click whatever was prevented, so this only shows the sheet didn't take the
+      // press for itself; the invariant that saves the tap on a phone is defaultPrevented above.
+      fireEvent.click(save);
+      expect(onPress).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(progress()).toBe("0");
+      vi.restoreAllMocks();
+    });
+
+    it("still prevents a real pull, so iOS can't rubber-band the content instead", async () => {
+      render(<Sheet title="Settings" onClose={vi.fn()}><p>content</p></Sheet>);
+      await waitFor(() => expect(progress()).toBe("0"));
+      slow();
+      const el = screen.getByText("content");
+      fireEvent.touchStart(el, { touches: [{ clientX: 100, clientY: 100 }] });
+      const down = createEvent.touchMove(el, { touches: [{ clientX: 100, clientY: 140 }] });
+      fireEvent(el, down);
+      expect(down.defaultPrevented).toBe(true);
+      fireEvent.touchEnd(el, { touches: [], changedTouches: [{ clientX: 100, clientY: 140 }] });
       vi.restoreAllMocks();
     });
   });

@@ -4,7 +4,9 @@
   inset: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  /* none, not contain: contain still leaves iOS its own rubber-band at the top, and once iOS has started
+     that, the rest of the touch sequence is uncancelable and the sheet's pull-down can't take over. */
+  overscroll-behavior: none;
   background: var(--bg);
   padding: var(--s-3) var(--s-5) var(--s-6);
   outline: none;

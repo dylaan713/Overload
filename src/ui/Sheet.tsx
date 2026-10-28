@@ -151,7 +151,10 @@ export function Sheet({ title, onClose, onBack, backLabel, headerAction, closeRe
           if (Math.max(Math.abs(dx), -dy) >= SLOP) p = null;
           return;
         }
-        e.preventDefault();
+        // Nothing is prevented until the pull is past the slop: a tap drifts a pixel or two, and iOS gives
+        // a touch sequence no click once one of its moves has been prevented, so preventing before the
+        // gesture is a drag eats the tap. There's no rubber-band to beat in the meantime — the sheet's
+        // scroller sets overscroll-behavior: none, so iOS has no overscroll of its own to start.
         if (dy < SLOP) return;
         p.active = true;
         start.current();

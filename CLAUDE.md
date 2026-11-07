@@ -12,3 +12,7 @@ Workout-logging PWA (React 19 + Vite, data on-device in localStorage, no backend
 
 ## Definition of done
 `npm test`, `npm run typecheck`, `npm run lint` and `npm run build` pass; show the output. For UI changes, check the app at phone width.
+
+## Capability
+
+Project-scoped Claude skills and why they were chosen: `.claude/CAPABILITY.md`.

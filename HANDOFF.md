@@ -1,8 +1,24 @@
 # Handoff
-Last updated 2026-10-09 (rewrite branch).
+Last updated 2026-11-07.
 
 ## Status
-Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started. The repo has a lint script but no tests, and `README.md` is still the Vite template boilerplate.
+Overload is a workout-logging PWA (React 19 + Vite 6, data kept on-device in localStorage, no backend). It has a Log / Stats / History nav, double-progression coaching, warm-up ramps, Est. 1RM charts, a rest timer and backup export/import. Stage A of `PUBLISHING.md` is done: the app is live on Netlify and every push to `main` auto-deploys through Netlify. Native store builds (Stages B and C) have not started.
+
+**This paragraph said "a lint script but no tests, and `README.md` is still the Vite template
+boilerplate". Both were wrong, and had been for weeks** — the state updates below already recorded
+603 tests. Verified 2026-11-07:
+
+- **603 tests across 61 files pass**, `npm run typecheck` clean, `npm run lint` clean, `npm run
+  build` green (23 precache entries, 714.70 KiB).
+- `README.md` is a real README describing the app and the PWA install, not template boilerplate.
+- **The `rewrite` branch is merged into `main`** — `647e030` is an ancestor of `HEAD`, so all of
+  waves 1–5 are on `main` and live. The branch still exists locally and on `origin`. CLAUDE.md's
+  "don't merge it early" rule has therefore been satisfied, not violated; it is simply spent.
+- **The TEMP frame readout is gone.** `src/app/frames.ts` does not exist, so the instruction
+  repeated in five state updates below — screenshot it, then take it out — is **done**. Treat those
+  lines as history.
+- `main` is 2 commits ahead of `origin/main` and unpushed. Every push to `main` redeploys
+  production, so it stays unpushed until Dylan says otherwise.
 
 ## Next
 State Update 2026-10-28 (phone lag chased, sheet taps fixed, shipped): Dylan's phone was laggy on production and smooth on a production-built `rewrite` served from the Mac over the LAN. **The lag was never explained by the deployed code**: `origin/main` had already been pushed to 647e030 (all of waves 1-5) at 10:50 that morning, before the test - the "production is 10 commits behind" reading came from this clone's stale local `main` ref (549d543), read without fetching. The leading explanation for what the phone was showing is a stale service-worker cache serving the old app; the LAN build had no service worker and empty data, which is why it felt clean. Two real always-on defects were found while looking, both genuine on 549d543 and both already removed by waves 1 and 3: LogScreen's unconditional `setInterval(…, 1000)` re-rendering the default tab once a second forever, and Sheet writing `--sheet-progress` to `documentElement` every animation frame (full-document style recalc + a `border-radius` repaint + a `body:has()` rule). Low Power Mode was ruled out first. What this session actually changed: pull-down-to-close called `preventDefault` on the first downward touchmove, before its 10px slop decided the gesture was a drag, and iOS gives a touch sequence no click once a move has been prevented - so a tap that drifted a pixel or two was dropped and buttons inside sheets didn't always register. Nothing is prevented until the pull passes the slop, and the sheet scroller is now `overscroll-behavior: none` (contain still leaves iOS its own bounce, and once that starts the sequence is uncancelable). The wave 3 frame readout is out. 603 tests, typecheck, lint, build green; Dylan confirmed on the phone that sheet buttons register and pull-down still closes.

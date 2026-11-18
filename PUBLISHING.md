@@ -34,7 +34,7 @@ while `npm run preview` is running and you're on the same network.
 Deploy the site once so you can install it anywhere and it keeps working.
 
 1. Create a free account at **Netlify** (netlify.com) or **Vercel** (vercel.com).
-2. "Add new site" → **Import from Git** → pick the private `Overload` repo.
+2. "Add new site" → **Import from Git** → pick the `Overload` repo.
 3. Build settings (Netlify usually auto-detects):
    - Build command: `npm run build`
    - Publish directory: `dist`

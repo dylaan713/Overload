@@ -9,6 +9,18 @@ Live: https://overloadylan.netlify.app (installable PWA). Data stays on the devi
 - **Progress** — *Lifts*: "Stronger on n of m lifts" over 8 weeks, what needs attention and why, every lift with its trend and chart. *Muscles*: a front/back map of this week's sets or 8-week strength change.
 - **History** — a month calendar; open a day to fix or remove sets, or **Repeat this workout** into today's Log.
 
+## How this was built
+This is my project, built by directing AI coding agents. I decided what the app should do, wrote
+the requirements with the agent as five design specs, and set the tests that decide whether each
+feature is right. Claude Code wrote the code and the tests from those specs and the plans that
+follow them. Every commit that an agent wrote says so in its co-author line.
+
+- [`docs/superpowers/specs/`](docs/superpowers/specs/): the five specs (foundation, design system
+  and shell, training engine, log, progress and history).
+- [`docs/superpowers/plans/`](docs/superpowers/plans/): the plan each spec was built from.
+- `src/domain/`: the training engine, kept separate from the screens so it can be tested on its own.
+- 603 tests across 61 files (`npm test`), plus type check and lint, pass before anything ships.
+
 ## Develop
 React 19 + TypeScript + Vite 6, zustand, motion. No backend.
 
@@ -22,3 +34,6 @@ npm run build      # production build + service worker
 ```
 
 Every push to `main` deploys production (Netlify). Native builds (Capacitor) are planned in `PUBLISHING.md`; project state lives in `HANDOFF.md`.
+
+## License
+No license is granted. The code is published to be read; all rights are reserved.

@@ -10,8 +10,8 @@ Baseline 2026-11-07: **603 tests / 61 files pass**, typecheck and lint clean, bu
 ## Hard rules
 - **Every push to `main` redeploys production** (GitHub-connected Netlify). Push only with Dylan's yes.
 - ~~The rewrite lives on branch `rewrite` until its cutover plan says otherwise; don't merge it
-  early.~~ **Spent: `rewrite` was merged into `main` and shipped** (`647e030`, verified an ancestor
-  of `HEAD` on 2026-11-07). The branch still exists locally and on `origin`; work on `main`.
+  early.~~ **Spent: `rewrite` was merged into `main` and shipped** (`e632c52`, verified an ancestor
+  of `HEAD` on 2026-11-07). The branch was deleted on 2026-11-18 when the repository went public; work on `main`.
 - Never lose user data: localStorage changes need a migration, and backup export/import must keep working.
 
 ## Definition of done
@@ -19,7 +19,8 @@ Baseline 2026-11-07: **603 tests / 61 files pass**, typecheck and lint clean, bu
 
 ## Capability
 
-Project-scoped Claude skills and why they were chosen: `.claude/CAPABILITY.md`.
+Project-scoped Claude skills and why they were chosen: `.claude/CAPABILITY.md` (local only; `.claude/`
+is not published).
 
 ## Audit context
 
@@ -45,8 +46,8 @@ Baseline 2026-11-07: **603 tests / 61 files pass**, typecheck clean, lint clean,
 
 ### Hard rules
 
-- **Every push to `main` redeploys production** (GitHub-connected Netlify). `main` is currently
-  ahead of `origin` and unpushed; leave it that way.
+- **Every push to `main` redeploys production** (GitHub-connected Netlify). Push only with
+  Dylan's yes. (The repository is public since 2026-11-18; nothing private goes into a commit.)
 - **Never lose user data.** All data is on-device in `localStorage`. A storage-shape change needs a
   migration, old files must still read, and **backup export/import must keep working**. This is
   the highest-severity category in this repo — a data-loss finding outranks anything else.
@@ -58,9 +59,9 @@ Baseline 2026-11-07: **603 tests / 61 files pass**, typecheck clean, lint clean,
 
 ### Decided — don't re-flag
 
-- The `rewrite` branch **is merged and shipped** (`647e030` is an ancestor of `HEAD`). The old
-  "don't merge it early" rule is spent, not violated. The branch still exists locally and on
-  `origin`; work on `main`.
+- The `rewrite` branch **is merged and shipped** (`e632c52` is an ancestor of `HEAD`). The old
+  "don't merge it early" rule is spent, not violated. The branch was deleted on 2026-11-18 when
+  the repository went public; work on `main`.
 - **The TEMP frame readout is out.** `src/app/frames.ts` does not exist. Five separate state
   updates ask for it to be screenshotted and removed — treat all of them as history.
 - One spacing scale: `--s-1..--s-7` (2 4 8 12 16 24 32px) plus `--header-h` in `tokens.css`, **in

@@ -35,7 +35,7 @@ Dylan wasn't sure; these are **my call**, consistent with everything he did say:
 
 ## Decisions made with the owner (2026-10-17)
 - **Styles:** strength and hypertrophy (bodybuilding = hypertrophy). Powerlifting = occasional test day on a lift.
-- **Phases:** a style held for a stretch of time; Dylan runs strength while gaining and hypertrophy while leaning out, but the app must not know or care about diet.
+- **Phases:** a style held for a stretch of time; a lifter may run strength in one phase and hypertrophy in another, but the app must not know or care about diet.
 - **Exercises:** remove the user-facing compound/isolation type from the normal flow; choose from an extensive built-in library organized by movement then equipment (bench: barbell / dumbbell / machine / Smith; incline the same; curls: barbell / EZ bar / dumbbell / cable / machine; and so on). Users can add their own exercise, and for those they **must** pick equipment, muscles worked (required), and compound or isolation.
 - **Any gym:** per-exercise weight-step override.
 - **Big relative jumps:** stay at the weight longer and build reps (lateral raises at 15 lb), rather than suggesting fractional plates.

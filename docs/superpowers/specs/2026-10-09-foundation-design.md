@@ -19,7 +19,7 @@ localStorage keys, each a JSON string:
 - `settings`: `{unit, increment, compound{sets,repBottom,repTop,warmupSets}, isolation{...}, restTimer{defaultSeconds}, theme}`
 
 Backup file v1: `{app:"overload", version:1, exportedAt, exercises, sessions, customGroups, settings}`.
-Real fixtures: 41 exercises / 57 sessions (2026-07-18..2026-10-08), plus an older 29/30 backup (Aug).
+Real fixtures: two real backups (a current one and an older one) are kept locally under the gitignored `fixtures/` folder.
 
 ## Scope
 In: TypeScript/Vitest setup, schema + types, storage adapter, v2 store, legacy migration, v1/v2 backup import/export, pure training engine (ported), golden + unit tests, minimal shell proving load/migrate.

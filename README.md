@@ -4,6 +4,8 @@ A workout-logging app that tells you when to add weight. Log every set with how 
 
 Live: https://overloadylan.netlify.app (installable PWA). Data stays on the device (localStorage); back it up from Settings.
 
+Its targets are general training guidance, not medical advice.
+
 ## Tabs
 - **Log** — today's workout, one exercise at a time: target beside last time, Easy / Moderate / Hard / All out, warm-ups, test days.
 - **Progress** — *Lifts*: "Stronger on n of m lifts" over 8 weeks, what needs attention and why, every lift with its trend and chart. *Muscles*: a front/back map of this week's sets or 8-week strength change.

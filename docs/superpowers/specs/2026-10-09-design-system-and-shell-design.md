@@ -104,7 +104,7 @@ The app ships to the iOS App Store via the Capacitor wrap (sub-project 6), so th
 
 ## Success criteria
 1. Every row in the parity appendix is kept or listed as one of the four fixes.
-2. Real data loads with identical counts (41 exercises, 57 sessions at spec time) and round-trips through export/import.
+2. Real data loads with identical counts and round-trips through export/import.
 3. Contrast test passes in both themes; no text under 13px.
 4. All tests, typecheck, lint, build and e2e pass; owner approves screenshots on a phone-sized viewport in both themes.
 

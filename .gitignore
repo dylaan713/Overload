@@ -31,3 +31,7 @@ dist-ssr
 
 # Playwright MCP session output (snapshots, console logs, screenshots)
 .playwright-mcp/
+
+# local agent notes, not published
+HANDOFF.md
+CLAUDE.md

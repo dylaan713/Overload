@@ -35,7 +35,7 @@ npm run lint
 npm run build      # production build + service worker
 ```
 
-Every push to `main` deploys production (Netlify). Native builds (Capacitor) are planned in `PUBLISHING.md`; project state lives in `HANDOFF.md`.
+Every push to `main` deploys production (Netlify). Native builds (Capacitor) are planned in `PUBLISHING.md`.
 
 ## License
 No license is granted. The code is published to be read; all rights are reserved.
